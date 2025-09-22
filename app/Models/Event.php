@@ -438,8 +438,12 @@ class Event extends Model
 
         $slug = $this->slug;
 
-        if ($venueSubdomain && $roleSubdomain) {
-            $slug = $venueSubdomain == $subdomain ? $roleSubdomain : $venueSubdomain;
+        if (! $slug) {
+            if ($venueSubdomain && $roleSubdomain) {
+                $slug = $venueSubdomain == $subdomain ? $roleSubdomain : $venueSubdomain;
+            } else {
+                $slug = $roleSubdomain ?: $venueSubdomain ?: $subdomain;
+            }
         }
         
         // TODO supoprt custom_slug

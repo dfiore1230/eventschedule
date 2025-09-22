@@ -386,8 +386,12 @@ class EventRepo
         $eventDate = $date ? Carbon::parse($date) : null;
         
         $subdomainRole = Role::where('subdomain', $subdomain)->first();
-        $slugRole = Role::where('subdomain', $slug)->first();        
-        $timezone = auth()->user() ? auth()->user()->timezone : $subdomainRole->timezone;
+        $legacySlugRole = Role::where('subdomain', $slug)->first();
+        $timezone = auth()->user() ? auth()->user()->timezone : optional($subdomainRole)->timezone;
+
+        if (! $timezone) {
+            $timezone = config('app.timezone', 'UTC');
+        }
         $eventId = UrlUtils::decodeId($slug);
 
         if ($subdomainRole && $eventId) {
@@ -400,20 +404,20 @@ class EventRepo
             }
         }
         
-        if ($subdomainRole && $slugRole) {
+        if (! $event && $subdomainRole && $legacySlugRole) {
             $venue = null;
             $role = null;
 
             if ($subdomainRole->isVenue()) {
                 $venue = $subdomainRole;
-            } elseif ($slugRole->isVenue()) {
-                $venue = $slugRole;
+            } elseif ($legacySlugRole->isVenue()) {
+                $venue = $legacySlugRole;
             }
 
             if ($subdomainRole->isTalent()) {
                 $role = $subdomainRole;
-            } elseif ($slugRole->isTalent()) {
-                $role = $slugRole;
+            } elseif ($legacySlugRole->isTalent()) {
+                $role = $legacySlugRole;
             }
 
             if ($role && $venue) {
