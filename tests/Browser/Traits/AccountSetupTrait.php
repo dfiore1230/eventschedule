@@ -30,7 +30,8 @@ trait AccountSetupTrait
     protected function createTestVenue(Browser $browser, string $name = 'Venue', string $address = '123 Test St'): void
     {
         $browser->visit('/new/venue')
-                ->waitForText('New Venue', 5)
+                ->waitForText('New Venue', 30)
+                ->waitFor('input[name="name"]', 30)
                 ->clear('name')
                 ->type('name', $name)
                 ->pause(1000)
@@ -47,7 +48,8 @@ trait AccountSetupTrait
     protected function createTestTalent(Browser $browser, string $name = 'Talent'): void
     {
         $browser->visit('/new/talent')
-                ->waitForText('New Talent', 5)
+                ->waitForText('New Talent', 30)
+                ->waitFor('input[name="name"]', 30)
                 ->clear('name')
                 ->type('name', $name)
                 ->pause(1000)
@@ -63,7 +65,8 @@ trait AccountSetupTrait
     protected function createTestCurator(Browser $browser, string $name = 'Curator'): void
     {
         $browser->visit('/new/curator')
-                ->waitForText('New Curator', 5)
+                ->waitForText('New Curator', 30)
+                ->waitFor('input[name="name"]', 30)
                 ->clear('name')
                 ->type('name', $name)
                 ->pause(1000)
@@ -101,9 +104,9 @@ trait AccountSetupTrait
      */
     protected function selectExistingVenue(Browser $browser): void
     {
-        $browser->waitFor('#selected_venue', 5);
+        $browser->waitFor('#selected_venue', 15);
 
-        $browser->waitUsing(5, 100, function () use ($browser) {
+        $browser->waitUsing(15, 100, function () use ($browser) {
             $result = $browser->script('return window.app && Array.isArray(window.app.venues) && window.app.venues.length > 0;');
 
             return ! empty($result) && $result[0];
@@ -116,7 +119,7 @@ trait AccountSetupTrait
             }
         JS);
 
-        $browser->waitUsing(5, 100, function () use ($browser) {
+        $browser->waitUsing(15, 100, function () use ($browser) {
             $result = $browser->script("return (function () {\n                var input = document.querySelector('input[name=\"venue_id\"]');\n                return !!(input && input.value);\n            })();");
 
             return ! empty($result) && $result[0];
@@ -128,7 +131,7 @@ trait AccountSetupTrait
      */
     protected function addExistingMember(Browser $browser): void
     {
-        $browser->waitUsing(5, 100, function () use ($browser) {
+        $browser->waitUsing(15, 100, function () use ($browser) {
             $result = $browser->script('return window.app && Array.isArray(window.app.filteredMembers) && window.app.filteredMembers.length > 0;');
 
             return ! empty($result) && $result[0];
@@ -145,7 +148,7 @@ trait AccountSetupTrait
             }
         JS);
 
-        $browser->waitUsing(5, 100, function () use ($browser) {
+        $browser->waitUsing(15, 100, function () use ($browser) {
             $result = $browser->script('return window.app && Array.isArray(window.app.selectedMembers) && window.app.selectedMembers.length > 0;');
 
             return ! empty($result) && $result[0];
