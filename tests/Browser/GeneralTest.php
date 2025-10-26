@@ -29,9 +29,26 @@ class GeneralTest extends DuskTestCase
         $venueEventStartsAt = $now->copy()->addDays(2)->setTime(20, 0, 0);
 
         $talentEventDate = $talentEventStartsAt->toDateString();
-        $venueEventDate = $venueEventStartsAt->toDateString();
+        $talentEventMonth = $talentEventStartsAt->month;
+        $talentEventYear = $talentEventStartsAt->year;
 
-        $this->browse(function (Browser $browser) use ($name, $email, $password, $talentEventDate, $venueEventDate, $talentEventStartsAt, $venueEventStartsAt) {
+        $venueEventDate = $venueEventStartsAt->toDateString();
+        $venueEventMonth = $venueEventStartsAt->month;
+        $venueEventYear = $venueEventStartsAt->year;
+
+        $this->browse(function (Browser $browser) use (
+            $name,
+            $email,
+            $password,
+            $talentEventDate,
+            $talentEventMonth,
+            $talentEventYear,
+            $venueEventDate,
+            $venueEventMonth,
+            $venueEventYear,
+            $talentEventStartsAt,
+            $venueEventStartsAt
+        ) {
             // Set up account using the trait
             $this->setupTestAccount($browser, $name, $email, $password);
 
@@ -110,11 +127,11 @@ class GeneralTest extends DuskTestCase
 
             $this->pressButtonWhenPresent($browser, 'Save');
 
-            $this->waitForPath($browser, '/' . $talentSlug . '/schedule', 20);
-
-            $browser->visit(sprintf('/%s/schedule?date=%s', $talentSlug, $talentEventDate));
-
-            $this->waitForPath($browser, '/' . $talentSlug . '/schedule?date=' . $talentEventDate, 20);
+            $this->waitForPath(
+                $browser,
+                sprintf('/%s/schedule?month=%d&year=%d', $talentSlug, $talentEventMonth, $talentEventYear),
+                20
+            );
 
             $browser->assertSee('Venue');
 
@@ -129,11 +146,11 @@ class GeneralTest extends DuskTestCase
 
             $this->pressButtonWhenPresent($browser, 'Save');
 
-            $this->waitForPath($browser, '/' . $venueSlug . '/schedule', 20);
-
-            $browser->visit(sprintf('/%s/schedule?date=%s', $venueSlug, $venueEventDate));
-
-            $this->waitForPath($browser, '/' . $venueSlug . '/schedule?date=' . $venueEventDate, 20);
+            $this->waitForPath(
+                $browser,
+                sprintf('/%s/schedule?month=%d&year=%d', $venueSlug, $venueEventMonth, $venueEventYear),
+                20
+            );
 
             $browser->waitForText('Venue Event', 20)
                 ->assertSee('Venue Event');

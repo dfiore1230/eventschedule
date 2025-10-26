@@ -582,7 +582,7 @@ trait AccountSetupTrait
 
                 if (input._flatpickr && typeof input._flatpickr.setDate === 'function') {
                     try {
-                        input._flatpickr.setDate(value, true, 'Y-m-d H:i:S');
+                        input._flatpickr.setDate(value, true, 'Y-m-d H:i:s');
                         dispatch(input._flatpickr.input || input);
                         return true;
                     } catch (error) {
