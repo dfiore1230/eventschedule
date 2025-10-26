@@ -1226,25 +1226,15 @@ trait AccountSetupTrait
 
         try {
             $browser->visit($targetPath)
-                    ->waitUsing($seconds, 100, function () use ($browser, &$resolvedSchedulePath) {
-                        $currentPath = $this->currentPath($browser);
+                    ->waitForLocation($targetPath, $seconds);
 
-                        if (! $this->pathEndsWithSchedule($currentPath)) {
-                            return false;
-                        }
-
-                        $resolvedSchedulePath = $this->normalizeSchedulePath($currentPath);
-
-                        return true;
-                    });
+            $resolvedSchedulePath = $this->normalizeSchedulePath($this->currentPath($browser));
         } catch (Throwable $exception) {
-            $resolvedSchedulePath = $this->currentPath($browser);
+            $resolvedSchedulePath = $this->normalizeSchedulePath($this->currentPath($browser));
 
-            if (! $this->pathEndsWithSchedule($resolvedSchedulePath)) {
+            if ($resolvedSchedulePath === '' || ! $this->pathEndsWithSchedule($resolvedSchedulePath)) {
                 throw $exception;
             }
-
-            $resolvedSchedulePath = $this->normalizeSchedulePath($resolvedSchedulePath);
         }
 
         if ($resolvedSchedulePath === null) {
