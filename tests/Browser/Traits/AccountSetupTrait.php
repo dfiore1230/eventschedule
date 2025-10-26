@@ -1291,20 +1291,32 @@ trait AccountSetupTrait
 
     protected function waitForPath(Browser $browser, string $path, int $seconds = 20): Browser
     {
-        $matchedPath = $this->waitForAnyLocation($browser, [$path], $seconds);
+        $normalizedPath = trim($path) === '' ? '/' : $path;
+        $matchedPath = $this->waitForAnyLocation($browser, [$normalizedPath], $seconds);
 
-        if ($matchedPath === null) {
-            $currentPath = $this->currentPath($browser);
-
-            $this->fail(sprintf(
-                'Timed out waiting for path [%s] within %d seconds. Last known path: [%s]',
-                $path,
-                $seconds,
-                $currentPath ?? 'unavailable'
-            ));
+        if ($matchedPath !== null) {
+            return $browser;
         }
 
-        return $browser;
+        $currentPath = $this->currentPath($browser);
+
+        try {
+            $browser->visit($normalizedPath);
+            $matchedPath = $this->waitForAnyLocation($browser, [$normalizedPath], 5);
+
+            if ($matchedPath !== null) {
+                return $browser;
+            }
+        } catch (Throwable $exception) {
+            // Ignore fallback navigation errors so we can provide the original timeout context below.
+        }
+
+        $this->fail(sprintf(
+            'Timed out waiting for path [%s] within %d seconds. Last known path: [%s]',
+            $normalizedPath,
+            $seconds,
+            $currentPath ?? 'unavailable'
+        ));
     }
 
     protected function waitForAnyLocation(Browser $browser, array $paths, int $seconds = 20): ?string
