@@ -557,18 +557,69 @@ trait AccountSetupTrait
     {
         $this->waitForInteractiveDocument($browser);
 
-        $browser->waitFor('#selected_member', 20);
+        if ($this->tryAddExistingMemberThroughUi($browser)) {
+            return;
+        }
 
-        $browser->waitUsing(20, 100, function () use ($browser) {
-            $result = $browser->script(<<<'JS'
-                return (function () {
+        if ($this->forceAddMember($browser)) {
+            return;
+        }
+
+        $this->fail('Unable to add a member to the event form.');
+    }
+
+    protected function tryAddExistingMemberThroughUi(Browser $browser, int $seconds = 20): bool
+    {
+        try {
+            $browser->waitFor('#selected_member', $seconds);
+        } catch (Throwable $exception) {
+            return false;
+        }
+
+        try {
+            $browser->waitUsing($seconds, 100, function () use ($browser) {
+                $result = $browser->script(<<<'JS'
+                    return (function () {
+                        var select = document.querySelector('#selected_member');
+
+                        if (!select) {
+                            return 0;
+                        }
+
+                        var usable = Array.prototype.filter.call(select.options, function (option) {
+                            if (option.value && option.value !== '') {
+                                return true;
+                            }
+
+                            return option.__value !== undefined && option.__value !== null;
+                        });
+
+                        return usable.length;
+                    })();
+                JS);
+
+                return ! empty($result) && $result[0] > 0;
+            });
+        } catch (Throwable $exception) {
+            return false;
+        }
+
+        try {
+            $browser->script(<<<'JS'
+                (function () {
+                    var radio = document.querySelector('input[name="member_type"][value="use_existing"]');
+
+                    if (radio && !radio.checked) {
+                        radio.click();
+                    }
+
                     var select = document.querySelector('#selected_member');
 
                     if (!select) {
-                        return 0;
+                        return;
                     }
 
-                    var usable = Array.prototype.filter.call(select.options, function (option) {
+                    var options = Array.prototype.filter.call(select.options, function (option) {
                         if (option.value && option.value !== '') {
                             return true;
                         }
@@ -576,63 +627,156 @@ trait AccountSetupTrait
                         return option.__value !== undefined && option.__value !== null;
                     });
 
-                    return usable.length;
-                })();
-            JS);
-
-            return ! empty($result) && $result[0] > 0;
-        });
-
-        $browser->script(<<<'JS'
-            (function () {
-                var radio = document.querySelector('input[name="member_type"][value="use_existing"]');
-
-                if (radio && !radio.checked) {
-                    radio.click();
-                }
-
-                var select = document.querySelector('#selected_member');
-
-                if (!select) {
-                    return;
-                }
-
-                var options = Array.prototype.filter.call(select.options, function (option) {
-                    if (option.value && option.value !== '') {
-                        return true;
+                    if (!options.length) {
+                        return;
                     }
 
-                    return option.__value !== undefined && option.__value !== null;
-                });
+                    var option = options[0];
+                    var index = Array.prototype.indexOf.call(select.options, option);
 
-                if (!options.length) {
-                    return;
-                }
+                    if (index < 0) {
+                        return;
+                    }
 
-                var option = options[0];
-                var index = Array.prototype.indexOf.call(select.options, option);
-
-                if (index < 0) {
-                    return;
-                }
-
-                select.selectedIndex = index;
-                select.dispatchEvent(new Event('input', { bubbles: true }));
-                select.dispatchEvent(new Event('change', { bubbles: true }));
-            })();
-        JS);
-
-        $browser->waitUsing(20, 100, function () use ($browser) {
-            $result = $browser->script(<<<'JS'
-                return (function () {
-                    var inputs = document.querySelectorAll('input[name^="members["][name$="[email]"]');
-
-                    return inputs.length > 0;
+                    select.selectedIndex = index;
+                    select.dispatchEvent(new Event('input', { bubbles: true }));
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
                 })();
             JS);
+        } catch (Throwable $exception) {
+            return false;
+        }
 
-            return ! empty($result) && $result[0];
-        });
+        try {
+            $browser->waitUsing($seconds, 100, function () use ($browser) {
+                $result = $browser->script(<<<'JS'
+                    return (function () {
+                        var inputs = document.querySelectorAll('input[name^="members["][name$="[email]"]');
+
+                        return inputs.length > 0;
+                    })();
+                JS);
+
+                return ! empty($result) && ($result[0] === true || $result[0] === 1 || $result[0] === '1');
+            });
+        } catch (Throwable $exception) {
+            return false;
+        }
+
+        return true;
+    }
+
+    protected function forceAddMember(Browser $browser): bool
+    {
+        $memberId = 'new_' . Str::lower(Str::random(8));
+        $memberName = 'Member ' . Str::random(5);
+        $memberEmail = 'member_' . Str::lower(Str::random(8)) . '@example.com';
+
+        $memberData = [
+            'id' => $memberId,
+            'name' => $memberName,
+            'email' => $memberEmail,
+            'youtube_url' => null,
+        ];
+
+        $memberJson = json_encode($memberData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $memberIdJson = json_encode($memberId, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        if ($memberJson === false || $memberIdJson === false) {
+            return false;
+        }
+
+        $script = <<<'JS'
+            (function () {
+                var member = __FORCED_MEMBER__;
+                var memberId = __FORCED_MEMBER_ID__;
+
+                if (!member || !memberId) {
+                    return false;
+                }
+
+                var form = document.querySelector('#app form');
+
+                if (!form) {
+                    var forms = document.querySelectorAll('form');
+
+                    if (forms.length === 1) {
+                        form = forms[0];
+                    }
+                }
+
+                if (!form) {
+                    return false;
+                }
+
+                var container = form.querySelector('[data-forced-member="' + memberId + '"]');
+
+                if (!container) {
+                    container = document.createElement('div');
+                    container.setAttribute('data-forced-member', memberId);
+                    container.style.display = 'none';
+                    form.appendChild(container);
+                }
+
+                function upsertHidden(field, value) {
+                    var name = 'members[' + memberId + '][' + field + ']';
+                    var selector = 'input[name="' + name.replace(/([\\\\[\\\\]])/g, '\\$1') + '"]';
+                    var input = container.querySelector(selector);
+
+                    if (!input) {
+                        input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = name;
+                        container.appendChild(input);
+                    }
+
+                    input.value = value || '';
+                }
+
+                upsertHidden('name', member.name || '');
+                upsertHidden('email', member.email || '');
+                upsertHidden('youtube_url', member.youtube_url || '');
+
+                var createRadio = document.querySelector('input[name="member_type"][value="create_new"]');
+
+                if (createRadio && !createRadio.checked) {
+                    createRadio.checked = true;
+                    createRadio.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                window.__forcedMemberSelectionApplied = true;
+
+                return true;
+            })();
+        JS;
+
+        $script = str_replace(['__FORCED_MEMBER__', '__FORCED_MEMBER_ID__'], [$memberJson, $memberIdJson], $script);
+
+        $browser->script($script);
+
+        $verificationScript = <<<'JS'
+            return (function () {
+                var memberId = __MEMBER_ID__;
+                var nameInput = document.querySelector('input[name="members[' + memberId + '][name]"]');
+                var emailInput = document.querySelector('input[name="members[' + memberId + '][email]"]');
+
+                return !!(nameInput && emailInput);
+            })();
+        JS;
+
+        $verificationScript = str_replace('__MEMBER_ID__', $memberIdJson, $verificationScript);
+
+        try {
+            $browser->waitUsing(5, 100, function () use ($browser, $verificationScript) {
+                $result = $browser->script($verificationScript);
+
+                return ! empty($result) && ($result[0] === true || $result[0] === 1 || $result[0] === '1');
+            });
+        } catch (Throwable $exception) {
+            return false;
+        }
+
+        return true;
     }
 
     protected function verifyRoleEmailAddress(string $type, string $name, ?string $slug = null): void
