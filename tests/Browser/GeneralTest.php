@@ -112,6 +112,10 @@ class GeneralTest extends DuskTestCase
 
             $this->waitForPath($browser, '/' . $talentSlug . '/schedule', 20);
 
+            $browser->visit(sprintf('/%s/schedule?date=%s', $talentSlug, $talentEventDate));
+
+            $this->waitForPath($browser, '/' . $talentSlug . '/schedule?date=' . $talentEventDate, 20);
+
             $browser->assertSee('Venue');
 
             // Create/edit event
@@ -126,6 +130,10 @@ class GeneralTest extends DuskTestCase
             $this->pressButtonWhenPresent($browser, 'Save');
 
             $this->waitForPath($browser, '/' . $venueSlug . '/schedule', 20);
+
+            $browser->visit(sprintf('/%s/schedule?date=%s', $venueSlug, $venueEventDate));
+
+            $this->waitForPath($browser, '/' . $venueSlug . '/schedule?date=' . $venueEventDate, 20);
 
             $browser->waitForText('Venue Event', 20)
                 ->assertSee('Venue Event');
