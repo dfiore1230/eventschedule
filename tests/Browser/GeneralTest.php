@@ -25,10 +25,13 @@ class GeneralTest extends DuskTestCase
         $password = 'password';
 
         $now = Carbon::now();
-        $talentEventDate = $now->copy()->addDay()->toDateString();
-        $venueEventDate = $now->copy()->addDays(2)->toDateString();
+        $talentEventStartsAt = $now->copy()->addDay()->setTime(20, 0, 0);
+        $venueEventStartsAt = $now->copy()->addDays(2)->setTime(20, 0, 0);
 
-        $this->browse(function (Browser $browser) use ($name, $email, $password, $talentEventDate, $venueEventDate) {
+        $talentEventDate = $talentEventStartsAt->toDateString();
+        $venueEventDate = $venueEventStartsAt->toDateString();
+
+        $this->browse(function (Browser $browser) use ($name, $email, $password, $talentEventDate, $venueEventDate, $talentEventStartsAt, $venueEventStartsAt) {
             // Set up account using the trait
             $this->setupTestAccount($browser, $name, $email, $password);
 
@@ -86,6 +89,7 @@ class GeneralTest extends DuskTestCase
 
             // Create/edit event
             $this->visitRoleAddEventPage($browser, $talentSlug, $talentEventDate, 'talent', 'Talent');
+            $this->setFlatpickrDate($browser, '#starts_at', $talentEventStartsAt);
             $this->selectExistingVenue($browser);
 
             $this->scrollIntoViewWhenPresent($browser, 'button[type="submit"]');
@@ -98,6 +102,7 @@ class GeneralTest extends DuskTestCase
 
             // Create/edit event
             $this->visitRoleAddEventPage($browser, $venueSlug, $venueEventDate, 'venue', 'Venue');
+            $this->setFlatpickrDate($browser, '#starts_at', $venueEventStartsAt);
             $this->addExistingMember($browser);
 
             $browser->type('name', 'Venue Event');

@@ -550,6 +550,123 @@ trait AccountSetupTrait
         }
     }
 
+    protected function setFlatpickrDate(Browser $browser, string $selector, Carbon $value, int $seconds = 10): void
+    {
+        $normalizedSelector = trim($selector);
+
+        if ($normalizedSelector === '') {
+            return;
+        }
+
+        $normalizedValue = $value->copy()->seconds(0);
+        $formattedValue = $normalizedValue->format('Y-m-d H:i:s');
+
+        $setScript = strtr(<<<'JS'
+            return (function () {
+                var selector = __SELECTOR__;
+                var value = __VALUE__;
+                var input = document.querySelector(selector);
+
+                if (!input) {
+                    return false;
+                }
+
+                function dispatch(element) {
+                    if (!element) {
+                        return;
+                    }
+
+                    try { element.dispatchEvent(new Event('input', { bubbles: true })); } catch (error) {}
+                    try { element.dispatchEvent(new Event('change', { bubbles: true })); } catch (error) {}
+                }
+
+                if (input._flatpickr && typeof input._flatpickr.setDate === 'function') {
+                    try {
+                        input._flatpickr.setDate(value, true, 'Y-m-d H:i:S');
+                        dispatch(input._flatpickr.input || input);
+                        return true;
+                    } catch (error) {
+                        // Fall through to manual value assignment when Flatpickr rejects the provided date.
+                    }
+                }
+
+                input.value = value;
+                dispatch(input);
+
+                var altInput = null;
+
+                if (input._flatpickr && input._flatpickr.altInput) {
+                    altInput = input._flatpickr.altInput;
+                } else if (input.nextElementSibling && input.nextElementSibling.classList.contains('flatpickr-input')) {
+                    altInput = input.nextElementSibling;
+                }
+
+                if (altInput) {
+                    altInput.value = value;
+                    dispatch(altInput);
+                }
+
+                return true;
+            })();
+        JS, [
+            '__SELECTOR__' => json_encode($normalizedSelector, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES),
+            '__VALUE__' => json_encode($formattedValue, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES),
+        ]);
+
+        $verifyScript = strtr(<<<'JS'
+            return (function () {
+                var selector = __SELECTOR__;
+                var value = __VALUE__;
+                var input = document.querySelector(selector);
+
+                if (!input) {
+                    return false;
+                }
+
+                if (input.value === value) {
+                    return true;
+                }
+
+                if (input._flatpickr && input._flatpickr.input && input._flatpickr.input.value === value) {
+                    return true;
+                }
+
+                return false;
+            })();
+        JS, [
+            '__SELECTOR__' => json_encode($normalizedSelector, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES),
+            '__VALUE__' => json_encode($formattedValue, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES),
+        ]);
+
+        $browser->waitUsing($seconds, 100, function () use ($browser, $setScript, $verifyScript) {
+            try {
+                $result = $browser->script($setScript);
+
+                if (empty($result)) {
+                    return false;
+                }
+
+                $status = $result[0];
+
+                if ($status !== true && $status !== 'true' && $status !== 1 && $status !== '1') {
+                    return false;
+                }
+
+                $verify = $browser->script($verifyScript);
+
+                if (empty($verify)) {
+                    return false;
+                }
+
+                $verification = $verify[0];
+
+                return $verification === true || $verification === 'true' || $verification === 1 || $verification === '1';
+            } catch (Throwable $exception) {
+                return false;
+            }
+        });
+    }
+
     /**
      * Add the first available member to the event form.
      */
