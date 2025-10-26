@@ -3,6 +3,7 @@
 namespace Tests\Browser;
 
 use Illuminate\Foundation\Testing\DatabaseTruncation;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Laravel\Dusk\Browser;
 use Tests\DuskTestCase;
@@ -23,7 +24,11 @@ class GeneralTest extends DuskTestCase
         $email = 'test@gmail.com';
         $password = 'password';
 
-        $this->browse(function (Browser $browser) use ($name, $email, $password) {
+        $now = Carbon::now();
+        $talentEventDate = $now->copy()->addDay()->toDateString();
+        $venueEventDate = $now->copy()->addDays(2)->toDateString();
+
+        $this->browse(function (Browser $browser) use ($name, $email, $password, $talentEventDate, $venueEventDate) {
             // Set up account using the trait
             $this->setupTestAccount($browser, $name, $email, $password);
 
@@ -80,7 +85,7 @@ class GeneralTest extends DuskTestCase
             $browser->assertSee('google.com');
 
             // Create/edit event
-            $this->visitRoleAddEventPage($browser, $talentSlug, date('Y-m-d'), 'talent', 'Talent');
+            $this->visitRoleAddEventPage($browser, $talentSlug, $talentEventDate, 'talent', 'Talent');
             $this->selectExistingVenue($browser);
 
             $this->scrollIntoViewWhenPresent($browser, 'button[type="submit"]');
@@ -92,7 +97,7 @@ class GeneralTest extends DuskTestCase
             $browser->assertSee('Venue');
 
             // Create/edit event
-            $this->visitRoleAddEventPage($browser, $venueSlug, date('Y-m-d'), 'venue', 'Venue');
+            $this->visitRoleAddEventPage($browser, $venueSlug, $venueEventDate, 'venue', 'Venue');
             $this->addExistingMember($browser);
 
             $browser->type('name', 'Venue Event');
