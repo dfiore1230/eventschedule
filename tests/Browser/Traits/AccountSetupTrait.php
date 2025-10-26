@@ -1435,6 +1435,9 @@ trait AccountSetupTrait
         }, $paths)));
 
         $initialPath = $this->currentPath($browser);
+        [$initialBasePath, $initialQueryString] = $initialPath !== null
+            ? $this->splitPathAndQuery($initialPath)
+            : [null, null];
         $stabilityThreshold = max(0.0, min(0.5, $seconds));
         $initialMatchStartedAt = null;
         $lastMatchedPath = null;
@@ -1454,17 +1457,40 @@ trait AccountSetupTrait
                 continue;
             }
 
-            foreach ($normalized as $expected) {
-                $isExactMatch = $currentPath === $expected;
-                $isPrefixMatch = $expected !== '/' && Str::startsWith($currentPath, rtrim($expected, '/') . '/');
+            [$currentBasePath, $currentQueryString] = $this->splitPathAndQuery($currentPath);
 
-                if (! $isExactMatch && ! $isPrefixMatch) {
+            foreach ($normalized as $expected) {
+                [$expectedBasePath, $expectedQueryString] = $this->splitPathAndQuery($expected);
+
+                $isExactMatch = $currentPath === $expected;
+                $isBaseMatch = $currentBasePath === $expectedBasePath;
+                $isPrefixMatch = $expectedBasePath !== '/'
+                    && Str::startsWith($currentBasePath, rtrim($expectedBasePath, '/') . '/');
+
+                if ($isExactMatch || $isBaseMatch || $isPrefixMatch) {
+                    $lastMatchedPath = $currentPath;
+                }
+
+                if ($expectedQueryString !== null && $expectedQueryString !== '') {
+                    if (! $isBaseMatch) {
+                        continue;
+                    }
+
+                    if (! $this->queriesMatch($expectedQueryString, $currentQueryString)) {
+                        continue;
+                    }
+                } elseif (! $isExactMatch && ! $isBaseMatch && ! $isPrefixMatch) {
                     continue;
                 }
 
-                $lastMatchedPath = $currentPath;
+                $initialComparisonPath = $expectedQueryString !== null && $expectedQueryString !== ''
+                    ? $initialPath
+                    : $initialBasePath;
+                $currentComparisonPath = $expectedQueryString !== null && $expectedQueryString !== ''
+                    ? $currentPath
+                    : $currentBasePath;
 
-                if ($initialPath !== null && $currentPath === $initialPath) {
+                if ($initialComparisonPath !== null && $currentComparisonPath === $initialComparisonPath) {
                     if ($initialMatchStartedAt === null) {
                         $initialMatchStartedAt = $loopStartedAt;
                     }
@@ -1733,6 +1759,56 @@ trait AccountSetupTrait
         $this->fail($message);
     }
 
+    /**
+     * Split a relative path into its base path and query string components.
+     *
+     * @return array{0: string, 1: ?string}
+     */
+    protected function splitPathAndQuery(string $value): array
+    {
+        $trimmed = trim($value);
+
+        if ($trimmed === '') {
+            return ['/', null];
+        }
+
+        $parts = explode('?', $trimmed, 2);
+        $path = $parts[0];
+
+        if ($path === '' || $path[0] !== '/') {
+            $path = '/' . ltrim($path, '/');
+        }
+
+        $query = $parts[1] ?? null;
+
+        if ($query !== null && $query === '') {
+            $query = null;
+        }
+
+        return [$path, $query];
+    }
+
+    protected function queriesMatch(?string $expectedQuery, ?string $actualQuery): bool
+    {
+        if ($expectedQuery === null || $expectedQuery === '') {
+            return $actualQuery === null || $actualQuery === '';
+        }
+
+        if ($actualQuery === null || $actualQuery === '') {
+            return false;
+        }
+
+        $normalize = static function (string $query): array {
+            $decoded = [];
+            parse_str($query, $decoded);
+            ksort($decoded);
+
+            return $decoded;
+        };
+
+        return $normalize($expectedQuery) === $normalize($actualQuery);
+    }
+
     protected function currentPath(Browser $browser): ?string
     {
         $currentUrl = $browser->driver->getCurrentURL();
@@ -1741,6 +1817,24 @@ trait AccountSetupTrait
             return null;
         }
 
-        return parse_url($currentUrl, PHP_URL_PATH) ?: '/';
+        $components = parse_url($currentUrl);
+
+        if ($components === false) {
+            return null;
+        }
+
+        $path = $components['path'] ?? '/';
+
+        if ($path === '') {
+            $path = '/';
+        }
+
+        $query = $components['query'] ?? null;
+
+        if ($query !== null && $query !== '') {
+            return $path . '?' . $query;
+        }
+
+        return $path;
     }
 }
