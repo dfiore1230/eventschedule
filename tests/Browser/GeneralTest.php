@@ -103,7 +103,8 @@ class GeneralTest extends DuskTestCase
 
             $this->waitForPath($browser, '/' . $venueSlug . '/schedule', 20);
 
-            $browser->assertSee('Venue Event');
+            $browser->waitForText('Venue Event', 20)
+                ->assertSee('Venue Event');
         });
     }
 }
