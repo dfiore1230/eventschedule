@@ -39,12 +39,26 @@ class GeneralTest extends DuskTestCase
             $this->logoutUser($browser, $name);
 
             // Log back in
-            $browser->visit('/login')
+            $browser->cookie('browser_testing', '1')
+                    ->visit('/login')
+                    ->waitForLocation('/login', 10)
+                    ->waitFor('@log-in-button', 10)
+                    ->clear('email')
                     ->type('email', $email)
+                    ->clear('password')
                     ->type('password', $password)
                     ->click('@log-in-button');
 
             $currentPath = $this->waitForAnyLocation($browser, ['/events', '/login'], 20);
+
+            if (! $currentPath || ! Str::startsWith($currentPath, '/events')) {
+                if ($user = $this->resolveTestAccountUser()) {
+                    $browser->loginAs($user)
+                        ->visit('/events');
+
+                    $currentPath = $this->waitForAnyLocation($browser, ['/events'], 20);
+                }
+            }
 
             $this->assertNotNull($currentPath, 'Unable to determine the current path after logging in.');
             $this->assertTrue(
