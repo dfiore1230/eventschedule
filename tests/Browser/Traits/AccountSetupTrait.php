@@ -1321,6 +1321,11 @@ trait AccountSetupTrait
         $lastMatchedPath = null;
         $deadline = microtime(true) + max(0, $seconds);
 
+        $shouldPreferTransition = $initialPath !== null && count($normalized) > 1;
+        $transitionGracePeriod = $shouldPreferTransition
+            ? max(1.0, min(5.0, $seconds / 2))
+            : 0.0; // Give navigation a moment to start before accepting the original URL as "good enough".
+
         while (microtime(true) <= $deadline) {
             $loopStartedAt = microtime(true);
             $currentPath = $this->currentPath($browser);
@@ -1346,6 +1351,11 @@ trait AccountSetupTrait
                     }
 
                     if ($loopStartedAt - $initialMatchStartedAt < $stabilityThreshold) {
+                        usleep(100000);
+                        continue 2;
+                    }
+
+                    if ($shouldPreferTransition && ($loopStartedAt - $initialMatchStartedAt) < $transitionGracePeriod) {
                         usleep(100000);
                         continue 2;
                     }
