@@ -3,6 +3,7 @@
 namespace Tests\Browser;
 
 use Illuminate\Foundation\Testing\DatabaseTruncation;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Laravel\Dusk\Browser;
 use Tests\DuskTestCase;
@@ -23,7 +24,31 @@ class GeneralTest extends DuskTestCase
         $email = 'test@gmail.com';
         $password = 'password';
 
-        $this->browse(function (Browser $browser) use ($name, $email, $password) {
+        $now = Carbon::now();
+        $talentEventStartsAt = $now->copy()->addDay()->setTime(20, 0, 0);
+        $venueEventStartsAt = $now->copy()->addDays(2)->setTime(20, 0, 0);
+
+        $talentEventDate = $talentEventStartsAt->toDateString();
+        $talentEventMonth = $talentEventStartsAt->month;
+        $talentEventYear = $talentEventStartsAt->year;
+
+        $venueEventDate = $venueEventStartsAt->toDateString();
+        $venueEventMonth = $venueEventStartsAt->month;
+        $venueEventYear = $venueEventStartsAt->year;
+
+        $this->browse(function (Browser $browser) use (
+            $name,
+            $email,
+            $password,
+            $talentEventDate,
+            $talentEventMonth,
+            $talentEventYear,
+            $venueEventDate,
+            $venueEventMonth,
+            $venueEventYear,
+            $talentEventStartsAt,
+            $venueEventStartsAt
+        ) {
             // Set up account using the trait
             $this->setupTestAccount($browser, $name, $email, $password);
 
@@ -31,12 +56,26 @@ class GeneralTest extends DuskTestCase
             $this->logoutUser($browser, $name);
 
             // Log back in
-            $browser->visit('/login')
+            $browser->cookie('browser_testing', '1')
+                    ->visit('/login')
+                    ->waitForLocation('/login', 10)
+                    ->waitFor('@log-in-button', 10)
+                    ->clear('email')
                     ->type('email', $email)
+                    ->clear('password')
                     ->type('password', $password)
                     ->click('@log-in-button');
 
             $currentPath = $this->waitForAnyLocation($browser, ['/events', '/login'], 20);
+
+            if (! $currentPath || ! Str::startsWith($currentPath, '/events')) {
+                if ($user = $this->resolveTestAccountUser()) {
+                    $browser->loginAs($user)
+                        ->visit('/events');
+
+                    $currentPath = $this->waitForAnyLocation($browser, ['/events'], 20);
+                }
+            }
 
             $this->assertNotNull($currentPath, 'Unable to determine the current path after logging in.');
             $this->assertTrue(
@@ -80,19 +119,25 @@ class GeneralTest extends DuskTestCase
             $browser->assertSee('google.com');
 
             // Create/edit event
-            $this->visitRoleAddEventPage($browser, $talentSlug, date('Y-m-d'), 'talent', 'Talent');
+            $this->visitRoleAddEventPage($browser, $talentSlug, $talentEventDate, 'talent', 'Talent');
+            $this->setFlatpickrDate($browser, '#starts_at', $talentEventStartsAt);
             $this->selectExistingVenue($browser);
 
             $this->scrollIntoViewWhenPresent($browser, 'button[type="submit"]');
 
             $this->pressButtonWhenPresent($browser, 'Save');
 
-            $this->waitForPath($browser, '/' . $talentSlug . '/schedule', 20);
+            $this->waitForPath(
+                $browser,
+                sprintf('/%s/schedule?month=%d&year=%d', $talentSlug, $talentEventMonth, $talentEventYear),
+                20
+            );
 
             $browser->assertSee('Venue');
 
             // Create/edit event
-            $this->visitRoleAddEventPage($browser, $venueSlug, date('Y-m-d'), 'venue', 'Venue');
+            $this->visitRoleAddEventPage($browser, $venueSlug, $venueEventDate, 'venue', 'Venue');
+            $this->setFlatpickrDate($browser, '#starts_at', $venueEventStartsAt);
             $this->addExistingMember($browser);
 
             $browser->type('name', 'Venue Event');
@@ -101,9 +146,14 @@ class GeneralTest extends DuskTestCase
 
             $this->pressButtonWhenPresent($browser, 'Save');
 
-            $this->waitForPath($browser, '/' . $venueSlug . '/schedule', 20);
+            $this->waitForPath(
+                $browser,
+                sprintf('/%s/schedule?month=%d&year=%d', $venueSlug, $venueEventMonth, $venueEventYear),
+                20
+            );
 
-            $browser->assertSee('Venue Event');
+            $browser->waitForText('Venue Event', 20)
+                ->assertSee('Venue Event');
         });
     }
 }

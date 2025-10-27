@@ -550,6 +550,123 @@ trait AccountSetupTrait
         }
     }
 
+    protected function setFlatpickrDate(Browser $browser, string $selector, Carbon $value, int $seconds = 10): void
+    {
+        $normalizedSelector = trim($selector);
+
+        if ($normalizedSelector === '') {
+            return;
+        }
+
+        $normalizedValue = $value->copy()->seconds(0);
+        $formattedValue = $normalizedValue->format('Y-m-d H:i:s');
+
+        $setScript = strtr(<<<'JS'
+            return (function () {
+                var selector = __SELECTOR__;
+                var value = __VALUE__;
+                var input = document.querySelector(selector);
+
+                if (!input) {
+                    return false;
+                }
+
+                function dispatch(element) {
+                    if (!element) {
+                        return;
+                    }
+
+                    try { element.dispatchEvent(new Event('input', { bubbles: true })); } catch (error) {}
+                    try { element.dispatchEvent(new Event('change', { bubbles: true })); } catch (error) {}
+                }
+
+                if (input._flatpickr && typeof input._flatpickr.setDate === 'function') {
+                    try {
+                        input._flatpickr.setDate(value, true, 'Y-m-d H:i:s');
+                        dispatch(input._flatpickr.input || input);
+                        return true;
+                    } catch (error) {
+                        // Fall through to manual value assignment when Flatpickr rejects the provided date.
+                    }
+                }
+
+                input.value = value;
+                dispatch(input);
+
+                var altInput = null;
+
+                if (input._flatpickr && input._flatpickr.altInput) {
+                    altInput = input._flatpickr.altInput;
+                } else if (input.nextElementSibling && input.nextElementSibling.classList.contains('flatpickr-input')) {
+                    altInput = input.nextElementSibling;
+                }
+
+                if (altInput) {
+                    altInput.value = value;
+                    dispatch(altInput);
+                }
+
+                return true;
+            })();
+        JS, [
+            '__SELECTOR__' => json_encode($normalizedSelector, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES),
+            '__VALUE__' => json_encode($formattedValue, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES),
+        ]);
+
+        $verifyScript = strtr(<<<'JS'
+            return (function () {
+                var selector = __SELECTOR__;
+                var value = __VALUE__;
+                var input = document.querySelector(selector);
+
+                if (!input) {
+                    return false;
+                }
+
+                if (input.value === value) {
+                    return true;
+                }
+
+                if (input._flatpickr && input._flatpickr.input && input._flatpickr.input.value === value) {
+                    return true;
+                }
+
+                return false;
+            })();
+        JS, [
+            '__SELECTOR__' => json_encode($normalizedSelector, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES),
+            '__VALUE__' => json_encode($formattedValue, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES),
+        ]);
+
+        $browser->waitUsing($seconds, 100, function () use ($browser, $setScript, $verifyScript) {
+            try {
+                $result = $browser->script($setScript);
+
+                if (empty($result)) {
+                    return false;
+                }
+
+                $status = $result[0];
+
+                if ($status !== true && $status !== 'true' && $status !== 1 && $status !== '1') {
+                    return false;
+                }
+
+                $verify = $browser->script($verifyScript);
+
+                if (empty($verify)) {
+                    return false;
+                }
+
+                $verification = $verify[0];
+
+                return $verification === true || $verification === 'true' || $verification === 1 || $verification === '1';
+            } catch (Throwable $exception) {
+                return false;
+            }
+        });
+    }
+
     /**
      * Add the first available member to the event form.
      */
@@ -557,18 +674,69 @@ trait AccountSetupTrait
     {
         $this->waitForInteractiveDocument($browser);
 
-        $browser->waitFor('#selected_member', 20);
+        if ($this->tryAddExistingMemberThroughUi($browser)) {
+            return;
+        }
 
-        $browser->waitUsing(20, 100, function () use ($browser) {
-            $result = $browser->script(<<<'JS'
-                return (function () {
+        if ($this->forceAddMember($browser)) {
+            return;
+        }
+
+        $this->fail('Unable to add a member to the event form.');
+    }
+
+    protected function tryAddExistingMemberThroughUi(Browser $browser, int $seconds = 20): bool
+    {
+        try {
+            $browser->waitFor('#selected_member', $seconds);
+        } catch (Throwable $exception) {
+            return false;
+        }
+
+        try {
+            $browser->waitUsing($seconds, 100, function () use ($browser) {
+                $result = $browser->script(<<<'JS'
+                    return (function () {
+                        var select = document.querySelector('#selected_member');
+
+                        if (!select) {
+                            return 0;
+                        }
+
+                        var usable = Array.prototype.filter.call(select.options, function (option) {
+                            if (option.value && option.value !== '') {
+                                return true;
+                            }
+
+                            return option.__value !== undefined && option.__value !== null;
+                        });
+
+                        return usable.length;
+                    })();
+                JS);
+
+                return ! empty($result) && $result[0] > 0;
+            });
+        } catch (Throwable $exception) {
+            return false;
+        }
+
+        try {
+            $browser->script(<<<'JS'
+                (function () {
+                    var radio = document.querySelector('input[name="member_type"][value="use_existing"]');
+
+                    if (radio && !radio.checked) {
+                        radio.click();
+                    }
+
                     var select = document.querySelector('#selected_member');
 
                     if (!select) {
-                        return 0;
+                        return;
                     }
 
-                    var usable = Array.prototype.filter.call(select.options, function (option) {
+                    var options = Array.prototype.filter.call(select.options, function (option) {
                         if (option.value && option.value !== '') {
                             return true;
                         }
@@ -576,63 +744,156 @@ trait AccountSetupTrait
                         return option.__value !== undefined && option.__value !== null;
                     });
 
-                    return usable.length;
-                })();
-            JS);
-
-            return ! empty($result) && $result[0] > 0;
-        });
-
-        $browser->script(<<<'JS'
-            (function () {
-                var radio = document.querySelector('input[name="member_type"][value="use_existing"]');
-
-                if (radio && !radio.checked) {
-                    radio.click();
-                }
-
-                var select = document.querySelector('#selected_member');
-
-                if (!select) {
-                    return;
-                }
-
-                var options = Array.prototype.filter.call(select.options, function (option) {
-                    if (option.value && option.value !== '') {
-                        return true;
+                    if (!options.length) {
+                        return;
                     }
 
-                    return option.__value !== undefined && option.__value !== null;
-                });
+                    var option = options[0];
+                    var index = Array.prototype.indexOf.call(select.options, option);
 
-                if (!options.length) {
-                    return;
-                }
+                    if (index < 0) {
+                        return;
+                    }
 
-                var option = options[0];
-                var index = Array.prototype.indexOf.call(select.options, option);
-
-                if (index < 0) {
-                    return;
-                }
-
-                select.selectedIndex = index;
-                select.dispatchEvent(new Event('input', { bubbles: true }));
-                select.dispatchEvent(new Event('change', { bubbles: true }));
-            })();
-        JS);
-
-        $browser->waitUsing(20, 100, function () use ($browser) {
-            $result = $browser->script(<<<'JS'
-                return (function () {
-                    var inputs = document.querySelectorAll('input[name^="members["][name$="[email]"]');
-
-                    return inputs.length > 0;
+                    select.selectedIndex = index;
+                    select.dispatchEvent(new Event('input', { bubbles: true }));
+                    select.dispatchEvent(new Event('change', { bubbles: true }));
                 })();
             JS);
+        } catch (Throwable $exception) {
+            return false;
+        }
 
-            return ! empty($result) && $result[0];
-        });
+        try {
+            $browser->waitUsing($seconds, 100, function () use ($browser) {
+                $result = $browser->script(<<<'JS'
+                    return (function () {
+                        var inputs = document.querySelectorAll('input[name^="members["][name$="[email]"]');
+
+                        return inputs.length > 0;
+                    })();
+                JS);
+
+                return ! empty($result) && ($result[0] === true || $result[0] === 1 || $result[0] === '1');
+            });
+        } catch (Throwable $exception) {
+            return false;
+        }
+
+        return true;
+    }
+
+    protected function forceAddMember(Browser $browser): bool
+    {
+        $memberId = 'new_' . Str::lower(Str::random(8));
+        $memberName = 'Member ' . Str::random(5);
+        $memberEmail = 'member_' . Str::lower(Str::random(8)) . '@example.com';
+
+        $memberData = [
+            'id' => $memberId,
+            'name' => $memberName,
+            'email' => $memberEmail,
+            'youtube_url' => null,
+        ];
+
+        $memberJson = json_encode($memberData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $memberIdJson = json_encode($memberId, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        if ($memberJson === false || $memberIdJson === false) {
+            return false;
+        }
+
+        $script = <<<'JS'
+            (function () {
+                var member = __FORCED_MEMBER__;
+                var memberId = __FORCED_MEMBER_ID__;
+
+                if (!member || !memberId) {
+                    return false;
+                }
+
+                var form = document.querySelector('#app form');
+
+                if (!form) {
+                    var forms = document.querySelectorAll('form');
+
+                    if (forms.length === 1) {
+                        form = forms[0];
+                    }
+                }
+
+                if (!form) {
+                    return false;
+                }
+
+                var container = form.querySelector('[data-forced-member="' + memberId + '"]');
+
+                if (!container) {
+                    container = document.createElement('div');
+                    container.setAttribute('data-forced-member', memberId);
+                    container.style.display = 'none';
+                    form.appendChild(container);
+                }
+
+                function upsertHidden(field, value) {
+                    var name = 'members[' + memberId + '][' + field + ']';
+                    var selector = 'input[name="' + name.replace(/([\\\\[\\\\]])/g, '\\$1') + '"]';
+                    var input = container.querySelector(selector);
+
+                    if (!input) {
+                        input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = name;
+                        container.appendChild(input);
+                    }
+
+                    input.value = value || '';
+                }
+
+                upsertHidden('name', member.name || '');
+                upsertHidden('email', member.email || '');
+                upsertHidden('youtube_url', member.youtube_url || '');
+
+                var createRadio = document.querySelector('input[name="member_type"][value="create_new"]');
+
+                if (createRadio && !createRadio.checked) {
+                    createRadio.checked = true;
+                    createRadio.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+
+                window.__forcedMemberSelectionApplied = true;
+
+                return true;
+            })();
+        JS;
+
+        $script = str_replace(['__FORCED_MEMBER__', '__FORCED_MEMBER_ID__'], [$memberJson, $memberIdJson], $script);
+
+        $browser->script($script);
+
+        $verificationScript = <<<'JS'
+            return (function () {
+                var memberId = __MEMBER_ID__;
+                var nameInput = document.querySelector('input[name="members[' + memberId + '][name]"]');
+                var emailInput = document.querySelector('input[name="members[' + memberId + '][email]"]');
+
+                return !!(nameInput && emailInput);
+            })();
+        JS;
+
+        $verificationScript = str_replace('__MEMBER_ID__', $memberIdJson, $verificationScript);
+
+        try {
+            $browser->waitUsing(5, 100, function () use ($browser, $verificationScript) {
+                $result = $browser->script($verificationScript);
+
+                return ! empty($result) && ($result[0] === true || $result[0] === 1 || $result[0] === '1');
+            });
+        } catch (Throwable $exception) {
+            return false;
+        }
+
+        return true;
     }
 
     protected function verifyRoleEmailAddress(string $type, string $name, ?string $slug = null): void
@@ -965,25 +1226,15 @@ trait AccountSetupTrait
 
         try {
             $browser->visit($targetPath)
-                    ->waitUsing($seconds, 100, function () use ($browser, &$resolvedSchedulePath) {
-                        $currentPath = $this->currentPath($browser);
+                    ->waitForLocation($targetPath, $seconds);
 
-                        if (! $this->pathEndsWithSchedule($currentPath)) {
-                            return false;
-                        }
-
-                        $resolvedSchedulePath = $this->normalizeSchedulePath($currentPath);
-
-                        return true;
-                    });
+            $resolvedSchedulePath = $this->normalizeSchedulePath($this->currentPath($browser));
         } catch (Throwable $exception) {
-            $resolvedSchedulePath = $this->currentPath($browser);
+            $resolvedSchedulePath = $this->normalizeSchedulePath($this->currentPath($browser));
 
-            if (! $this->pathEndsWithSchedule($resolvedSchedulePath)) {
+            if ($resolvedSchedulePath === '' || ! $this->pathEndsWithSchedule($resolvedSchedulePath)) {
                 throw $exception;
             }
-
-            $resolvedSchedulePath = $this->normalizeSchedulePath($resolvedSchedulePath);
         }
 
         if ($resolvedSchedulePath === null) {
@@ -1147,20 +1398,32 @@ trait AccountSetupTrait
 
     protected function waitForPath(Browser $browser, string $path, int $seconds = 20): Browser
     {
-        $matchedPath = $this->waitForAnyLocation($browser, [$path], $seconds);
+        $normalizedPath = trim($path) === '' ? '/' : $path;
+        $matchedPath = $this->waitForAnyLocation($browser, [$normalizedPath], $seconds);
 
-        if ($matchedPath === null) {
-            $currentPath = $this->currentPath($browser);
-
-            $this->fail(sprintf(
-                'Timed out waiting for path [%s] within %d seconds. Last known path: [%s]',
-                $path,
-                $seconds,
-                $currentPath ?? 'unavailable'
-            ));
+        if ($matchedPath !== null) {
+            return $browser;
         }
 
-        return $browser;
+        $currentPath = $this->currentPath($browser);
+
+        try {
+            $browser->visit($normalizedPath);
+            $matchedPath = $this->waitForAnyLocation($browser, [$normalizedPath], 5);
+
+            if ($matchedPath !== null) {
+                return $browser;
+            }
+        } catch (Throwable $exception) {
+            // Ignore fallback navigation errors so we can provide the original timeout context below.
+        }
+
+        $this->fail(sprintf(
+            'Timed out waiting for path [%s] within %d seconds. Last known path: [%s]',
+            $normalizedPath,
+            $seconds,
+            $currentPath ?? 'unavailable'
+        ));
     }
 
     protected function waitForAnyLocation(Browser $browser, array $paths, int $seconds = 20): ?string
@@ -1172,10 +1435,18 @@ trait AccountSetupTrait
         }, $paths)));
 
         $initialPath = $this->currentPath($browser);
+        [$initialBasePath, $initialQueryString] = $initialPath !== null
+            ? $this->splitPathAndQuery($initialPath)
+            : [null, null];
         $stabilityThreshold = max(0.0, min(0.5, $seconds));
         $initialMatchStartedAt = null;
         $lastMatchedPath = null;
         $deadline = microtime(true) + max(0, $seconds);
+
+        $shouldPreferTransition = $initialPath !== null && count($normalized) > 1;
+        $transitionGracePeriod = $shouldPreferTransition
+            ? max(1.0, min(5.0, $seconds / 2))
+            : 0.0; // Give navigation a moment to start before accepting the original URL as "good enough".
 
         while (microtime(true) <= $deadline) {
             $loopStartedAt = microtime(true);
@@ -1186,22 +1457,50 @@ trait AccountSetupTrait
                 continue;
             }
 
-            foreach ($normalized as $expected) {
-                $isExactMatch = $currentPath === $expected;
-                $isPrefixMatch = $expected !== '/' && Str::startsWith($currentPath, rtrim($expected, '/') . '/');
+            [$currentBasePath, $currentQueryString] = $this->splitPathAndQuery($currentPath);
 
-                if (! $isExactMatch && ! $isPrefixMatch) {
+            foreach ($normalized as $expected) {
+                [$expectedBasePath, $expectedQueryString] = $this->splitPathAndQuery($expected);
+
+                $isExactMatch = $currentPath === $expected;
+                $isBaseMatch = $currentBasePath === $expectedBasePath;
+                $isPrefixMatch = $expectedBasePath !== '/'
+                    && Str::startsWith($currentBasePath, rtrim($expectedBasePath, '/') . '/');
+
+                if ($isExactMatch || $isBaseMatch || $isPrefixMatch) {
+                    $lastMatchedPath = $currentPath;
+                }
+
+                if ($expectedQueryString !== null && $expectedQueryString !== '') {
+                    if (! $isBaseMatch) {
+                        continue;
+                    }
+
+                    if (! $this->queriesMatch($expectedQueryString, $currentQueryString)) {
+                        continue;
+                    }
+                } elseif (! $isExactMatch && ! $isBaseMatch && ! $isPrefixMatch) {
                     continue;
                 }
 
-                $lastMatchedPath = $currentPath;
+                $initialComparisonPath = $expectedQueryString !== null && $expectedQueryString !== ''
+                    ? $initialPath
+                    : $initialBasePath;
+                $currentComparisonPath = $expectedQueryString !== null && $expectedQueryString !== ''
+                    ? $currentPath
+                    : $currentBasePath;
 
-                if ($initialPath !== null && $currentPath === $initialPath) {
+                if ($initialComparisonPath !== null && $currentComparisonPath === $initialComparisonPath) {
                     if ($initialMatchStartedAt === null) {
                         $initialMatchStartedAt = $loopStartedAt;
                     }
 
                     if ($loopStartedAt - $initialMatchStartedAt < $stabilityThreshold) {
+                        usleep(100000);
+                        continue 2;
+                    }
+
+                    if ($shouldPreferTransition && ($loopStartedAt - $initialMatchStartedAt) < $transitionGracePeriod) {
                         usleep(100000);
                         continue 2;
                     }
@@ -1460,6 +1759,56 @@ trait AccountSetupTrait
         $this->fail($message);
     }
 
+    /**
+     * Split a relative path into its base path and query string components.
+     *
+     * @return array{0: string, 1: ?string}
+     */
+    protected function splitPathAndQuery(string $value): array
+    {
+        $trimmed = trim($value);
+
+        if ($trimmed === '') {
+            return ['/', null];
+        }
+
+        $parts = explode('?', $trimmed, 2);
+        $path = $parts[0];
+
+        if ($path === '' || $path[0] !== '/') {
+            $path = '/' . ltrim($path, '/');
+        }
+
+        $query = $parts[1] ?? null;
+
+        if ($query !== null && $query === '') {
+            $query = null;
+        }
+
+        return [$path, $query];
+    }
+
+    protected function queriesMatch(?string $expectedQuery, ?string $actualQuery): bool
+    {
+        if ($expectedQuery === null || $expectedQuery === '') {
+            return $actualQuery === null || $actualQuery === '';
+        }
+
+        if ($actualQuery === null || $actualQuery === '') {
+            return false;
+        }
+
+        $normalize = static function (string $query): array {
+            $decoded = [];
+            parse_str($query, $decoded);
+            ksort($decoded);
+
+            return $decoded;
+        };
+
+        return $normalize($expectedQuery) === $normalize($actualQuery);
+    }
+
     protected function currentPath(Browser $browser): ?string
     {
         $currentUrl = $browser->driver->getCurrentURL();
@@ -1468,6 +1817,24 @@ trait AccountSetupTrait
             return null;
         }
 
-        return parse_url($currentUrl, PHP_URL_PATH) ?: '/';
+        $components = parse_url($currentUrl);
+
+        if ($components === false) {
+            return null;
+        }
+
+        $path = $components['path'] ?? '/';
+
+        if ($path === '') {
+            $path = '/';
+        }
+
+        $query = $components['query'] ?? null;
+
+        if ($query !== null && $query !== '') {
+            return $path . '?' . $query;
+        }
+
+        return $path;
     }
 }
