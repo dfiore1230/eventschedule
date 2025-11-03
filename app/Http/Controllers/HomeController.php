@@ -10,6 +10,7 @@ use App\Utils\UrlUtils;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Mail\SupportEmail;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Mail;
 
 class HomeController extends Controller
@@ -207,6 +208,23 @@ class HomeController extends Controller
             'calendarQueryParams' => $calendarQueryParams,
             'isAuthenticated' => (bool) $user,
         ]);
+    }
+
+    public function events(Request $request)
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return redirect()->route('public.home');
+        }
+
+        if ($user instanceof MustVerifyEmail && ! $user->hasVerifiedEmail()) {
+            return $request->expectsJson()
+                ? abort(403, 'Your email address is not verified.')
+                : redirect()->route('verification.notice');
+        }
+
+        return $this->home($request);
     }
 
     public function home(Request $request)
