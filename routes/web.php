@@ -321,5 +321,9 @@ if (config('app.env') == 'local') {
     Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
 }
 
-Route::get('/events', [HomeController::class, 'landing'])->name('home');
+Route::get('/home', [HomeController::class, 'landing'])->name('public.home');
+Route::get('/events', [HomeController::class, 'events'])->name('home');
+Route::get('/', function () {
+    return redirect()->route('public.home');
+});
 Route::get('/{slug?}', [HomeController::class, 'landing'])->name('landing');
