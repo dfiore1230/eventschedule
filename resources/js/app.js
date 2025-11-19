@@ -209,9 +209,12 @@ const initUserPasswordSections = () => {
                     return;
                 }
 
-                input.disabled = !enableFields;
-
-                if (!enableFields) {
+                if (enableFields) {
+                    input.disabled = false;
+                    input.removeAttribute('disabled');
+                } else {
+                    input.disabled = true;
+                    input.setAttribute('disabled', 'disabled');
                     input.value = '';
                 }
 
