@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -27,14 +28,20 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            if (Schema::hasColumn('users', 'deleted_at')) {
-                $table->dropSoftDeletes();
-            }
+        $priorStatusAndSoftDeletesMigrationRan = DB::table('migrations')
+            ->where('migration', '2026_10_20_000100_add_status_and_soft_deletes_to_users_table')
+            ->exists();
 
-            if (Schema::hasColumn('users', 'status')) {
-                $table->dropColumn('status');
-            }
-        });
+        if (! $priorStatusAndSoftDeletesMigrationRan) {
+            Schema::table('users', function (Blueprint $table) {
+                if (Schema::hasColumn('users', 'deleted_at')) {
+                    $table->dropSoftDeletes();
+                }
+
+                if (Schema::hasColumn('users', 'status')) {
+                    $table->dropColumn('status');
+                }
+            });
+        }
     }
 };
