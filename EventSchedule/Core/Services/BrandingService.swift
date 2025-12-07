@@ -19,6 +19,7 @@ struct BrandingService {
             baseURL: baseURL,
             environment: .prod,
             authMethod: .sanctum,
+            authEndpoints: nil,
             featureFlags: capabilities.features,
             minAppVersion: capabilities.minAppVersion,
             rateLimits: capabilities.rateLimits,

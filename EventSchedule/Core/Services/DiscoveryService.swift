@@ -10,6 +10,7 @@ struct DiscoveryService {
             baseURL: baseURL,
             environment: .prod,
             authMethod: .sanctum,
+            authEndpoints: nil,
             featureFlags: [:],
             minAppVersion: nil,
             rateLimits: nil,
