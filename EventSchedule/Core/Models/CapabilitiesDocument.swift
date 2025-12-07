@@ -48,13 +48,13 @@ struct CapabilitiesDocument: Codable {
         let authType = try authContainer.decode(AuthConfig.AuthType.self, forKey: .type)
         let authEndpointStrings = try authContainer.decode([String: String].self, forKey: .endpoints)
         let resolvedAuthEndpoints = authEndpointStrings.compactMapValues { endpoint in
-            resolveURL(endpoint, base: resolvedAPIBase)
+            CapabilitiesDocument.resolveURL(endpoint, base: resolvedAPIBase)
         }
         auth = AuthConfig(type: authType, endpoints: resolvedAuthEndpoints)
 
         if let endpointString = try container.decodeIfPresent(String.self, forKey: .brandingEndpoint) ??
             container.decodeIfPresent(String.self, forKey: .legacyBrandingEndpoint),
-           let resolvedEndpoint = resolveURL(endpointString, base: resolvedAPIBase) {
+           let resolvedEndpoint = CapabilitiesDocument.resolveURL(endpointString, base: resolvedAPIBase) {
             brandingEndpoint = resolvedEndpoint
         } else {
             throw DecodingError.dataCorruptedError(forKey: .brandingEndpoint, in: container, debugDescription: "Invalid branding endpoint")
