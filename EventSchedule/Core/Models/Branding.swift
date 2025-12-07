@@ -72,4 +72,43 @@ extension Theme {
             legalFooter: branding.legalFooter
         )
     }
+
+    init(dto: ThemeDTO?) {
+        guard let dto else {
+            self = .default
+            return
+        }
+
+        let defaultTheme = Theme.default
+
+        let primary = Color(hex: dto.primaryHex) ?? defaultTheme.primary
+        let secondary = Color(hex: dto.secondaryHex) ?? defaultTheme.secondary
+        let accent = Color(hex: dto.accentHex) ?? defaultTheme.accent
+        let text = Color(hex: dto.textHex) ?? defaultTheme.text
+        let background = Color(hex: dto.backgroundHex) ?? defaultTheme.background
+
+        self.init(
+            primary: primary,
+            secondary: secondary,
+            accent: accent,
+            text: text,
+            background: background,
+            buttonRadius: dto.buttonRadius,
+            legalFooter: dto.legalFooter
+        )
+    }
+}
+
+extension ThemeDTO {
+    init(from branding: BrandingResponse) {
+        self.init(
+            primaryHex: branding.primaryHex,
+            secondaryHex: branding.secondaryHex,
+            accentHex: branding.accentHex,
+            textHex: branding.textHex,
+            backgroundHex: branding.bgHex,
+            buttonRadius: branding.buttonRadius,
+            legalFooter: branding.legalFooter
+        )
+    }
 }

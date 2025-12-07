@@ -30,3 +30,16 @@ struct CapabilitiesDocument: Codable {
         case rateLimits = "rate_limits"
     }
 }
+
+extension InstanceProfile.AuthMethod {
+    init(from authType: CapabilitiesDocument.AuthConfig.AuthType) {
+        switch authType {
+        case .sanctum:
+            self = .sanctum
+        case .passport:
+            self = .oauth2
+        case .jwt:
+            self = .jwt
+        }
+    }
+}
