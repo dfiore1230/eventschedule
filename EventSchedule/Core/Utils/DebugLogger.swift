@@ -50,11 +50,33 @@ enum DebugLogger {
     static func breakpoint(_ reason: String? = nil) {
         #if DEBUG
         if let reason {
-            onboardingLogger.debug("⛔️ Breakpoint triggered: \(reason, privacy: .public)")
+            onboardingLogger.error("⛔️ Breakpoint triggered: \(reason, privacy: .public)")
+        } else {
+            onboardingLogger.error("⛔️ Breakpoint triggered")
         }
         #if canImport(Darwin)
-        raise(SIGTRAP)
+        if isDebuggerAttached {
+            raise(SIGTRAP)
+        }
         #endif
         #endif
     }
+
+    #if canImport(Darwin)
+    private static var isDebuggerAttached: Bool {
+        var info = kinfo_proc()
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
+        var size = MemoryLayout<kinfo_proc>.stride
+
+        let sysctlResult = mib.withUnsafeMutableBufferPointer { mibPointer in
+            sysctl(mibPointer.baseAddress, u_int(mib.count), &info, &size, nil, 0)
+        }
+
+        guard sysctlResult == 0 else {
+            return false
+        }
+
+        return (info.kp_proc.p_flag & P_TRACED) != 0
+    }
+    #endif
 }
