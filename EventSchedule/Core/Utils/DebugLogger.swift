@@ -67,9 +67,10 @@ enum DebugLogger {
         var info = kinfo_proc()
         var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_PID, getpid()]
         var size = MemoryLayout<kinfo_proc>.stride
+        let mibCount = u_int(mib.count)
 
         let sysctlResult = mib.withUnsafeMutableBufferPointer { mibPointer in
-            sysctl(mibPointer.baseAddress, u_int(mib.count), &info, &size, nil, 0)
+            sysctl(mibPointer.baseAddress, mibCount, &info, &size, nil, 0)
         }
 
         guard sysctlResult == 0 else {
