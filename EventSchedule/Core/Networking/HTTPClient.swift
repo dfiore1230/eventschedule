@@ -59,13 +59,16 @@ final class HTTPClient: HTTPClientProtocol {
             instance: instance
         )
 
-        if !data.isEmpty {
-            let contentType = response.value(forHTTPHeaderField: "Content-Type")?.lowercased()
-            if contentType?.contains("json") == false {
-                let bodyPreview = String(data: data, encoding: .utf8)
-                DebugLogger.breakpoint("Unexpected content type \(contentType ?? "<nil>") for \(response.url?.absoluteString ?? "<nil>")")
-                throw APIError.serverError(statusCode: response.statusCode, message: bodyPreview)
-            }
+        guard !data.isEmpty else {
+            DebugLogger.breakpoint("Empty response body for \(response.url?.absoluteString ?? "<nil>")")
+            throw APIError.serverError(statusCode: response.statusCode, message: "Empty response body")
+        }
+
+        let contentType = response.value(forHTTPHeaderField: "Content-Type")?.lowercased()
+        if contentType?.contains("json") == false {
+            let bodyPreview = String(data: data, encoding: .utf8)
+            DebugLogger.breakpoint("Unexpected content type \(contentType ?? "<nil>") for \(response.url?.absoluteString ?? "<nil>")")
+            throw APIError.serverError(statusCode: response.statusCode, message: bodyPreview)
         }
 
         do {
