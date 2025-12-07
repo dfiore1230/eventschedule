@@ -60,14 +60,12 @@ final class HTTPClient: HTTPClientProtocol {
         )
 
         guard !data.isEmpty else {
-            DebugLogger.breakpoint("Empty response body for \(response.url?.absoluteString ?? "<nil>")")
             throw APIError.serverError(statusCode: response.statusCode, message: "Empty response body")
         }
 
         let contentType = response.value(forHTTPHeaderField: "Content-Type")?.lowercased()
         if contentType?.contains("json") == false {
             let bodyPreview = String(data: data, encoding: .utf8)
-            DebugLogger.breakpoint("Unexpected content type \(contentType ?? "<nil>") for \(response.url?.absoluteString ?? "<nil>")")
             throw APIError.serverError(statusCode: response.statusCode, message: bodyPreview)
         }
 
@@ -75,7 +73,6 @@ final class HTTPClient: HTTPClientProtocol {
             return try jsonDecoder.decode(T.self, from: data)
         } catch {
             let bodyPreview = String(data: data, encoding: .utf8)
-            DebugLogger.breakpoint("Failed to decode response for \(response.url?.absoluteString ?? "<nil>"): \(bodyPreview ?? "<non-UTF8 body>")")
             throw APIError.decodingError(error)
         }
     }
@@ -130,15 +127,11 @@ final class HTTPClient: HTTPClientProtocol {
             }
         }
 
-        DebugLogger.networkRequest(request)
-
         let data: Data
         let response: URLResponse
         do {
             (data, response) = try await urlSession.data(for: request)
         } catch {
-            DebugLogger.networkError(error, request: request)
-            DebugLogger.breakpoint("Network layer error when requesting \(request.url?.absoluteString ?? "<nil>")")
             throw APIError.networkError(error)
         }
 
@@ -146,16 +139,12 @@ final class HTTPClient: HTTPClientProtocol {
             throw APIError.unknown
         }
 
-        DebugLogger.networkResponse(httpResponse, data: data)
-
         switch httpResponse.statusCode {
         case 200..<300:
             return (data, httpResponse)
         case 401:
-            DebugLogger.breakpoint("Unauthorized response")
             throw APIError.unauthorized
         case 403:
-            DebugLogger.breakpoint("Forbidden response")
             throw APIError.forbidden
         case 429:
             // Parse Retry-After header. It can be either an integer number of seconds or an HTTP-date.
@@ -168,12 +157,9 @@ final class HTTPClient: HTTPClientProtocol {
                 // Optionally, try to parse HTTP-date formats if needed in the future.
                 return nil
             }
-            let retryAfterString = retryAfter.map { String($0) } ?? "nil"
-            DebugLogger.breakpoint("Rate limited with retry after \(retryAfterString)" )
             throw APIError.rateLimited(retryAfter: retryAfter)
         default:
             let message = String(data: data, encoding: .utf8)
-            DebugLogger.breakpoint("Server error \(httpResponse.statusCode): \(message ?? "<no body>")")
             throw APIError.serverError(statusCode: httpResponse.statusCode, message: message)
         }
     }
