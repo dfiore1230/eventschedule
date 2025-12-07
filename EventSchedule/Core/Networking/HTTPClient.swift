@@ -115,11 +115,15 @@ final class HTTPClient: HTTPClientProtocol {
             }
         }
 
+        DebugLogger.networkRequest(request)
+
         let data: Data
         let response: URLResponse
         do {
             (data, response) = try await urlSession.data(for: request)
         } catch {
+            DebugLogger.networkError(error, request: request)
+            DebugLogger.breakpoint("Network layer error when requesting \(request.url?.absoluteString ?? "<nil>")")
             throw APIError.networkError(error)
         }
 
@@ -127,18 +131,24 @@ final class HTTPClient: HTTPClientProtocol {
             throw APIError.unknown
         }
 
+        DebugLogger.networkResponse(httpResponse, data: data)
+
         switch httpResponse.statusCode {
         case 200..<300:
             return data
         case 401:
+            DebugLogger.breakpoint("Unauthorized response")
             throw APIError.unauthorized
         case 403:
+            DebugLogger.breakpoint("Forbidden response")
             throw APIError.forbidden
         case 429:
             let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
+            DebugLogger.breakpoint("Rate limited with retry after \(retryAfter.map(String.init) ?? "nil")")
             throw APIError.rateLimited(retryAfter: retryAfter)
         default:
             let message = String(data: data, encoding: .utf8)
+            DebugLogger.breakpoint("Server error \(httpResponse.statusCode): \(message ?? "<no body>")")
             throw APIError.serverError(statusCode: httpResponse.statusCode, message: message)
         }
     }

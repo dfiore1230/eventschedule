@@ -62,6 +62,7 @@ struct InstanceOnboardingPlaceholder: View {
             return
         }
 
+        DebugLogger.onboarding("Attempting discovery for base URL: \(normalizedURL.absoluteString)")
         isConnecting = true
         Task {
             do {
@@ -69,7 +70,9 @@ struct InstanceOnboardingPlaceholder: View {
                 let brandingService = BrandingService(httpClient: httpClient)
 
                 let capabilities = try await discoveryService.fetchCapabilities(from: normalizedURL)
+                DebugLogger.onboarding("Fetched capabilities: apiBaseURL=\(capabilities.apiBaseURL.absoluteString) features=\(capabilities.features)")
                 let branding = try await brandingService.fetchBranding(from: capabilities)
+                DebugLogger.onboarding("Fetched branding endpoint: \(capabilities.brandingEndpoint.absoluteString)")
 
                 let authMethod = InstanceProfile.AuthMethod(from: capabilities.auth.type)
                 let themeDTO = ThemeDTO(from: branding)
@@ -94,8 +97,10 @@ struct InstanceOnboardingPlaceholder: View {
                     urlString = ""
                 }
             } catch {
+                DebugLogger.onboarding("Onboarding failed: \(String(describing: error))")
+                DebugLogger.breakpoint("Onboarding error")
                 await MainActor.run {
-                    errorMessage = error.localizedDescription
+                    errorMessage = detailedErrorDescription(for: error)
                     showingError = true
                 }
             }
@@ -117,6 +122,36 @@ struct InstanceOnboardingPlaceholder: View {
         components.query = nil
         components.fragment = nil
         return components.url
+    }
+
+    private func detailedErrorDescription(for error: Error) -> String {
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .serverError(let statusCode, let message):
+                return "Server error (status: \(statusCode)). \(message ?? "No details provided.")"
+            case .decodingError(let underlying):
+                return "Failed to decode response: \(underlying.localizedDescription)"
+            case .encodingError(let underlying):
+                return "Failed to encode request: \(underlying.localizedDescription)"
+            case .networkError(let underlying):
+                return "Network error: \(underlying.localizedDescription)"
+            case .rateLimited(let retryAfter):
+                if let retryAfter {
+                    return "Rate limited. Retry after \(retryAfter) seconds."
+                }
+                return "Rate limited. Please try again soon."
+            case .invalidURL:
+                return "Invalid URL. Please double-check the address."
+            case .unauthorized:
+                return "Unauthorized. Please verify your credentials for this instance."
+            case .forbidden:
+                return "Forbidden. Your account may not have access to this instance."
+            case .unknown:
+                return "Unknown error. Please try again."
+            }
+        }
+
+        return error.localizedDescription
     }
 }
 
