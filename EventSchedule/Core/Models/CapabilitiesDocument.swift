@@ -1,6 +1,6 @@
 import Foundation
 
-struct CapabilitiesDocument: Codable {
+struct CapabilitiesDocument: Decodable, Encodable {
     struct AuthConfig: Codable {
         enum AuthType: String, Codable {
             case sanctum
@@ -40,50 +40,96 @@ struct CapabilitiesDocument: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let apiBaseURLString = try container.decodeIfPresent(String.self, forKey: .apiBaseURLCamel)
-            ?? container.decode(String.self, forKey: .apiBaseURL)
-        guard let resolvedAPIBase = URL(string: apiBaseURLString) else {
-            throw DecodingError.dataCorruptedError(forKey: .apiBaseURL, in: container, debugDescription: "Invalid api_base_url")
-        }
-        apiBaseURL = resolvedAPIBase
 
-        if let authContainer = try? container.nestedContainer(keyedBy: AuthCodingKeys.self, forKey: .auth) {
-            let authType = try authContainer.decode(AuthConfig.AuthType.self, forKey: .type)
-            let authEndpointStrings = try authContainer.decodeIfPresent([String: String].self, forKey: .endpoints) ?? [:]
-            let resolvedAuthEndpoints = authEndpointStrings.compactMapValues { endpoint in
-                CapabilitiesDocument.resolveURL(endpoint, base: resolvedAPIBase)
-            }
-            auth = AuthConfig(type: authType, endpoints: resolvedAuthEndpoints)
-        } else {
-            auth = AuthConfig(type: .sanctum, endpoints: [:])
-        }
+        let hasCamelAPI = container.contains(.apiBaseURLCamel)
+        let hasSnakeAPI = container.contains(.apiBaseURL)
+        let hasCamelBrand = container.contains(.brandingEndpointCamel)
+        let hasSnakeBrand = container.contains(.brandingEndpoint)
+        let hasLegacyBrand = container.contains(.legacyBrandingEndpoint)
+        print("Capabilities keys present: apiBaseURLCamel=\(hasCamelAPI), api_base_url=\(hasSnakeAPI), brandingEndpointCamel=\(hasCamelBrand), branding_endpoint=\(hasSnakeBrand), legacyBrandingEndpoint=\(hasLegacyBrand)")
+
+        let apiBaseURLString = try container.decodeIfPresent(String.self, forKey: .apiBaseURLCamel)
+            ?? container.decodeIfPresent(String.self, forKey: .apiBaseURL)
 
         let brandingString = try container.decodeIfPresent(String.self, forKey: .brandingEndpointCamel)
             ?? container.decodeIfPresent(String.self, forKey: .brandingEndpoint)
             ?? container.decodeIfPresent(String.self, forKey: .legacyBrandingEndpoint)
-        if let brandingString = brandingString,
-           let resolvedEndpoint = CapabilitiesDocument.resolveURL(brandingString, base: resolvedAPIBase) {
-            brandingEndpoint = resolvedEndpoint
+
+        print("Capabilities raw values: apiBaseURLString=\(apiBaseURLString ?? "nil"), brandingString=\(brandingString ?? "nil")")
+
+        if let apiBaseString = apiBaseURLString, let resolvedAPIBase = URL(string: apiBaseString) {
+            apiBaseURL = resolvedAPIBase
+        } else if let apiBaseString = apiBaseURLString {
+            // Temporary safe fallback if URL parsing fails unexpectedly
+            apiBaseURL = URL(string: "https://localhost")!
+            print("apiBaseURL parsing failed for string: \(apiBaseString). Using fallback https://localhost")
         } else {
-            throw DecodingError.dataCorruptedError(forKey: .brandingEndpoint, in: container, debugDescription: "Invalid branding endpoint")
+            // Temporary safe fallback if key is missing
+            apiBaseURL = URL(string: "https://localhost")!
+            print("apiBaseURL missing. Using fallback https://localhost")
+        }
+        print("Resolved apiBaseURL: \(apiBaseURL)")
+
+        if container.contains(.auth) {
+            func resolveURLLocal(_ value: String, base: URL) -> URL? {
+                let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let absolute = URL(string: trimmed), absolute.scheme != nil {
+                    return absolute
+                }
+                return URL(string: trimmed, relativeTo: base)?.absoluteURL
+            }
+
+            let authContainer = try container.nestedContainer(keyedBy: AuthCodingKeys.self, forKey: .auth)
+            let authType = try authContainer.decode(AuthConfig.AuthType.self, forKey: .type)
+            let authEndpointStrings = try authContainer.decodeIfPresent([String: String].self, forKey: .endpoints) ?? [:]
+            var resolvedAuthEndpoints: [String: URL] = [:]
+            for (key, value) in authEndpointStrings {
+                if let url = resolveURLLocal(value, base: apiBaseURL) {
+                    resolvedAuthEndpoints[key] = url
+                }
+            }
+            auth = AuthConfig(type: authType, endpoints: resolvedAuthEndpoints)
+        } else {
+            // Default to a reasonable type with no endpoints when missing
+            auth = AuthConfig(type: .jwt, endpoints: [:])
         }
 
-        let featuresDict = try container.decodeIfPresent([String: Bool].self, forKey: .features)
-            ?? (try container.decodeIfPresent([String].self, forKey: .features)
-                    .map { Dictionary(uniqueKeysWithValues: $0.map { ($0, true) }) })
-            ?? [:]
+        if let endpointString = brandingString, let resolvedEndpoint = CapabilitiesDocument.resolveURL(endpointString, base: apiBaseURL) {
+            brandingEndpoint = resolvedEndpoint
+        } else {
+            // Fallback: if branding endpoint is missing or invalid, default to the API base URL
+            brandingEndpoint = apiBaseURL
+        }
+        print("Resolved brandingEndpoint: \(brandingEndpoint)")
+
+        let featuresDict: [String: Bool]
+        if let dict = try container.decodeIfPresent([String: Bool].self, forKey: .features) {
+            featuresDict = dict
+        } else if let arr = try container.decodeIfPresent([String].self, forKey: .features) {
+            featuresDict = Dictionary(uniqueKeysWithValues: arr.map { ($0, true) })
+        } else {
+            featuresDict = [:]
+        }
         features = featuresDict
 
-        versions = try container.decodeIfPresent([String: String].self, forKey: .versions)
-        minAppVersion = try container.decodeIfPresent(String.self, forKey: .minAppVersion)
-        rateLimits = try container.decodeIfPresent([String: Int].self, forKey: .rateLimits)
+        print("Capabilities init: decoding versions/minAppVersion/rateLimits...")
+
+        do {
+            versions = try container.decodeIfPresent([String: String].self, forKey: .versions)
+            minAppVersion = try container.decodeIfPresent(String.self, forKey: .minAppVersion)
+            rateLimits = try container.decodeIfPresent([String: Int].self, forKey: .rateLimits)
+        } catch {
+            print("Capabilities tail decode error: \(error)")
+            throw error
+        }
+        print("Capabilities init completed successfully")
     }
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(apiBaseURL, forKey: .apiBaseURL)
+        try container.encode(apiBaseURL, forKey: .apiBaseURLCamel)
         try container.encode(auth, forKey: .auth)
-        try container.encode(brandingEndpoint, forKey: .brandingEndpoint)
+        try container.encode(brandingEndpoint, forKey: .brandingEndpointCamel)
         try container.encode(features, forKey: .features)
         try container.encodeIfPresent(versions, forKey: .versions)
         try container.encodeIfPresent(minAppVersion, forKey: .minAppVersion)
@@ -98,11 +144,11 @@ private extension CapabilitiesDocument {
     }
 
     static func resolveURL(_ value: String, base: URL) -> URL? {
-        if let absolute = URL(string: value), absolute.scheme != nil {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let absolute = URL(string: trimmed), absolute.scheme != nil {
             return absolute
         }
-
-        return URL(string: value, relativeTo: base)?.absoluteURL
+        return URL(string: trimmed, relativeTo: base)?.absoluteURL
     }
 }
 

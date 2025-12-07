@@ -9,42 +9,47 @@ struct InstanceOnboardingPlaceholder: View {
     @State private var isConnecting: Bool = false
     @State private var errorMessage: String?
     @State private var showingError: Bool = false
+    @FocusState private var urlFieldFocused: Bool
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                Text("Add an EventSchedule Instance")
-                    .font(.title2)
-                    .bold()
+            ScrollView {
+                VStack(spacing: 16) {
+                    Text("Add an EventSchedule Instance")
+                        .font(.title2)
+                        .bold()
 
-                TextField("https://events.example.com", text: $urlString)
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.URL)
-                    .autocorrectionDisabled()
-                    .padding()
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(8)
-
-                Button(action: addInstance) {
-                    Text("Connect")
-                        .frame(maxWidth: .infinity)
+                    TextField("https://events.example.com", text: $urlString)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+                        .autocorrectionDisabled()
                         .padding()
-                        .background(theme.primary)
-                        .foregroundColor(theme.background)
-                        .cornerRadius(theme.buttonRadius)
-                        .overlay {
-                            if isConnecting {
-                                ProgressView()
-                                    .progressViewStyle(.circular)
-                                    .tint(theme.background)
-                            }
-                        }
-                }
-                .disabled(urlString.isEmpty || isConnecting)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(8)
+                        .focused($urlFieldFocused)
 
-                Spacer()
+                    Button(action: addInstance) {
+                        Text("Connect")
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(theme.primary)
+                            .foregroundColor(theme.background)
+                            .cornerRadius(theme.buttonRadius)
+                            .overlay {
+                                if isConnecting {
+                                    ProgressView()
+                                        .progressViewStyle(.circular)
+                                        .tint(theme.background)
+                                }
+                            }
+                    }
+                    .disabled(urlString.isEmpty || isConnecting)
+
+                    Spacer()
+                }
+                .padding()
             }
-            .padding()
+            .scrollDismissesKeyboard(.immediately)
             .navigationTitle("EventSchedule")
             .alert("Connection Failed", isPresented: $showingError) {
                 Button("OK", role: .cancel) { }
@@ -96,6 +101,10 @@ struct InstanceOnboardingPlaceholder: View {
                     urlString = ""
                 }
             } catch {
+                await MainActor.run {
+                    urlFieldFocused = false
+                }
+                try? await Task.sleep(nanoseconds: 150_000_000)
                 await MainActor.run {
                     errorMessage = detailedErrorDescription(for: error)
                     showingError = true
