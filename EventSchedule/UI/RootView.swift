@@ -13,6 +13,7 @@ struct RootView: View {
             }
         }
         .accentColor(theme.accent)
+        .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 }
 
