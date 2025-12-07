@@ -41,6 +41,17 @@ struct CapabilitiesDocument: Decodable, Encodable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
+        if container.contains(.auth) {
+            let authContainer = try container.nestedContainer(keyedBy: AuthCodingKeys.self, forKey: .auth)
+            let authType = try authContainer.decode(AuthConfig.AuthType.self, forKey: .type)
+            let authEndpointStrings = try authContainer.decodeIfPresent([String: String].self, forKey: .endpoints) ?? [:]
+            let resolvedAuthEndpoints = authEndpointStrings.compactMapValues { endpoint in
+                CapabilitiesDocument.resolveURL(endpoint, base: resolvedAPIBase)
+            }
+            auth = AuthConfig(type: authType, endpoints: resolvedAuthEndpoints)
+        } else {
+            auth = AuthConfig(type: .sanctum, endpoints: [:])
+        }
         let hasCamelAPI = container.contains(.apiBaseURLCamel)
         let hasSnakeAPI = container.contains(.apiBaseURL)
         let hasCamelBrand = container.contains(.brandingEndpointCamel)
