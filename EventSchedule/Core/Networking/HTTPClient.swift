@@ -51,16 +51,28 @@ final class HTTPClient: HTTPClientProtocol {
         body: Encodable? = nil,
         instance: InstanceProfile
     ) async throws -> T {
-        let data = try await performRequest(
+        let (data, response) = try await performRequest(
             path,
             method: method,
             query: query,
             body: body,
             instance: instance
         )
+
+        if !data.isEmpty {
+            let contentType = response.value(forHTTPHeaderField: "Content-Type")?.lowercased()
+            if contentType?.contains("json") == false {
+                let bodyPreview = String(data: data, encoding: .utf8)
+                DebugLogger.breakpoint("Unexpected content type \(contentType ?? "<nil>") for \(response.url?.absoluteString ?? "<nil>")")
+                throw APIError.serverError(statusCode: response.statusCode, message: bodyPreview)
+            }
+        }
+
         do {
             return try jsonDecoder.decode(T.self, from: data)
         } catch {
+            let bodyPreview = String(data: data, encoding: .utf8)
+            DebugLogger.breakpoint("Failed to decode response for \(response.url?.absoluteString ?? "<nil>"): \(bodyPreview ?? "<non-UTF8 body>")")
             throw APIError.decodingError(error)
         }
     }
@@ -81,7 +93,7 @@ final class HTTPClient: HTTPClientProtocol {
         query: [String: String?]?,
         body: Encodable?,
         instance: InstanceProfile
-    ) async throws -> Data {
+    ) async throws -> (Data, HTTPURLResponse) {
         guard var urlComponents = URLComponents(url: instance.baseURL, resolvingAgainstBaseURL: false) else {
             throw APIError.invalidURL
         }
@@ -135,7 +147,7 @@ final class HTTPClient: HTTPClientProtocol {
 
         switch httpResponse.statusCode {
         case 200..<300:
-            return data
+            return (data, httpResponse)
         case 401:
             DebugLogger.breakpoint("Unauthorized response")
             throw APIError.unauthorized
