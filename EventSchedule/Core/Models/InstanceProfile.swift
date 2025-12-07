@@ -13,6 +13,7 @@ struct InstanceProfile: Identifiable, Codable, Equatable {
     var baseURL: URL
     var environment: InstanceEnvironment
     var authMethod: AuthMethod
+    var authEndpoints: [String: URL]?
     var featureFlags: [String: Bool]
     var minAppVersion: String?
     var rateLimits: [String: Int]?

@@ -30,15 +30,20 @@ final class HTTPClient: HTTPClientProtocol {
     private let urlSession: URLSession
     private let jsonDecoder: JSONDecoder
     private let jsonEncoder: JSONEncoder
+    private let tokenProvider: ((InstanceProfile) -> String?)?
 
     init(
         urlSession: URLSession = .shared,
         jsonDecoder: JSONDecoder = JSONDecoder(),
-        jsonEncoder: JSONEncoder = JSONEncoder()
+        jsonEncoder: JSONEncoder = JSONEncoder(),
+        tokenProvider: ((InstanceProfile) -> String?)? = { instance in
+            AuthTokenStore.shared.token(for: instance)
+        }
     ) {
         self.urlSession = urlSession
         self.jsonDecoder = jsonDecoder
         self.jsonEncoder = jsonEncoder
+        self.tokenProvider = tokenProvider
 
         self.jsonDecoder.dateDecodingStrategy = .iso8601
         self.jsonEncoder.dateEncodingStrategy = .iso8601
@@ -115,7 +120,9 @@ final class HTTPClient: HTTPClientProtocol {
         request.httpMethod = method.rawValue
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        // TODO: inject auth headers based on instance.authMethod & token store
+        if let token = tokenProvider?(instance) {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
 
         if let body = body {
             do {

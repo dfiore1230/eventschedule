@@ -75,17 +75,19 @@ struct InstanceOnboardingPlaceholder: View {
                 let themeDTO = ThemeDTO(from: branding)
 
                 let displayName = capabilities.apiBaseURL.host ?? normalizedURL.host ?? "Instance"
+                let identifier = UUID()
 
                 let profile = InstanceProfile(
-                    id: UUID(),
+                    id: identifier,
                     displayName: displayName,
                     baseURL: capabilities.apiBaseURL,
                     environment: .prod,
                     authMethod: authMethod,
+                    authEndpoints: capabilities.auth.endpoints,
                     featureFlags: capabilities.features,
                     minAppVersion: capabilities.minAppVersion,
                     rateLimits: capabilities.rateLimits,
-                    tokenIdentifier: nil,
+                    tokenIdentifier: identifier.uuidString,
                     theme: themeDTO
                 )
 
@@ -225,14 +227,128 @@ struct TicketsSearchView: View {
 }
 
 struct SettingsView: View {
+    @EnvironmentObject var instanceStore: InstanceStore
+    @EnvironmentObject var authStore: AuthTokenStore
+    @Environment(\.httpClient) private var httpClient
+    @Environment(\.theme) private var theme
+
+    @State private var email: String = ""
+    @State private var password: String = ""
+    @State private var isLoggingIn: Bool = false
+    @State private var showingAlert: Bool = false
+    @State private var alertMessage: String?
+
     var body: some View {
         NavigationStack {
-            Text("Settings")
-                .navigationTitle("Settings")
-                .toolbar {
-                    InstanceSwitcherToolbarItem()
+            Form {
+                if let instance = instanceStore.activeInstance {
+                    Section("Active Instance") {
+                        Text(instance.displayName)
+                        Text(instance.baseURL.absoluteString)
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                        Text("Auth method: \(instance.authMethod.rawValue)")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
+
+                    Section("Credentials") {
+                        TextField("Email or username", text: $email)
+                            .keyboardType(.emailAddress)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+
+                        SecureField("Password", text: $password)
+                    }
+
+                    Section("Session") {
+                        sessionSummary(for: instance)
+
+                        Button(action: { login(instance: instance) }) {
+                            if isLoggingIn {
+                                ProgressView()
+                                    .progressViewStyle(.circular)
+                            } else {
+                                Text("Log In")
+                                    .frame(maxWidth: .infinity, alignment: .center)
+                            }
+                        }
+                        .disabled(email.isEmpty || password.isEmpty || isLoggingIn)
+
+                        Button(role: .destructive, action: { logout(instance: instance) }) {
+                            Text("Log Out")
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        }
+                        .disabled(authStore.session(for: instance) == nil)
+                    }
+                } else {
+                    Section {
+                        Text("Add an instance to configure authentication.")
+                            .foregroundColor(.secondary)
+                    }
                 }
+            }
+            .navigationTitle("Settings")
+            .toolbar {
+                InstanceSwitcherToolbarItem()
+            }
+            .tint(theme.primary)
+            .alert("Authentication", isPresented: $showingAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(alertMessage ?? "")
+            }
         }
+    }
+
+    @ViewBuilder
+    private func sessionSummary(for instance: InstanceProfile) -> some View {
+        if let session = authStore.session(for: instance) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Session active")
+                if let expiry = session.expiryDate {
+                    Text("Expires: \(expiry.formatted(date: .abbreviated, time: .shortened))")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+            }
+        } else {
+            Text("Not logged in")
+                .foregroundColor(.secondary)
+        }
+    }
+
+    private func login(instance: InstanceProfile) {
+        guard !isLoggingIn else { return }
+        isLoggingIn = true
+
+        Task {
+            do {
+                let authService = AuthService(httpClient: httpClient)
+                let session = try await authService.login(email: email, password: password, instance: instance)
+
+                await MainActor.run {
+                    authStore.save(session: session, for: instance)
+                    alertMessage = "Logged in successfully."
+                    showingAlert = true
+                }
+            } catch {
+                await MainActor.run {
+                    alertMessage = error.localizedDescription
+                    showingAlert = true
+                }
+            }
+
+            await MainActor.run {
+                isLoggingIn = false
+            }
+        }
+    }
+
+    private func logout(instance: InstanceProfile) {
+        authStore.clearSession(for: instance)
+        alertMessage = "Logged out."
+        showingAlert = true
     }
 }
 

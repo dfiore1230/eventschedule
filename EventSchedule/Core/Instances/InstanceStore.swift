@@ -33,6 +33,10 @@ final class InstanceStore: ObservableObject {
     }
 
     func removeInstance(_ instanceID: UUID) {
+        if let instance = instances.first(where: { $0.id == instanceID }) {
+            AuthTokenStore.shared.clearSession(for: instance)
+        }
+
         instances.removeAll { $0.id == instanceID }
         if activeInstanceID == instanceID {
             activeInstanceID = instances.first?.id
