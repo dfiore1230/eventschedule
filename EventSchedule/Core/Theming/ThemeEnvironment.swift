@@ -17,8 +17,8 @@ struct ThemeProvider<Content: View>: View {
 
     var body: some View {
         let theme: Theme
-        if instanceStore.activeInstance != nil {
-            theme = .default // TODO: Load per-instance theme
+        if let activeInstance = instanceStore.activeInstance {
+            theme = Theme(dto: activeInstance.theme)
         } else {
             theme = .default
         }
