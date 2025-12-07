@@ -46,7 +46,7 @@ struct CapabilitiesDocument: Codable {
 
         let authContainer = try container.nestedContainer(keyedBy: AuthCodingKeys.self, forKey: .auth)
         let authType = try authContainer.decode(AuthConfig.AuthType.self, forKey: .type)
-        let authEndpointStrings = try authContainer.decode([String: String].self, forKey: .endpoints)
+        let authEndpointStrings = try authContainer.decodeIfPresent([String: String].self, forKey: .endpoints) ?? [:]
         let resolvedAuthEndpoints = authEndpointStrings.compactMapValues { endpoint in
             CapabilitiesDocument.resolveURL(endpoint, base: resolvedAPIBase)
         }
@@ -59,7 +59,7 @@ struct CapabilitiesDocument: Codable {
         } else {
             throw DecodingError.dataCorruptedError(forKey: .brandingEndpoint, in: container, debugDescription: "Invalid branding endpoint")
         }
-        features = try container.decode([String: Bool].self, forKey: .features)
+        features = try container.decodeIfPresent([String: Bool].self, forKey: .features) ?? [:]
         versions = try container.decodeIfPresent([String: String].self, forKey: .versions)
         minAppVersion = try container.decodeIfPresent(String.self, forKey: .minAppVersion)
         rateLimits = try container.decodeIfPresent([String: Int].self, forKey: .rateLimits)
