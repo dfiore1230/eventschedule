@@ -45,6 +45,17 @@ struct CapabilitiesDocument: Codable {
         minAppVersion = try container.decodeIfPresent(String.self, forKey: .minAppVersion)
         rateLimits = try container.decodeIfPresent([String: Int].self, forKey: .rateLimits)
     }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(apiBaseURL, forKey: .apiBaseURL)
+        try container.encode(auth, forKey: .auth)
+        try container.encode(brandingEndpoint, forKey: .brandingEndpoint)
+        try container.encode(features, forKey: .features)
+        try container.encodeIfPresent(versions, forKey: .versions)
+        try container.encodeIfPresent(minAppVersion, forKey: .minAppVersion)
+        try container.encodeIfPresent(rateLimits, forKey: .rateLimits)
+    }
 }
 
 extension InstanceProfile.AuthMethod {
