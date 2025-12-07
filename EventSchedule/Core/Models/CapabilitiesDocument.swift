@@ -10,6 +10,11 @@ struct CapabilitiesDocument: Codable {
 
         let type: AuthType
         let endpoints: [String: URL]
+
+        init(type: AuthType, endpoints: [String: URL]) {
+            self.type = type
+            self.endpoints = endpoints
+        }
     }
 
     let apiBaseURL: URL
@@ -33,12 +38,26 @@ struct CapabilitiesDocument: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        apiBaseURL = try container.decode(URL.self, forKey: .apiBaseURL)
-        auth = try container.decode(AuthConfig.self, forKey: .auth)
-        if let endpoint = try container.decodeIfPresent(URL.self, forKey: .brandingEndpoint) {
-            brandingEndpoint = endpoint
+        let apiBaseURLString = try container.decode(String.self, forKey: .apiBaseURL)
+        guard let resolvedAPIBase = URL(string: apiBaseURLString) else {
+            throw DecodingError.dataCorruptedError(forKey: .apiBaseURL, in: container, debugDescription: "Invalid api_base_url")
+        }
+        apiBaseURL = resolvedAPIBase
+
+        let authContainer = try container.nestedContainer(keyedBy: AuthCodingKeys.self, forKey: .auth)
+        let authType = try authContainer.decode(AuthConfig.AuthType.self, forKey: .type)
+        let authEndpointStrings = try authContainer.decode([String: String].self, forKey: .endpoints)
+        let resolvedAuthEndpoints = authEndpointStrings.compactMapValues { endpoint in
+            resolveURL(endpoint, base: resolvedAPIBase)
+        }
+        auth = AuthConfig(type: authType, endpoints: resolvedAuthEndpoints)
+
+        if let endpointString = try container.decodeIfPresent(String.self, forKey: .brandingEndpoint) ??
+            container.decodeIfPresent(String.self, forKey: .legacyBrandingEndpoint),
+           let resolvedEndpoint = resolveURL(endpointString, base: resolvedAPIBase) {
+            brandingEndpoint = resolvedEndpoint
         } else {
-            brandingEndpoint = try container.decode(URL.self, forKey: .legacyBrandingEndpoint)
+            throw DecodingError.dataCorruptedError(forKey: .brandingEndpoint, in: container, debugDescription: "Invalid branding endpoint")
         }
         features = try container.decode([String: Bool].self, forKey: .features)
         versions = try container.decodeIfPresent([String: String].self, forKey: .versions)
@@ -55,6 +74,21 @@ struct CapabilitiesDocument: Codable {
         try container.encodeIfPresent(versions, forKey: .versions)
         try container.encodeIfPresent(minAppVersion, forKey: .minAppVersion)
         try container.encodeIfPresent(rateLimits, forKey: .rateLimits)
+    }
+}
+
+private extension CapabilitiesDocument {
+    enum AuthCodingKeys: String, CodingKey {
+        case type
+        case endpoints
+    }
+
+    static func resolveURL(_ value: String, base: URL) -> URL? {
+        if let absolute = URL(string: value), absolute.scheme != nil {
+            return absolute
+        }
+
+        return URL(string: value, relativeTo: base)?.absoluteURL
     }
 }
 
