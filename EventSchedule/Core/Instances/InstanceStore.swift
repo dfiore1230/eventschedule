@@ -28,9 +28,7 @@ final class InstanceStore: ObservableObject {
 
     func addInstance(_ instance: InstanceProfile) {
         instances.append(instance)
-        if activeInstanceID == nil {
-            activeInstanceID = instance.id
-        }
+        activeInstanceID = instance.id
         persist()
     }
 
