@@ -143,8 +143,18 @@ final class HTTPClient: HTTPClientProtocol {
             DebugLogger.breakpoint("Forbidden response")
             throw APIError.forbidden
         case 429:
-            let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init)
-            DebugLogger.breakpoint("Rate limited with retry after \(retryAfter.map(String.init) ?? "nil")")
+            // Parse Retry-After header. It can be either an integer number of seconds or an HTTP-date.
+            let retryAfterHeader = httpResponse.value(forHTTPHeaderField: "Retry-After")
+            let retryAfter: TimeInterval? = retryAfterHeader.flatMap { value in
+                // First, try to parse as seconds (Double)
+                if let seconds = Double(value) {
+                    return TimeInterval(seconds)
+                }
+                // Optionally, try to parse HTTP-date formats if needed in the future.
+                return nil
+            }
+            let retryAfterString = retryAfter.map { String($0) } ?? "nil"
+            DebugLogger.breakpoint("Rate limited with retry after \(retryAfterString)" )
             throw APIError.rateLimited(retryAfter: retryAfter)
         default:
             let message = String(data: data, encoding: .utf8)
