@@ -114,14 +114,30 @@ struct CapabilitiesDocument: Decodable, Encodable {
 
         print("Capabilities init: decoding versions/minAppVersion/rateLimits...")
 
+        // These fields are optional. If the backend sends an unexpected type (for example, a
+        // string instead of a dictionary), we log the issue but continue decoding with
+        // sensible fallbacks instead of failing the entire request.
         do {
             versions = try container.decodeIfPresent([String: String].self, forKey: .versions)
+        } catch {
+            print("Capabilities versions decode error: \(error). Using nil.")
+            versions = nil
+        }
+
+        do {
             minAppVersion = try container.decodeIfPresent(String.self, forKey: .minAppVersion)
+        } catch {
+            print("Capabilities minAppVersion decode error: \(error). Using nil.")
+            minAppVersion = nil
+        }
+
+        do {
             rateLimits = try container.decodeIfPresent([String: Int].self, forKey: .rateLimits)
         } catch {
-            print("Capabilities tail decode error: \(error)")
-            throw error
+            print("Capabilities rateLimits decode error: \(error). Using nil.")
+            rateLimits = nil
         }
+
         print("Capabilities init completed successfully")
     }
     
