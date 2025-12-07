@@ -34,6 +34,14 @@ final class AuthTokenStore: ObservableObject {
     func clearSession(for instance: InstanceProfile) {
         sessions.removeValue(forKey: identifier(for: instance))
     }
+    
+    func validSession(for instance: InstanceProfile) -> AuthSession? {
+        guard let session = session(for: instance) else { return nil }
+        if let expiry = session.expiryDate, expiry < Date() {
+            return nil
+        }
+        return session
+    }
 
     private func identifier(for instance: InstanceProfile) -> UUID {
         if let tokenIdentifier = instance.tokenIdentifier, let uuid = UUID(uuidString: tokenIdentifier) {

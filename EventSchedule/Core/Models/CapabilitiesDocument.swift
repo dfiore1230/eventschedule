@@ -27,8 +27,10 @@ struct CapabilitiesDocument: Codable {
 
     enum CodingKeys: String, CodingKey {
         case apiBaseURL = "api_base_url"
+        case apiBaseURLCamel = "apiBaseURL"
         case auth
         case brandingEndpoint = "branding_endpoint"
+        case brandingEndpointCamel = "brandingEndpoint"
         case legacyBrandingEndpoint = "brandingendpoint"
         case features
         case versions
@@ -38,7 +40,8 @@ struct CapabilitiesDocument: Codable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let apiBaseURLString = try container.decode(String.self, forKey: .apiBaseURL)
+        let apiBaseURLString = try container.decodeIfPresent(String.self, forKey: .apiBaseURLCamel)
+            ?? container.decode(String.self, forKey: .apiBaseURL)
         guard let resolvedAPIBase = URL(string: apiBaseURLString) else {
             throw DecodingError.dataCorruptedError(forKey: .apiBaseURL, in: container, debugDescription: "Invalid api_base_url")
         }
@@ -52,14 +55,22 @@ struct CapabilitiesDocument: Codable {
         }
         auth = AuthConfig(type: authType, endpoints: resolvedAuthEndpoints)
 
-        if let endpointString = try container.decodeIfPresent(String.self, forKey: .brandingEndpoint) ??
-            container.decodeIfPresent(String.self, forKey: .legacyBrandingEndpoint),
-           let resolvedEndpoint = CapabilitiesDocument.resolveURL(endpointString, base: resolvedAPIBase) {
+        let brandingString = try container.decodeIfPresent(String.self, forKey: .brandingEndpointCamel)
+            ?? container.decodeIfPresent(String.self, forKey: .brandingEndpoint)
+            ?? container.decodeIfPresent(String.self, forKey: .legacyBrandingEndpoint)
+        if let brandingString = brandingString,
+           let resolvedEndpoint = CapabilitiesDocument.resolveURL(brandingString, base: resolvedAPIBase) {
             brandingEndpoint = resolvedEndpoint
         } else {
             throw DecodingError.dataCorruptedError(forKey: .brandingEndpoint, in: container, debugDescription: "Invalid branding endpoint")
         }
-        features = try container.decodeIfPresent([String: Bool].self, forKey: .features) ?? [:]
+
+        let featuresDict = try container.decodeIfPresent([String: Bool].self, forKey: .features)
+            ?? (try container.decodeIfPresent([String].self, forKey: .features)
+                    .map { Dictionary(uniqueKeysWithValues: $0.map { ($0, true) }) })
+            ?? [:]
+        features = featuresDict
+
         versions = try container.decodeIfPresent([String: String].self, forKey: .versions)
         minAppVersion = try container.decodeIfPresent(String.self, forKey: .minAppVersion)
         rateLimits = try container.decodeIfPresent([String: Int].self, forKey: .rateLimits)

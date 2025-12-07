@@ -31,7 +31,9 @@ struct AuthService {
             expiry = nil
         }
 
-        return AuthSession(token: token, expiryDate: expiry)
+        let session = AuthSession(token: token, expiryDate: expiry)
+        AuthTokenStore.shared.save(session: session, for: instance)
+        return session
     }
 }
 

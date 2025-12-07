@@ -36,9 +36,7 @@ final class HTTPClient: HTTPClientProtocol {
         urlSession: URLSession = .shared,
         jsonDecoder: JSONDecoder = JSONDecoder(),
         jsonEncoder: JSONEncoder = JSONEncoder(),
-        tokenProvider: ((InstanceProfile) -> String?)? = { instance in
-            AuthTokenStore.shared.token(for: instance)
-        }
+        tokenProvider: ((InstanceProfile) -> String?)? = nil
     ) {
         self.urlSession = urlSession
         self.jsonDecoder = jsonDecoder
@@ -77,7 +75,8 @@ final class HTTPClient: HTTPClientProtocol {
         do {
             return try jsonDecoder.decode(T.self, from: data)
         } catch {
-            let bodyPreview = String(data: data, encoding: .utf8)
+            let bodyPreview = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
+            print("Decoding failed for \(T.self). Status OK, body:\n\(bodyPreview)")
             throw APIError.decodingError(error)
         }
     }
@@ -120,8 +119,16 @@ final class HTTPClient: HTTPClientProtocol {
         request.httpMethod = method.rawValue
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        if let token = tokenProvider?(instance) {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        // TODO: inject auth headers based on instance.authMethod & token store
+        if let token = tokenProvider?(instance) ?? AuthTokenStore.shared.validSession(for: instance)?.token {
+            switch instance.authMethod {
+            case .oauth2, .jwt:
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            case .sanctum:
+                // Many Sanctum setups accept a plain token header; adjust to your backend conventions if needed.
+                // Common patterns include: "Authorization: Bearer <token>" or a custom header like "X-API-TOKEN".
+                request.setValue(token, forHTTPHeaderField: "X-API-TOKEN")
+            }
         }
 
         if let body = body {
