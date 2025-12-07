@@ -103,9 +103,9 @@ struct CapabilitiesDocument: Decodable, Encodable {
         print("Resolved brandingEndpoint: \(brandingEndpoint)")
 
         let featuresDict: [String: Bool]
-        if let dict = try container.decodeIfPresent([String: Bool].self, forKey: .features) {
+        if let dict = try? container.decode([String: Bool].self, forKey: .features) {
             featuresDict = dict
-        } else if let arr = try container.decodeIfPresent([String].self, forKey: .features) {
+        } else if let arr = try? container.decode([String].self, forKey: .features) {
             featuresDict = Dictionary(uniqueKeysWithValues: arr.map { ($0, true) })
         } else {
             featuresDict = [:]
