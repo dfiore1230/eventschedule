@@ -47,13 +47,16 @@ struct CapabilitiesDocument: Codable {
         }
         apiBaseURL = resolvedAPIBase
 
-        let authContainer = try container.nestedContainer(keyedBy: AuthCodingKeys.self, forKey: .auth)
-        let authType = try authContainer.decode(AuthConfig.AuthType.self, forKey: .type)
-        let authEndpointStrings = try authContainer.decodeIfPresent([String: String].self, forKey: .endpoints) ?? [:]
-        let resolvedAuthEndpoints = authEndpointStrings.compactMapValues { endpoint in
-            CapabilitiesDocument.resolveURL(endpoint, base: resolvedAPIBase)
+        if let authContainer = try? container.nestedContainer(keyedBy: AuthCodingKeys.self, forKey: .auth) {
+            let authType = try authContainer.decode(AuthConfig.AuthType.self, forKey: .type)
+            let authEndpointStrings = try authContainer.decodeIfPresent([String: String].self, forKey: .endpoints) ?? [:]
+            let resolvedAuthEndpoints = authEndpointStrings.compactMapValues { endpoint in
+                CapabilitiesDocument.resolveURL(endpoint, base: resolvedAPIBase)
+            }
+            auth = AuthConfig(type: authType, endpoints: resolvedAuthEndpoints)
+        } else {
+            auth = AuthConfig(type: .sanctum, endpoints: [:])
         }
-        auth = AuthConfig(type: authType, endpoints: resolvedAuthEndpoints)
 
         let brandingString = try container.decodeIfPresent(String.self, forKey: .brandingEndpointCamel)
             ?? container.decodeIfPresent(String.self, forKey: .brandingEndpoint)
