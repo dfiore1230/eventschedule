@@ -1,6 +1,6 @@
 import Foundation
 
-enum APIError: LocalizedError {
+enum APIError: LocalizedError, Equatable {
     case invalidURL
     case decodingError(Error)
     case encodingError(Error)
@@ -31,6 +31,30 @@ enum APIError: LocalizedError {
             return "Too many requests. Please try again in a moment."
         case .unknown:
             return "An unknown error occurred."
+        }
+    }
+
+    static func == (lhs: APIError, rhs: APIError) -> Bool {
+        switch (lhs, rhs) {
+        case (.invalidURL, .invalidURL),
+             (.unauthorized, .unauthorized),
+             (.forbidden, .forbidden),
+             (.unknown, .unknown):
+            return true
+
+        case let (.serverError(statusA, messageA), .serverError(statusB, messageB)):
+            return statusA == statusB && messageA == messageB
+
+        case let (.rateLimited(retryA), .rateLimited(retryB)):
+            return retryA == retryB
+
+        case let (.decodingError(errorA), .decodingError(errorB)),
+             let (.encodingError(errorA), .encodingError(errorB)),
+             let (.networkError(errorA), .networkError(errorB)):
+            return (errorA as NSError) == (errorB as NSError)
+
+        default:
+            return false
         }
     }
 }
