@@ -158,8 +158,10 @@ final class HTTPClient: HTTPClientProtocol {
         if let http = response as? HTTPURLResponse {
             let contentType = http.value(forHTTPHeaderField: "Content-Type") ?? "<nil>"
             DebugLogger.network("HTTP ⬅️ \(http.statusCode) \(http.url?.absoluteString ?? "<nil>") content-type: \(contentType)")
-            if !(200..<300).contains(http.statusCode) {
-                let preview = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
+            let preview = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
+            if (200..<300).contains(http.statusCode) {
+                DebugLogger.network("HTTP ⬅️ body: \(preview)")
+            } else {
                 DebugLogger.network("HTTP ⬅️ body (non-2xx): \(preview)")
             }
         }
