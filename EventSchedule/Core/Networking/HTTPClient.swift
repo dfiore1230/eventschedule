@@ -101,6 +101,7 @@ final class HTTPClient: HTTPClientProtocol {
         instance: InstanceProfile
     ) async throws -> (Data, HTTPURLResponse) {
         guard var urlComponents = URLComponents(url: instance.baseURL, resolvingAgainstBaseURL: false) else {
+            DebugLogger.error("HTTPClient: failed to construct URLComponents for base=\(instance.baseURL) and path=\(path)")
             throw APIError.invalidURL
         }
 
@@ -114,6 +115,7 @@ final class HTTPClient: HTTPClientProtocol {
         }
 
         guard let url = urlComponents.url else {
+            DebugLogger.error("HTTPClient: failed to construct URL for base=\(instance.baseURL) and path=\(path)")
             throw APIError.invalidURL
         }
 
@@ -152,6 +154,7 @@ final class HTTPClient: HTTPClientProtocol {
         do {
             (data, response) = try await urlSession.data(for: request)
         } catch {
+            DebugLogger.error("HTTPClient: network error for \(request.httpMethod ?? "<nil>") \(request.url?.absoluteString ?? "<nil>") error=\(error.localizedDescription)")
             throw APIError.networkError(error)
         }
 
@@ -174,8 +177,10 @@ final class HTTPClient: HTTPClientProtocol {
         case 200..<300:
             return (data, httpResponse)
         case 401:
+            DebugLogger.error("HTTPClient: unauthorized response (401) for \(httpResponse.url?.absoluteString ?? "<nil>")")
             throw APIError.unauthorized
         case 403:
+            DebugLogger.error("HTTPClient: forbidden response (403) for \(httpResponse.url?.absoluteString ?? "<nil>")")
             throw APIError.forbidden
         case 429:
             // Parse Retry-After header. It can be either an integer number of seconds or an HTTP-date.
@@ -188,9 +193,11 @@ final class HTTPClient: HTTPClientProtocol {
                 // Optionally, try to parse HTTP-date formats if needed in the future.
                 return nil
             }
+            DebugLogger.error("HTTPClient: rate limited (429) for \(httpResponse.url?.absoluteString ?? "<nil>") retryAfter=\(retryAfter?.description ?? "nil")")
             throw APIError.rateLimited(retryAfter: retryAfter)
         default:
             let message = String(data: data, encoding: .utf8)
+            DebugLogger.error("HTTPClient: server error status=\(httpResponse.statusCode) url=\(httpResponse.url?.absoluteString ?? "<nil>") message=\(message ?? "<no body>")")
             throw APIError.serverError(statusCode: httpResponse.statusCode, message: message)
         }
     }
