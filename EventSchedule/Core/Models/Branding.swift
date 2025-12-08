@@ -24,6 +24,59 @@ struct BrandingResponse: Codable {
         case legalFooter = "legal_footer"
         case appIconURL = "app_icon_url"
     }
+
+    private enum ModernCodingKeys: String, CodingKey {
+        case logoURL = "logoUrl"
+        case wordmarkURL = "wordmarkUrl"
+        case colors
+        case legalFooter
+        case appIconURL = "appIconUrl"
+        case buttonRadius
+    }
+
+    private struct ColorsResponse: Codable {
+        let primary: String?
+        let secondary: String?
+        let tertiary: String?
+        let onPrimary: String?
+        let onSecondary: String?
+        let onTertiary: String?
+        let background: String?
+        let text: String?
+    }
+
+    init(from decoder: Decoder) throws {
+        let defaultTheme = ThemeDTO.default
+
+        let legacyContainer = try decoder.container(keyedBy: CodingKeys.self)
+        if legacyContainer.contains(.primaryHex) || legacyContainer.contains(.secondaryHex) || legacyContainer.contains(.accentHex) {
+            logoURL = try legacyContainer.decodeIfPresent(URL.self, forKey: .logoURL)
+            wordmarkURL = try legacyContainer.decodeIfPresent(URL.self, forKey: .wordmarkURL)
+            primaryHex = try legacyContainer.decodeIfPresent(String.self, forKey: .primaryHex) ?? defaultTheme.primaryHex
+            secondaryHex = try legacyContainer.decodeIfPresent(String.self, forKey: .secondaryHex) ?? defaultTheme.secondaryHex
+            accentHex = try legacyContainer.decodeIfPresent(String.self, forKey: .accentHex) ?? defaultTheme.accentHex
+            textHex = try legacyContainer.decodeIfPresent(String.self, forKey: .textHex) ?? defaultTheme.textHex
+            bgHex = try legacyContainer.decodeIfPresent(String.self, forKey: .bgHex) ?? defaultTheme.backgroundHex
+            buttonRadius = try legacyContainer.decodeIfPresent(CGFloat.self, forKey: .buttonRadius) ?? defaultTheme.buttonRadius
+            legalFooter = try legacyContainer.decodeIfPresent(String.self, forKey: .legalFooter)
+            appIconURL = try legacyContainer.decodeIfPresent(URL.self, forKey: .appIconURL)
+            return
+        }
+
+        let modernContainer = try decoder.container(keyedBy: ModernCodingKeys.self)
+        let colors = try modernContainer.decodeIfPresent(ColorsResponse.self, forKey: .colors)
+
+        logoURL = try modernContainer.decodeIfPresent(URL.self, forKey: .logoURL)
+        wordmarkURL = try modernContainer.decodeIfPresent(URL.self, forKey: .wordmarkURL)
+        primaryHex = colors?.primary ?? defaultTheme.primaryHex
+        secondaryHex = colors?.secondary ?? primaryHex
+        accentHex = colors?.tertiary ?? secondaryHex
+        textHex = colors?.text ?? colors?.onPrimary ?? defaultTheme.textHex
+        bgHex = colors?.background ?? defaultTheme.backgroundHex
+        buttonRadius = try modernContainer.decodeIfPresent(CGFloat.self, forKey: .buttonRadius) ?? defaultTheme.buttonRadius
+        legalFooter = try modernContainer.decodeIfPresent(String.self, forKey: .legalFooter)
+        appIconURL = try modernContainer.decodeIfPresent(URL.self, forKey: .appIconURL)
+    }
 }
 
 struct Theme: Equatable {
