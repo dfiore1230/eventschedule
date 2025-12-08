@@ -13,17 +13,17 @@ final class EventsListViewModel: ObservableObject {
     func setContext(repository: EventRepository, instance: InstanceProfile) {
         self.repository = repository
         self.instance = instance
-        print("EventsListViewModel: context set with instance=\(instance.displayName) (id=\(instance.id))")
+        DebugLogger.log("EventsListViewModel: context set with instance=\(instance.displayName) (id=\(instance.id))")
     }
 
     func load() async {
         guard let repository, let instance else {
             errorMessage = "No instance selected."
-            print("EventsListViewModel: load aborted – no repository or instance available")
+            DebugLogger.error("EventsListViewModel: load aborted – no repository or instance available")
             return
         }
 
-        print("EventsListViewModel: starting load for instance=\(instance.displayName) (id=\(instance.id))")
+        DebugLogger.log("EventsListViewModel: starting load for instance=\(instance.displayName) (id=\(instance.id))")
         isLoading = true
         defer { isLoading = false }
 
@@ -31,15 +31,15 @@ final class EventsListViewModel: ObservableObject {
             let events = try await repository.listEvents(for: instance)
             self.events = events
             errorMessage = nil
-            print("EventsListViewModel: load succeeded – received \(events.count) events")
+            DebugLogger.log("EventsListViewModel: load succeeded – received \(events.count) events")
         } catch {
             errorMessage = error.localizedDescription
-            print("EventsListViewModel: load failed with error=\(error.localizedDescription)")
+            DebugLogger.error("EventsListViewModel: load failed with error=\(error.localizedDescription)")
         }
     }
 
     func refresh() async {
-        print("EventsListViewModel: refresh requested")
+        DebugLogger.log("EventsListViewModel: refresh requested")
         await load()
     }
 
@@ -49,13 +49,13 @@ final class EventsListViewModel: ObservableObject {
 
         for id in idsToDelete {
             do {
-                print("EventsListViewModel: attempting to delete event id=\(id)")
+                DebugLogger.log("EventsListViewModel: attempting to delete event id=\(id)")
                 try await repository.deleteEvent(id: id, instance: instance)
                 events.removeAll { $0.id == id }
-                print("EventsListViewModel: deleted event id=\(id)")
+                DebugLogger.log("EventsListViewModel: deleted event id=\(id)")
             } catch {
                 errorMessage = error.localizedDescription
-                print("EventsListViewModel: failed to delete event id=\(id) error=\(error.localizedDescription)")
+                DebugLogger.error("EventsListViewModel: failed to delete event id=\(id) error=\(error.localizedDescription)")
             }
         }
     }
@@ -63,10 +63,10 @@ final class EventsListViewModel: ObservableObject {
     func apply(event: Event) {
         if let index = events.firstIndex(where: { $0.id == event.id }) {
             events[index] = event
-            print("EventsListViewModel: updated existing event id=\(event.id)")
+            DebugLogger.log("EventsListViewModel: updated existing event id=\(event.id)")
         } else {
             events.append(event)
-            print("EventsListViewModel: appended new event id=\(event.id)")
+            DebugLogger.log("EventsListViewModel: appended new event id=\(event.id)")
         }
     }
 }

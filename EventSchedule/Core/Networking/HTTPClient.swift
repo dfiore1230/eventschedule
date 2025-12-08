@@ -78,8 +78,8 @@ final class HTTPClient: HTTPClientProtocol {
             return try jsonDecoder.decode(T.self, from: data)
         } catch {
             let bodyPreview = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
-            print("Decoding failed for \(T.self). Status OK, body:\n\(bodyPreview)")
-            throw APIError.decodingError(error)
+            DebugLogger.error("Decoding failed for \(T.self). Status OK, body:\n\(bodyPreview)")
+            throw APIError.decodingError(error, bodyPreview: bodyPreview)
         }
     }
 
@@ -124,9 +124,9 @@ final class HTTPClient: HTTPClientProtocol {
         // Inject API key header from APIKeyStore
         if let apiKey = APIKeyStore.shared.load(for: instance) {
             request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
-            print("Auth header: X-API-Key: <redacted>")
+            DebugLogger.network("Auth header: X-API-Key: <redacted>")
         } else {
-            print("Auth header: no API key available for instance \(instance.displayName)")
+            DebugLogger.network("Auth header: no API key available for instance \(instance.displayName)")
         }
 
         if let body = body {
@@ -140,12 +140,12 @@ final class HTTPClient: HTTPClientProtocol {
         }
 
         if let method = request.httpMethod {
-            print("HTTP ➡️ \(method) \(request.url?.absoluteString ?? "<nil>")")
+            DebugLogger.network("HTTP ➡️ \(method) \(request.url?.absoluteString ?? "<nil>")")
         } else {
-            print("HTTP ➡️ <unknown method> \(request.url?.absoluteString ?? "<nil>")")
+            DebugLogger.network("HTTP ➡️ <unknown method> \(request.url?.absoluteString ?? "<nil>")")
         }
-        if let headers = request.allHTTPHeaderFields { print("HTTP headers: \(headers)") }
-        if let body = request.httpBody, let str = String(data: body, encoding: .utf8) { print("HTTP body: \(str)") }
+        if let headers = request.allHTTPHeaderFields { DebugLogger.network("HTTP headers: \(headers)") }
+        if let body = request.httpBody, let str = String(data: body, encoding: .utf8) { DebugLogger.network("HTTP body: \(str)") }
 
         let data: Data
         let response: URLResponse
@@ -157,10 +157,10 @@ final class HTTPClient: HTTPClientProtocol {
 
         if let http = response as? HTTPURLResponse {
             let contentType = http.value(forHTTPHeaderField: "Content-Type") ?? "<nil>"
-            print("HTTP ⬅️ \(http.statusCode) \(http.url?.absoluteString ?? "<nil>") content-type: \(contentType)")
+            DebugLogger.network("HTTP ⬅️ \(http.statusCode) \(http.url?.absoluteString ?? "<nil>") content-type: \(contentType)")
             if !(200..<300).contains(http.statusCode) {
                 let preview = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
-                print("HTTP ⬅️ body (non-2xx): \(preview)")
+                DebugLogger.network("HTTP ⬅️ body (non-2xx): \(preview)")
             }
         }
 

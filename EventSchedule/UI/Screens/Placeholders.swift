@@ -190,7 +190,10 @@ struct InstanceOnboardingPlaceholder: View {
             switch apiError {
             case .serverError(let statusCode, let message):
                 return "Server error (status: \(statusCode)). \(message ?? "No details provided.")"
-            case .decodingError(let underlying):
+            case .decodingError(let underlying, let bodyPreview):
+                if let bodyPreview, !bodyPreview.isEmpty {
+                    return "Failed to decode response: \(bodyPreview)"
+                }
                 return "Failed to decode response: \(underlying.localizedDescription)"
             case .encodingError(let underlying):
                 return "Failed to encode request: \(underlying.localizedDescription)"

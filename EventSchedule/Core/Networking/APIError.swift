@@ -2,7 +2,7 @@ import Foundation
 
 enum APIError: LocalizedError, Equatable {
     case invalidURL
-    case decodingError(Error)
+    case decodingError(Error, bodyPreview: String?)
     case encodingError(Error)
     case networkError(Error)
     case serverError(statusCode: Int, message: String?)
@@ -15,7 +15,10 @@ enum APIError: LocalizedError, Equatable {
         switch self {
         case .invalidURL:
             return "Invalid server URL."
-        case .decodingError:
+        case .decodingError(_, let bodyPreview):
+            if let bodyPreview, !bodyPreview.isEmpty {
+                return "Unexpected response from server: \(bodyPreview)"
+            }
             return "Unexpected response from server."
         case .encodingError:
             return "Failed to encode request."
@@ -48,8 +51,10 @@ enum APIError: LocalizedError, Equatable {
         case let (.rateLimited(retryA), .rateLimited(retryB)):
             return retryA == retryB
 
-        case let (.decodingError(errorA), .decodingError(errorB)),
-             let (.encodingError(errorA), .encodingError(errorB)),
+        case let (.decodingError(errorA, bodyA), .decodingError(errorB, bodyB)):
+            return (errorA as NSError) == (errorB as NSError) && bodyA == bodyB
+
+        case let (.encodingError(errorA), .encodingError(errorB)),
              let (.networkError(errorA), .networkError(errorB)):
             return (errorA as NSError) == (errorB as NSError)
 
