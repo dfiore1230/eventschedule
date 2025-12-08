@@ -6,6 +6,7 @@ struct Event: Codable, Identifiable, Equatable {
     var description: String?
     var startAt: Date
     var endAt: Date
+    var durationMinutes: Int?
     var venueId: String
     var roomId: String?
     var status: EventStatus
@@ -18,8 +19,12 @@ struct Event: Codable, Identifiable, Equatable {
         case id
         case name
         case description
+        case startsAt
         case startAt
+        case endsAt
         case endAt
+        case duration
+        case durationMinutes
         case venueId
         case roomId
         case status
@@ -71,8 +76,29 @@ struct Event: Codable, Identifiable, Equatable {
         id = try container.decode(String.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         description = try container.decodeIfPresent(String.self, forKey: .description)
-        startAt = try container.decode(Date.self, forKey: .startAt)
-        endAt = try container.decode(Date.self, forKey: .endAt)
+        if let explicitStart = try container.decodeIfPresent(Date.self, forKey: .startAt) {
+            startAt = explicitStart
+        } else if let alternateStart = try container.decodeIfPresent(Date.self, forKey: .startsAt) {
+            startAt = alternateStart
+        } else {
+            throw DecodingError.keyNotFound(
+                CodingKeys.startAt,
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Missing start time")
+            )
+        }
+
+        let decodedDuration = try container.decodeIfPresent(Int.self, forKey: .durationMinutes)
+            ?? container.decodeIfPresent(Int.self, forKey: .duration)
+        durationMinutes = decodedDuration
+
+        if let explicitEnd = try container.decodeIfPresent(Date.self, forKey: .endAt) ??
+            container.decodeIfPresent(Date.self, forKey: .endsAt) {
+            endAt = explicitEnd
+        } else if let durationMinutes, durationMinutes > 0 {
+            endAt = startAt.addingTimeInterval(TimeInterval(durationMinutes * 60))
+        } else {
+            endAt = startAt.addingTimeInterval(3600)
+        }
         roomId = try container.decodeIfPresent(String.self, forKey: .roomId)
         status = try container.decodeIfPresent(EventStatus.self, forKey: .status) ?? .scheduled
         images = try container.decodeIfPresent([URL].self, forKey: .images) ?? []
@@ -84,10 +110,7 @@ struct Event: Codable, Identifiable, Equatable {
         } else if let venueRef = try container.decodeIfPresent(VenueReference.self, forKey: .venue) {
             venueId = venueRef.id
         } else {
-            throw DecodingError.keyNotFound(
-                CodingKeys.venueId,
-                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Missing venue id")
-            )
+            venueId = "Unknown venue"
         }
 
         if let decodedTicketTypes = try container.decodeIfPresent([TicketType].self, forKey: .ticketTypes) {
@@ -105,6 +128,7 @@ struct Event: Codable, Identifiable, Equatable {
         description: String? = nil,
         startAt: Date,
         endAt: Date,
+        durationMinutes: Int? = nil,
         venueId: String,
         roomId: String? = nil,
         status: EventStatus = .scheduled,
@@ -118,6 +142,7 @@ struct Event: Codable, Identifiable, Equatable {
         self.description = description
         self.startAt = startAt
         self.endAt = endAt
+        self.durationMinutes = durationMinutes
         self.venueId = venueId
         self.roomId = roomId
         self.status = status
@@ -132,8 +157,9 @@ struct Event: Codable, Identifiable, Equatable {
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
         try container.encodeIfPresent(description, forKey: .description)
-        try container.encode(startAt, forKey: .startAt)
+        try container.encode(startAt, forKey: .startsAt)
         try container.encode(endAt, forKey: .endAt)
+        try container.encodeIfPresent(durationMinutes, forKey: .durationMinutes)
         try container.encode(venueId, forKey: .venueId)
         try container.encodeIfPresent(roomId, forKey: .roomId)
         try container.encode(status, forKey: .status)
