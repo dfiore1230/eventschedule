@@ -227,28 +227,39 @@ struct EventsListView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                mainContent()
+            contentView
+                .navigationTitle("Events")
+                .toolbar { toolbarContent }
+                .onAppear(perform: setupRepository)
+                .sheet(isPresented: $showingCreateForm) { createEventSheet() }
+                .accentColor(theme.accent)
+        }
+    }
+
+    @ViewBuilder
+    private var contentView: some View {
+        Group {
+            mainContent()
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarTrailing) {
+            Button(action: { showingCreateForm = true }) {
+                Image(systemName: "plus")
             }
-            .navigationTitle("Events")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingCreateForm = true }) {
-                        Image(systemName: "plus")
-                    }
-                    .disabled(instanceStore.activeInstance == nil)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    InstanceSwitcherToolbarItem()
-                }
-            }
-            .onAppear {
-                if repository == nil {
-                    repository = RemoteEventRepository(httpClient: httpClient)
-                }
-            }
-            .sheet(isPresented: $showingCreateForm) { createEventSheet() }
-            .accentColor(theme.accent)
+            .disabled(instanceStore.activeInstance == nil)
+        }
+
+        ToolbarItem(placement: .navigationBarTrailing) {
+            InstanceSwitcherToolbarItem()
+        }
+    }
+
+    private func setupRepository() {
+        if repository == nil {
+            repository = RemoteEventRepository(httpClient: httpClient)
         }
     }
 
