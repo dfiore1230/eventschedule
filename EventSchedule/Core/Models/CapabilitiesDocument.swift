@@ -46,7 +46,6 @@ struct CapabilitiesDocument: Decodable, Encodable {
         let hasCamelBrand = container.contains(.brandingEndpointCamel)
         let hasSnakeBrand = container.contains(.brandingEndpoint)
         let hasLegacyBrand = container.contains(.legacyBrandingEndpoint)
-        print("Capabilities keys present: apiBaseURLCamel=\(hasCamelAPI), api_base_url=\(hasSnakeAPI), brandingEndpointCamel=\(hasCamelBrand), branding_endpoint=\(hasSnakeBrand), legacyBrandingEndpoint=\(hasLegacyBrand)")
 
         let apiBaseURLString = try container.decodeIfPresent(String.self, forKey: .apiBaseURLCamel)
             ?? container.decodeIfPresent(String.self, forKey: .apiBaseURL)
@@ -55,20 +54,15 @@ struct CapabilitiesDocument: Decodable, Encodable {
             ?? container.decodeIfPresent(String.self, forKey: .brandingEndpoint)
             ?? container.decodeIfPresent(String.self, forKey: .legacyBrandingEndpoint)
 
-        print("Capabilities raw values: apiBaseURLString=\(apiBaseURLString ?? "nil"), brandingString=\(brandingString ?? "nil")")
-
         if let apiBaseString = apiBaseURLString, let resolvedAPIBase = URL(string: apiBaseString) {
             apiBaseURL = resolvedAPIBase
         } else if let apiBaseString = apiBaseURLString {
             // Temporary safe fallback if URL parsing fails unexpectedly
             apiBaseURL = URL(string: "https://localhost")!
-            print("apiBaseURL parsing failed for string: \(apiBaseString). Using fallback https://localhost")
         } else {
             // Temporary safe fallback if key is missing
             apiBaseURL = URL(string: "https://localhost")!
-            print("apiBaseURL missing. Using fallback https://localhost")
         }
-        print("Resolved apiBaseURL: \(apiBaseURL)")
 
         if container.contains(.auth) {
             func resolveURLLocal(_ value: String, base: URL) -> URL? {
@@ -100,7 +94,6 @@ struct CapabilitiesDocument: Decodable, Encodable {
             // Fallback: if branding endpoint is missing or invalid, default to the API base URL
             brandingEndpoint = apiBaseURL
         }
-        print("Resolved brandingEndpoint: \(brandingEndpoint)")
 
         let featuresDict: [String: Bool]
         if let dict = try? container.decode([String: Bool].self, forKey: .features) {
@@ -112,33 +105,26 @@ struct CapabilitiesDocument: Decodable, Encodable {
         }
         features = featuresDict
 
-        print("Capabilities init: decoding versions/minAppVersion/rateLimits...")
-
         // These fields are optional. If the backend sends an unexpected type (for example, a
         // string instead of a dictionary), we log the issue but continue decoding with
         // sensible fallbacks instead of failing the entire request.
         do {
             versions = try container.decodeIfPresent([String: String].self, forKey: .versions)
         } catch {
-            print("Capabilities versions decode error: \(error). Using nil.")
             versions = nil
         }
 
         do {
             minAppVersion = try container.decodeIfPresent(String.self, forKey: .minAppVersion)
         } catch {
-            print("Capabilities minAppVersion decode error: \(error). Using nil.")
             minAppVersion = nil
         }
 
         do {
             rateLimits = try container.decodeIfPresent([String: Int].self, forKey: .rateLimits)
         } catch {
-            print("Capabilities rateLimits decode error: \(error). Using nil.")
             rateLimits = nil
         }
-
-        print("Capabilities init completed successfully")
     }
     
     func encode(to encoder: Encoder) throws {
