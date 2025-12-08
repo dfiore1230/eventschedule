@@ -14,11 +14,10 @@ enum DebugLogger {
     private static func mirrorToXcodeConsole(_ message: String) {
         // Xcode 15+ no longer exposes the debug console as a TTY, which caused
         // the previous detection using `isatty` to suppress all mirrored
-        // messages. Writing directly to stderr in Debug builds keeps the console
-        // output visible without affecting Release builds.
-        #if DEBUG
+        // messages. Writing directly to stderr keeps the console output visible
+        // even in Release builds, which is helpful when debugging on device or
+        // with TestFlight installs.
         fputs("[EventSchedule] \(message)\n", stderr)
-        #endif
     }
 
     static func log(_ message: String) {
