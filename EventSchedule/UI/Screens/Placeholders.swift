@@ -216,32 +216,6 @@ struct InstanceOnboardingPlaceholder: View {
     }
 }
 
-struct DashboardView: View {
-    @EnvironmentObject var instanceStore: InstanceStore
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                if let instance = instanceStore.activeInstance {
-                    Text("Dashboard")
-                        .font(.title)
-                    Text("Instance: \(instance.displayName)")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                } else {
-                    Text("No active instance.")
-                }
-                Spacer()
-            }
-            .padding()
-            .navigationTitle("Dashboard")
-            .toolbar {
-                InstanceSwitcherToolbarItem()
-            }
-        }
-    }
-}
-
 struct EventsListView: View {
     @EnvironmentObject var instanceStore: InstanceStore
     @Environment(\.httpClient) private var httpClient
@@ -364,43 +338,6 @@ struct EventsListView: View {
         }
     }
 }
-
-struct TalentListView: View {
-    var body: some View {
-        NavigationStack {
-            Text("Talent")
-                .navigationTitle("Talent")
-                .toolbar {
-                    InstanceSwitcherToolbarItem()
-                }
-        }
-    }
-}
-
-struct VenuesListView: View {
-    var body: some View {
-        NavigationStack {
-            Text("Venues")
-                .navigationTitle("Venues")
-                .toolbar {
-                    InstanceSwitcherToolbarItem()
-                }
-        }
-    }
-}
-
-struct TicketsSearchView: View {
-    var body: some View {
-        NavigationStack {
-            Text("Tickets")
-                .navigationTitle("Tickets")
-                .toolbar {
-                    InstanceSwitcherToolbarItem()
-                }
-        }
-    }
-}
-
 struct SettingsView: View {
     @EnvironmentObject var instanceStore: InstanceStore
     @Environment(\.httpClient) private var httpClient
