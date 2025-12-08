@@ -37,6 +37,12 @@ final class AuthTokenStore: ObservableObject {
     
     func validSession(for instance: InstanceProfile) -> AuthSession? {
         guard let session = session(for: instance) else { return nil }
+        if let expiry = session.expiryDate {
+            let expired = expiry < Date()
+            print("AuthTokenStore: session found (expired=\(expired)) for \(identifier(for: instance))")
+        } else {
+            print("AuthTokenStore: session found (no expiry) for \(identifier(for: instance))")
+        }
         if let expiry = session.expiryDate, expiry < Date() {
             return nil
         }

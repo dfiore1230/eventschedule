@@ -3,12 +3,12 @@ import SwiftUI
 struct BrandingResponse: Codable {
     let logoURL: URL?
     let wordmarkURL: URL?
-    let primaryHex: String
-    let secondaryHex: String
-    let accentHex: String
-    let textHex: String
-    let bgHex: String
-    let buttonRadius: CGFloat
+    let primaryHex: String?
+    let secondaryHex: String?
+    let accentHex: String?
+    let textHex: String?
+    let bgHex: String?
+    let buttonRadius: CGFloat?
     let legalFooter: String?
     let appIconURL: URL?
 
@@ -109,11 +109,12 @@ extension Color {
 
 extension Theme {
     init(from branding: BrandingResponse) {
-        let primary = Color(hex: branding.primaryHex) ?? .blue
-        let secondary = Color(hex: branding.secondaryHex) ?? .gray
-        let accent = Color(hex: branding.accentHex) ?? .green
-        let text = Color(hex: branding.textHex) ?? .primary
-        let background = Color(hex: branding.bgHex) ?? .systemBackground
+        let primary = Color(hex: branding.primaryHex ?? "") ?? .blue
+        let secondary = Color(hex: branding.secondaryHex ?? "") ?? .gray
+        let accent = Color(hex: branding.accentHex ?? "") ?? .green
+        let text = Color(hex: branding.textHex ?? "") ?? .primary
+        let background = Color(hex: branding.bgHex ?? "") ?? .systemBackground
+        let radius = branding.buttonRadius ?? 10
 
         self.init(
             primary: primary,
@@ -121,7 +122,7 @@ extension Theme {
             accent: accent,
             text: text,
             background: background,
-            buttonRadius: branding.buttonRadius,
+            buttonRadius: radius,
             legalFooter: branding.legalFooter
         )
     }
@@ -155,12 +156,12 @@ extension Theme {
 extension ThemeDTO {
     init(from branding: BrandingResponse) {
         self.init(
-            primaryHex: branding.primaryHex,
-            secondaryHex: branding.secondaryHex,
-            accentHex: branding.accentHex,
-            textHex: branding.textHex,
-            backgroundHex: branding.bgHex,
-            buttonRadius: branding.buttonRadius,
+            primaryHex: branding.primaryHex ?? ThemeDTO.default.primaryHex,
+            secondaryHex: branding.secondaryHex ?? (branding.primaryHex ?? ThemeDTO.default.secondaryHex),
+            accentHex: branding.accentHex ?? (branding.secondaryHex ?? ThemeDTO.default.accentHex),
+            textHex: branding.textHex ?? ThemeDTO.default.textHex,
+            backgroundHex: branding.bgHex ?? ThemeDTO.default.backgroundHex,
+            buttonRadius: branding.buttonRadius ?? ThemeDTO.default.buttonRadius,
             legalFooter: branding.legalFooter
         )
     }

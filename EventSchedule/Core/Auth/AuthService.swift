@@ -1,42 +1,110 @@
 import Foundation
 
+/// API-key based authentication service.
+///
+/// This service replaces username/password login flows. Clients should:
+/// 1) Discover `apiBase` from `/.well-known/eventschedule.json` and store it in `InstanceProfile.baseURL`.
+/// 2) Persist an API key provided by the user (Settings → Integrations & API in the web UI).
+/// 3) Send the API key on every request using the `X-API-Key` header.
+///
+/// Expected server errors:
+/// - 401 Unauthorized: missing/invalid X-API-Key
+/// - 423 Locked: key temporarily blocked after repeated failures
+/// - 429 Too Many Requests: IP-level rate limiting
 struct AuthService {
     let httpClient: HTTPClientProtocol
 
-    func login(email: String, password: String, instance: InstanceProfile) async throws -> AuthSession {
-        guard let endpoint = instance.authEndpoints?["login"] ?? instance.authEndpoints?["token"] else {
-            throw APIError.invalidURL
+    init(httpClient: HTTPClientProtocol) {
+        self.httpClient = httpClient
+    }
+
+    // MARK: - API Key Session
+
+    struct APIKeySession: Equatable {
+        let apiKey: String
+    }
+
+    /// Save an API key for the given instance.
+    func save(apiKey: String, for instance: InstanceProfile) {
+        APIKeyStore.shared.save(apiKey: apiKey, for: instance)
+    }
+
+    /// Load an API key for the given instance.
+    func load(for instance: InstanceProfile) -> APIKeySession? {
+        guard let key = APIKeyStore.shared.load(for: instance) else { return nil }
+        return APIKeySession(apiKey: key)
+    }
+
+    /// Clear a stored API key for the given instance.
+    func clear(for instance: InstanceProfile) {
+        APIKeyStore.shared.clear(for: instance)
+    }
+
+    // MARK: - Request Helpers
+
+    /// Prepare a URLRequest for a given path and optional query using the instance baseURL,
+    /// attaching JSON headers and the X-API-Key header if available.
+    func makeRequest(
+        path: String,
+        method: String = "GET",
+        query: [String: String?]? = nil,
+        instance: InstanceProfile,
+        jsonBody: Data? = nil
+    ) throws -> URLRequest {
+        guard var components = URLComponents(url: instance.baseURL, resolvingAgainstBaseURL: false) else {
+            throw APIError.serverError(statusCode: 0, message: "Invalid base URL for instance: \(instance.displayName)")
+        }
+        components.path = path
+        if let query = query {
+            components.queryItems = query.compactMap { key, value in
+                guard let value else { return nil }
+                return URLQueryItem(name: key, value: value)
+            }
+        }
+        guard let url = components.url else {
+            throw APIError.serverError(statusCode: 0, message: "Failed to construct URL for path: \(path)")
         }
 
-        let (path, query) = endpoint.asPathAndQuery()
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let response: AuthTokenResponse
-        switch instance.authMethod {
-        case .oauth2:
-            let request = OAuthPasswordRequest(username: email, password: password)
-            response = try await httpClient.request(path, method: .post, query: query, body: request, instance: instance)
-        case .sanctum, .jwt:
-            let request = UsernamePasswordRequest(email: email, password: password)
-            response = try await httpClient.request(path, method: .post, query: query, body: request, instance: instance)
+        if let key = APIKeyStore.shared.load(for: instance) {
+            request.setValue(key, forHTTPHeaderField: "X-API-Key")
         }
 
-        guard let token = response.resolvedToken else {
-            throw APIError.serverError(statusCode: 0, message: "Login succeeded but no token was returned.")
-        }
+        request.httpBody = jsonBody
+        return request
+    }
 
-        let expiry: Date?
-        if let expiresIn = response.resolvedExpiry {
-            expiry = Date().addingTimeInterval(expiresIn)
-        } else {
-            expiry = nil
+    /// Perform a request through the shared URLSession and map common auth-related errors.
+    func perform(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw APIError.serverError(statusCode: 0, message: "Non-HTTP response")
         }
+        switch http.statusCode {
+        case 401:
+            throw APIError.unauthorized
+        case 423, 429:
+            throw APIError.serverError(statusCode: http.statusCode, message: nil)
+        default:
+            break
+        }
+        return (data, http)
+    }
 
-        let session = AuthSession(token: token, expiryDate: expiry)
-        AuthTokenStore.shared.save(session: session, for: instance)
-        return session
+    // MARK: - Convenience JSON decoding
+
+    func decodeJSON<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try decoder.decode(T.self, from: data)
     }
 }
 
+// MARK: - URL helpers
 private extension URL {
     func asPathAndQuery() -> (String, [String: String?]?) {
         let components = URLComponents(url: self, resolvingAgainstBaseURL: false)
@@ -47,43 +115,96 @@ private extension URL {
     }
 }
 
-private struct UsernamePasswordRequest: Encodable {
-    let email: String
-    let password: String
-}
+// MARK: - APIKeyStore (singleton)
+/// A Keychain-backed store for API keys.
+final class APIKeyStore {
+    static let shared = APIKeyStore()
+    private init() {}
 
-private struct OAuthPasswordRequest: Encodable {
-    let username: String
-    let password: String
-    let grantType: String = "password"
+    // In-memory cache for quick access; source of truth is Keychain
+    private var cache: [String: String] = [:]
 
-    enum CodingKeys: String, CodingKey {
-        case username
-        case password
-        case grantType = "grant_type"
+    private let service: String = (Bundle.main.bundleIdentifier ?? "com.example.app") + ".apikey"
+
+    /// Persist an API key for an instance.
+    func save(apiKey: String, for instance: InstanceProfile) {
+        let account = storageKey(for: instance)
+        cache[account] = apiKey
+        let data = Data(apiKey.utf8)
+
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+
+        let attributes: [String: Any] = [
+            kSecValueData as String: data
+        ]
+
+        let status: OSStatus
+        if keychainItemExists(query: query) {
+            status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        } else {
+            var addQuery = query
+            addQuery[kSecValueData as String] = data
+            status = SecItemAdd(addQuery as CFDictionary, nil)
+        }
+
+        if status != errSecSuccess {
+            print("Keychain save error: \(status)")
+        }
     }
-}
 
-private struct AuthTokenResponse: Decodable {
-    let token: String?
-    let accessToken: String?
-    let bearerToken: String?
-    let expiresIn: TimeInterval?
-    let expires_in: TimeInterval?
+    /// Load an API key for an instance.
+    func load(for instance: InstanceProfile) -> String? {
+        let account = storageKey(for: instance)
+        if let cached = cache[account] { return cached }
 
-    enum CodingKeys: String, CodingKey {
-        case token
-        case accessToken = "access_token"
-        case bearerToken = "bearer_token"
-        case expiresIn = "expiresIn"
-        case expires_in
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        guard status == errSecSuccess, let data = item as? Data, let key = String(data: data, encoding: .utf8) else {
+            if status != errSecItemNotFound {
+                print("Keychain load error: \(status)")
+            }
+            return nil
+        }
+        cache[account] = key
+        return key
     }
 
-    var resolvedToken: String? {
-        token ?? accessToken ?? bearerToken
+    /// Clear the API key for an instance.
+    func clear(for instance: InstanceProfile) {
+        let account = storageKey(for: instance)
+        cache.removeValue(forKey: account)
+
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: service,
+            kSecAttrAccount as String: account
+        ]
+
+        let status = SecItemDelete(query as CFDictionary)
+        if status != errSecSuccess && status != errSecItemNotFound {
+            print("Keychain delete error: \(status)")
+        }
     }
 
-    var resolvedExpiry: TimeInterval? {
-        expiresIn ?? expires_in
+    private func storageKey(for instance: InstanceProfile) -> String {
+        return instance.baseURL.absoluteString
+    }
+
+    private func keychainItemExists(query: [String: Any]) -> Bool {
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        return status == errSecSuccess
     }
 }

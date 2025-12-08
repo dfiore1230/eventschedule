@@ -2,13 +2,11 @@ import SwiftUI
 
 struct InstanceOnboardingPlaceholder: View {
     @EnvironmentObject var instanceStore: InstanceStore
-    @EnvironmentObject var authStore: AuthTokenStore
     @Environment(\.theme) private var theme
     @Environment(\.httpClient) private var httpClient
 
     @State private var urlString: String = ""
-    @State private var email: String = ""
-    @State private var password: String = ""
+    @State private var apiKey: String = ""
     @State private var isConnecting: Bool = false
     @State private var errorMessage: String?
     @State private var showingError: Bool = false
@@ -32,25 +30,17 @@ struct InstanceOnboardingPlaceholder: View {
                         .focused($urlFieldFocused)
 
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Sign in to continue")
+                        Text("Enter API Key")
                             .font(.headline)
 
-                        TextField("Email or username", text: $email)
-                            .textInputAutocapitalization(.never)
-                            .keyboardType(.emailAddress)
-                            .autocorrectionDisabled()
-                            .padding()
-                            .background(Color(.secondarySystemBackground))
-                            .cornerRadius(8)
-
-                        SecureField("Password", text: $password)
+                        SecureField("API Key", text: $apiKey)
                             .padding()
                             .background(Color(.secondarySystemBackground))
                             .cornerRadius(8)
                     }
 
                     Button(action: addInstance) {
-                        Text("Connect & Sign In")
+                        Text("Connect")
                             .frame(maxWidth: .infinity)
                             .padding()
                             .background(theme.primary)
@@ -64,19 +54,23 @@ struct InstanceOnboardingPlaceholder: View {
                                 }
                             }
                     }
-                    .disabled(urlString.isEmpty || email.isEmpty || password.isEmpty || isConnecting)
+                    .disabled(urlString.isEmpty || apiKey.isEmpty || isConnecting)
 
                     Spacer()
                 }
                 .padding()
             }
             .scrollDismissesKeyboard(.immediately)
+            .ignoresSafeArea(.keyboard, edges: .bottom)
             .navigationTitle("EventSchedule")
-            .alert("Connection Failed", isPresented: $showingError) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(errorMessage ?? "Unknown error")
-            }
+        }
+        .alert("Connection Failed", isPresented: $showingError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(errorMessage ?? "Unknown error")
+        }
+        .onTapGesture {
+            urlFieldFocused = false
         }
     }
 
@@ -88,6 +82,8 @@ struct InstanceOnboardingPlaceholder: View {
             return
         }
 
+        print("Onboarding: discovery for base \(normalizedURL.absoluteString)")
+
         isConnecting = true
         Task {
             do {
@@ -95,7 +91,13 @@ struct InstanceOnboardingPlaceholder: View {
                 let brandingService = BrandingService(httpClient: httpClient)
 
                 let capabilities = try await discoveryService.fetchCapabilities(from: normalizedURL)
+
+                print("Onboarding: capabilities OK, apiBase=\(capabilities.apiBaseURL), features=\(capabilities.features)")
+
                 let branding = try await brandingService.fetchBranding(from: capabilities)
+
+                print("Onboarding: branding OK, endpoint=\(capabilities.brandingEndpoint)")
+
                 let authService = AuthService(httpClient: httpClient)
 
                 let authMethod = InstanceProfile.AuthMethod(from: capabilities.auth.type)
@@ -118,20 +120,18 @@ struct InstanceOnboardingPlaceholder: View {
                     theme: themeDTO
                 )
 
-                let session = try await authService.login(email: email, password: password, instance: profile)
+                try await authService.save(apiKey: apiKey, for: profile)
 
                 await MainActor.run {
                     instanceStore.addInstance(profile)
-                    authStore.save(session: session, for: profile)
                     urlString = ""
-                    email = ""
-                    password = ""
+                    apiKey = ""
                 }
             } catch {
                 await MainActor.run {
                     urlFieldFocused = false
                 }
-                try? await Task.sleep(nanoseconds: 150_000_000)
+                try? await Task.sleep(nanoseconds: 300_000_000)
                 await MainActor.run {
                     errorMessage = detailedErrorDescription(for: error)
                     showingError = true
@@ -146,15 +146,43 @@ struct InstanceOnboardingPlaceholder: View {
 
     private func normalizedBaseURL(from input: String) -> URL? {
         var trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Prepend https if missing a scheme
         if !trimmed.contains("://") {
             trimmed = "https://" + trimmed
         }
 
-        guard var components = URLComponents(string: trimmed) else { return nil }
-        components.path = ""
-        components.query = nil
-        components.fragment = nil
-        return components.url
+        // Attempt to parse with URLComponents
+        var resultURL: URL?
+        if var components = URLComponents(string: trimmed) {
+            // Strip any accidental path/query/fragment like "/api" that users may include
+            components.path = ""
+            components.query = nil
+            components.fragment = nil
+
+            // Normalize casing for consistency
+            if let host = components.host, !host.isEmpty {
+                components.host = host.lowercased()
+            }
+            components.scheme = components.scheme?.lowercased()
+            resultURL = components.url
+        }
+
+        // Fallback: If parsing failed or host is missing, try to extract a plausible domain and build an https URL
+        if resultURL == nil || resultURL?.host == nil {
+            let withoutScheme = input.trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: "^https?://", with: "", options: .regularExpression)
+            let domainPattern = "^[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
+            if let range = withoutScheme.range(of: domainPattern, options: .regularExpression) {
+                let domain = String(withoutScheme[range]).lowercased()
+                resultURL = URL(string: "https://\(domain)")
+            }
+        }
+
+        // Temporary diagnostic print
+        print("normalizedBaseURL input=\(input) -> result=\(resultURL?.absoluteString ?? "nil")")
+
+        return resultURL
     }
 
     private func detailedErrorDescription(for error: Error) -> String {
@@ -264,13 +292,11 @@ struct TicketsSearchView: View {
 
 struct SettingsView: View {
     @EnvironmentObject var instanceStore: InstanceStore
-    @EnvironmentObject var authStore: AuthTokenStore
     @Environment(\.httpClient) private var httpClient
     @Environment(\.theme) private var theme
 
-    @State private var email: String = ""
-    @State private var password: String = ""
-    @State private var isLoggingIn: Bool = false
+    @State private var apiKey: String = ""
+    @State private var isSaving: Bool = false
     @State private var showingAlert: Bool = false
     @State private var alertMessage: String?
 
@@ -288,34 +314,28 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
 
-                    Section("Credentials") {
-                        TextField("Email or username", text: $email)
-                            .keyboardType(.emailAddress)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
-
-                        SecureField("Password", text: $password)
+                    Section("API Key") {
+                        SecureField("API Key", text: $apiKey)
                     }
 
-                    Section("Session") {
+                    Section("API Key Session") {
                         sessionSummary(for: instance)
 
-                        Button(action: { login(instance: instance) }) {
-                            if isLoggingIn {
+                        Button(action: { saveAPIKey(instance: instance) }) {
+                            if isSaving {
                                 ProgressView()
                                     .progressViewStyle(.circular)
                             } else {
-                                Text("Log In")
+                                Text("Save API Key")
                                     .frame(maxWidth: .infinity, alignment: .center)
                             }
                         }
-                        .disabled(email.isEmpty || password.isEmpty || isLoggingIn)
+                        .disabled(apiKey.isEmpty || isSaving)
 
-                        Button(role: .destructive, action: { logout(instance: instance) }) {
-                            Text("Log Out")
+                        Button(role: .destructive, action: { removeAPIKey(instance: instance) }) {
+                            Text("Remove API Key")
                                 .frame(maxWidth: .infinity, alignment: .center)
                         }
-                        .disabled(authStore.session(for: instance) == nil)
                     }
                 } else {
                     Section {
@@ -339,33 +359,24 @@ struct SettingsView: View {
 
     @ViewBuilder
     private func sessionSummary(for instance: InstanceProfile) -> some View {
-        if let session = authStore.session(for: instance) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Session active")
-                if let expiry = session.expiryDate {
-                    Text("Expires: \(expiry.formatted(date: .abbreviated, time: .shortened))")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
-            }
+        if APIKeyStore.shared.load(for: instance) != nil {
+            Text("API Key is saved")
         } else {
-            Text("Not logged in")
+            Text("No API Key saved")
                 .foregroundColor(.secondary)
         }
     }
 
-    private func login(instance: InstanceProfile) {
-        guard !isLoggingIn else { return }
-        isLoggingIn = true
+    private func saveAPIKey(instance: InstanceProfile) {
+        guard !isSaving else { return }
+        isSaving = true
 
         Task {
             do {
                 let authService = AuthService(httpClient: httpClient)
-                let session = try await authService.login(email: email, password: password, instance: instance)
-
+                try await authService.save(apiKey: apiKey, for: instance)
                 await MainActor.run {
-                    authStore.save(session: session, for: instance)
-                    alertMessage = "Logged in successfully."
+                    alertMessage = "API Key saved successfully."
                     showingAlert = true
                 }
             } catch {
@@ -376,15 +387,15 @@ struct SettingsView: View {
             }
 
             await MainActor.run {
-                isLoggingIn = false
+                isSaving = false
             }
         }
     }
 
-    private func logout(instance: InstanceProfile) {
-        authStore.clearSession(for: instance)
-        alertMessage = "Logged out."
+    private func removeAPIKey(instance: InstanceProfile) {
+        let authService = AuthService(httpClient: httpClient)
+        authService.clear(for: instance)
+        alertMessage = "API Key removed."
         showingAlert = true
     }
 }
-

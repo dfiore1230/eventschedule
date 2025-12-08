@@ -119,16 +119,12 @@ final class HTTPClient: HTTPClientProtocol {
         request.httpMethod = method.rawValue
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        // TODO: inject auth headers based on instance.authMethod & token store
-        if let token = tokenProvider?(instance) ?? AuthTokenStore.shared.validSession(for: instance)?.token {
-            switch instance.authMethod {
-            case .oauth2, .jwt:
-                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            case .sanctum:
-                // Many Sanctum setups accept a plain token header; adjust to your backend conventions if needed.
-                // Common patterns include: "Authorization: Bearer <token>" or a custom header like "X-API-TOKEN".
-                request.setValue(token, forHTTPHeaderField: "X-API-TOKEN")
-            }
+        // Inject API key header from APIKeyStore
+        if let apiKey = APIKeyStore.shared.load(for: instance) {
+            request.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+            print("Auth header: X-API-Key: <redacted>")
+        } else {
+            print("Auth header: no API key available for instance \(instance.displayName)")
         }
 
         if let body = body {
@@ -141,12 +137,29 @@ final class HTTPClient: HTTPClientProtocol {
             }
         }
 
+        if let method = request.httpMethod {
+            print("HTTP ➡️ \(method) \(request.url?.absoluteString ?? "<nil>")")
+        } else {
+            print("HTTP ➡️ <unknown method> \(request.url?.absoluteString ?? "<nil>")")
+        }
+        if let headers = request.allHTTPHeaderFields { print("HTTP headers: \(headers)") }
+        if let body = request.httpBody, let str = String(data: body, encoding: .utf8) { print("HTTP body: \(str)") }
+
         let data: Data
         let response: URLResponse
         do {
             (data, response) = try await urlSession.data(for: request)
         } catch {
             throw APIError.networkError(error)
+        }
+
+        if let http = response as? HTTPURLResponse {
+            let contentType = http.value(forHTTPHeaderField: "Content-Type") ?? "<nil>"
+            print("HTTP ⬅️ \(http.statusCode) \(http.url?.absoluteString ?? "<nil>") content-type: \(contentType)")
+            if !(200..<300).contains(http.statusCode) {
+                let preview = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
+                print("HTTP ⬅️ body (non-2xx): \(preview)")
+            }
         }
 
         guard let httpResponse = response as? HTTPURLResponse else {
