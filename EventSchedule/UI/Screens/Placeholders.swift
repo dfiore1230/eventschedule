@@ -250,8 +250,8 @@ struct EventsListView: View {
                 Image(systemName: "plus")
             }
             .disabled(instanceStore.activeInstance == nil)
-            .onChange(of: showingCreateForm) { isShowing in
-                print("EventsListView: create sheet toggled, showing=\(isShowing)")
+            .onChange(of: showingCreateForm) { oldValue, newValue in
+                print("EventsListView: create sheet toggled, showing=\(newValue)")
             }
         }
 
