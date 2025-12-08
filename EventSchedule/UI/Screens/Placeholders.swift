@@ -243,13 +243,104 @@ struct DashboardView: View {
 }
 
 struct EventsListView: View {
+    @EnvironmentObject var instanceStore: InstanceStore
+    @Environment(\.httpClient) private var httpClient
+    @Environment(\.theme) private var theme
+
+    @StateObject private var viewModel = EventsListViewModel()
+    @State private var repository: RemoteEventRepository?
+    @State private var showingCreateForm: Bool = false
+
     var body: some View {
         NavigationStack {
-            Text("Events")
-                .navigationTitle("Events")
-                .toolbar {
+            Group {
+                if let instance = instanceStore.activeInstance, let repository {
+                    List {
+                        ForEach(viewModel.events) { event in
+                            NavigationLink {
+                                EventDetailView(event: event, repository: repository, instance: instance) { updated in
+                                    viewModel.apply(event: updated)
+                                }
+                            } label: {
+                                eventRow(event)
+                            }
+                        }
+                        .onDelete { offsets in
+                            Task { await viewModel.remove(at: offsets) }
+                        }
+                    }
+                    .listStyle(.plain)
+                    .overlay(alignment: .center) {
+                        if viewModel.isLoading {
+                            ProgressView("Loading Events…")
+                        } else if let message = viewModel.errorMessage, viewModel.events.isEmpty {
+                            VStack(spacing: 8) {
+                                Text("Could not load events")
+                                    .font(.headline)
+                                Text(message)
+                                    .font(.footnote)
+                                    .foregroundColor(.secondary)
+                            }
+                            .multilineTextAlignment(.center)
+                            .padding()
+                        } else if viewModel.events.isEmpty {
+                            Text("No events found")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .task {
+                        viewModel.setContext(repository: repository, instance: instance)
+                        await viewModel.load()
+                    }
+                    .refreshable {
+                        await viewModel.refresh()
+                    }
+                } else {
+                    Text("Add an instance to start browsing events.")
+                        .foregroundColor(.secondary)
+                        .padding()
+                }
+            }
+            .navigationTitle("Events")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { showingCreateForm = true }) {
+                        Image(systemName: "plus")
+                    }
+                    .disabled(instanceStore.activeInstance == nil)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
                     InstanceSwitcherToolbarItem()
                 }
+            }
+            .onAppear {
+                if repository == nil {
+                    repository = RemoteEventRepository(httpClient: httpClient)
+                }
+            }
+            .sheet(isPresented: $showingCreateForm) {
+                if let instance = instanceStore.activeInstance, let repository {
+                    NavigationStack {
+                        EventFormView(repository: repository, instance: instance) { newEvent in
+                            viewModel.apply(event: newEvent)
+                        }
+                    }
+                }
+            }
+            .accentColor(theme.accent)
+        }
+    }
+
+    private func eventRow(_ event: Event) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(event.name)
+                .font(.headline)
+            Text(event.startAt.formatted(date: .abbreviated, time: .shortened))
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Text(event.venueId)
+                .font(.footnote)
+                .foregroundColor(.secondary)
         }
     }
 }
