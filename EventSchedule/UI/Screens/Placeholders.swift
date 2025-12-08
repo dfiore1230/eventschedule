@@ -253,15 +253,7 @@ struct EventsListView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if let instance = instanceStore.activeInstance, let repo = repository {
-                    eventsList(for: instance, repository: repo)
-                } else {
-                    Text("Add an instance to start browsing events.")
-                        .foregroundColor(.secondary)
-                        .padding()
-                }
-            }
+            mainContent()
             .navigationTitle("Events")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -279,15 +271,7 @@ struct EventsListView: View {
                     repository = RemoteEventRepository(httpClient: httpClient)
                 }
             }
-            .sheet(isPresented: $showingCreateForm) {
-                if let instance = instanceStore.activeInstance, let repo = repository {
-                    NavigationStack {
-                        EventFormView(repository: repo, instance: instance) { newEvent in
-                            viewModel.apply(event: newEvent)
-                        }
-                    }
-                }
-            }
+            .sheet(isPresented: $showingCreateForm) { createEventSheet() }
             .accentColor(theme.accent)
         }
     }
@@ -351,6 +335,28 @@ struct EventsListView: View {
         } else if viewModel.events.isEmpty {
             Text("No events found")
                 .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func mainContent() -> some View {
+        if let instance = instanceStore.activeInstance, let repo = repository {
+            eventsList(for: instance, repository: repo)
+        } else {
+            Text("Add an instance to start browsing events.")
+                .foregroundColor(.secondary)
+                .padding()
+        }
+    }
+
+    @ViewBuilder
+    private func createEventSheet() -> some View {
+        if let instance = instanceStore.activeInstance, let repo = repository {
+            NavigationStack {
+                EventFormView(repository: repo, instance: instance) { newEvent in
+                    viewModel.apply(event: newEvent)
+                }
+            }
         }
     }
 }
