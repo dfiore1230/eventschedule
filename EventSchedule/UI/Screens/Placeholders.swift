@@ -250,6 +250,9 @@ struct EventsListView: View {
                 Image(systemName: "plus")
             }
             .disabled(instanceStore.activeInstance == nil)
+            .onChange(of: showingCreateForm) { isShowing in
+                print("EventsListView: create sheet toggled, showing=\(isShowing)")
+            }
         }
 
         InstanceSwitcherToolbarItem()
@@ -258,6 +261,7 @@ struct EventsListView: View {
     private func setupRepository() {
         if repository == nil {
             repository = RemoteEventRepository(httpClient: httpClient)
+            print("EventsListView: repository initialized")
         }
     }
 
@@ -285,8 +289,12 @@ struct EventsListView: View {
                 } label: {
                     eventRow(event)
                 }
+                .onAppear {
+                    print("EventsListView: row appeared for event id=\(event.id) name=\(event.name)")
+                }
             }
             .onDelete { offsets in
+                print("EventsListView: delete action for offsets=\(Array(offsets))")
                 Task { await viewModel.remove(at: offsets) }
             }
         }
@@ -299,6 +307,7 @@ struct EventsListView: View {
             await viewModel.load()
         }
         .refreshable {
+            print("EventsListView: pull-to-refresh triggered")
             await viewModel.refresh()
         }
     }
@@ -317,20 +326,30 @@ struct EventsListView: View {
             }
             .multilineTextAlignment(.center)
             .padding()
+            .onAppear {
+                print("EventsListView: showing error overlay message=\(message)")
+            }
         } else if viewModel.events.isEmpty {
             Text("No events found")
                 .foregroundColor(.secondary)
+                .onAppear {
+                    print("EventsListView: showing empty state overlay")
+                }
         }
     }
 
     @ViewBuilder
     private func mainContent() -> some View {
         if let instance = instanceStore.activeInstance, let repo = repository {
+            print("EventsListView: rendering events list for instance=\(instance.displayName) (id=\(instance.id))")
             eventsList(for: instance, repository: repo)
         } else {
             Text("Add an instance to start browsing events.")
                 .foregroundColor(.secondary)
                 .padding()
+                .onAppear {
+                    print("EventsListView: no active instance available for events list")
+                }
         }
     }
 
@@ -340,10 +359,14 @@ struct EventsListView: View {
             NavigationStack {
                 EventFormView(repository: repo, instance: instance) { newEvent in
                     viewModel.apply(event: newEvent)
+                    print("EventsListView: new event saved id=\(newEvent.id)")
                 }
             }
         } else {
             EmptyView()
+                .onAppear {
+                    print("EventsListView: attempted to present create event sheet without active instance")
+                }
         }
     }
 }
