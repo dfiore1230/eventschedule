@@ -173,6 +173,7 @@ struct EventDetailView: View {
     }
 
     private func updatePublishState(target: PublishState) async {
+        DebugLogger.log("EventDetailView: requested publish state change to \(target.rawValue) for event id=\(event.id)")
         await updateEvent { current in
             var updated = current
             updated.publishState = target
@@ -181,6 +182,7 @@ struct EventDetailView: View {
     }
 
     private func updateStatus(target: EventStatus) async {
+        DebugLogger.log("EventDetailView: requested status change to \(target.rawValue) for event id=\(event.id)")
         await updateEvent { current in
             var updated = current
             updated.status = target
@@ -193,6 +195,8 @@ struct EventDetailView: View {
         isPerformingAction = true
         actionError = nil
 
+        DebugLogger.log("EventDetailView: performing update for event id=\(event.id)")
+
         do {
             let updated = transform(event)
             let saved = try await repository.updateEvent(updated, instance: instance)
@@ -201,11 +205,15 @@ struct EventDetailView: View {
                 onSave?(saved)
                 isPerformingAction = false
             }
+
+            DebugLogger.log("EventDetailView: update succeeded for event id=\(event.id)")
         } catch {
             await MainActor.run {
                 actionError = error.localizedDescription
                 isPerformingAction = false
             }
+
+            DebugLogger.error("EventDetailView: update failed for event id=\(event.id) error=\(error.localizedDescription)")
         }
     }
 }
