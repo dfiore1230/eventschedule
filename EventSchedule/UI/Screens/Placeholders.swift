@@ -255,46 +255,7 @@ struct EventsListView: View {
         NavigationStack {
             Group {
                 if let instance = instanceStore.activeInstance, let repo = repository {
-                    List {
-                        ForEach(viewModel.events) { event in
-                            NavigationLink {
-                                EventDetailView(event: event, repository: repo, instance: instance) { updated in
-                                    viewModel.apply(event: updated)
-                                }
-                            } label: {
-                                eventRow(event)
-                            }
-                        }
-                        .onDelete { offsets in
-                            Task { await viewModel.remove(at: offsets) }
-                        }
-                    }
-                    .listStyle(.plain)
-                    .overlay(alignment: .center) {
-                        if viewModel.isLoading {
-                            ProgressView("Loading Events…")
-                        } else if let message = viewModel.errorMessage, viewModel.events.isEmpty {
-                            VStack(spacing: 8) {
-                                Text("Could not load events")
-                                    .font(.headline)
-                                Text(message)
-                                    .font(.footnote)
-                                    .foregroundColor(.secondary)
-                            }
-                            .multilineTextAlignment(.center)
-                            .padding()
-                        } else if viewModel.events.isEmpty {
-                            Text("No events found")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .task {
-                        viewModel.setContext(repository: repo, instance: instance)
-                        await viewModel.load()
-                    }
-                    .refreshable {
-                        await viewModel.refresh()
-                    }
+                    eventsList(for: instance, repository: repo)
                 } else {
                     Text("Add an instance to start browsing events.")
                         .foregroundColor(.secondary)
@@ -340,6 +301,55 @@ struct EventsListView: View {
                 .foregroundColor(.secondary)
             Text(event.venueId)
                 .font(.footnote)
+                .foregroundColor(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func eventsList(for instance: InstanceProfile, repository repo: RemoteEventRepository) -> some View {
+        List {
+            ForEach(viewModel.events) { event in
+                NavigationLink {
+                    EventDetailView(event: event, repository: repo, instance: instance) { updated in
+                        viewModel.apply(event: updated)
+                    }
+                } label: {
+                    eventRow(event)
+                }
+            }
+            .onDelete { offsets in
+                Task { await viewModel.remove(at: offsets) }
+            }
+        }
+        .listStyle(.plain)
+        .overlay(alignment: .center) {
+            eventsOverlay()
+        }
+        .task {
+            viewModel.setContext(repository: repo, instance: instance)
+            await viewModel.load()
+        }
+        .refreshable {
+            await viewModel.refresh()
+        }
+    }
+
+    @ViewBuilder
+    private func eventsOverlay() -> some View {
+        if viewModel.isLoading {
+            ProgressView("Loading Events…")
+        } else if let message = viewModel.errorMessage, viewModel.events.isEmpty {
+            VStack(spacing: 8) {
+                Text("Could not load events")
+                    .font(.headline)
+                Text(message)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
+            .multilineTextAlignment(.center)
+            .padding()
+        } else if viewModel.events.isEmpty {
+            Text("No events found")
                 .foregroundColor(.secondary)
         }
     }
