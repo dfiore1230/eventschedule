@@ -254,11 +254,11 @@ struct EventsListView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if let instance = instanceStore.activeInstance, let repository {
+                if let instance = instanceStore.activeInstance, let repo = repository {
                     List {
                         ForEach(viewModel.events) { event in
                             NavigationLink {
-                                EventDetailView(event: event, repository: repository, instance: instance) { updated in
+                                EventDetailView(event: event, repository: repo, instance: instance) { updated in
                                     viewModel.apply(event: updated)
                                 }
                             } label: {
@@ -289,7 +289,7 @@ struct EventsListView: View {
                         }
                     }
                     .task {
-                        viewModel.setContext(repository: repository, instance: instance)
+                        viewModel.setContext(repository: repo, instance: instance)
                         await viewModel.load()
                     }
                     .refreshable {
@@ -319,9 +319,9 @@ struct EventsListView: View {
                 }
             }
             .sheet(isPresented: $showingCreateForm) {
-                if let instance = instanceStore.activeInstance, let repository {
+                if let instance = instanceStore.activeInstance, let repo = repository {
                     NavigationStack {
-                        EventFormView(repository: repository, instance: instance) { newEvent in
+                        EventFormView(repository: repo, instance: instance) { newEvent in
                             viewModel.apply(event: newEvent)
                         }
                     }
@@ -391,6 +391,26 @@ struct SettingsView: View {
     @State private var showingAlert: Bool = false
     @State private var alertMessage: String?
 
+    @ViewBuilder
+    private func saveAPIKeyLabel(isSaving: Bool) -> some View {
+        if isSaving {
+            ProgressView()
+                .progressViewStyle(.circular)
+        } else {
+            Text("Save API Key")
+        }
+    }
+
+    @ViewBuilder
+    private func removeAPIKeyLabel() -> some View {
+        Text("Remove API Key")
+    }
+    
+    @ViewBuilder
+    private func alertMessageView() -> some View {
+        Text(alertMessage ?? "")
+    }
+
     var body: some View {
         NavigationStack {
             Form {
@@ -407,25 +427,19 @@ struct SettingsView: View {
 
                     Section("API Key") {
                         SecureField("API Key", text: $apiKey)
+                            .textInputAutocapitalization(.never)
                     }
 
                     Section("API Key Session") {
                         sessionSummary(for: instance)
 
                         Button(action: { saveAPIKey(instance: instance) }) {
-                            if isSaving {
-                                ProgressView()
-                                    .progressViewStyle(.circular)
-                            } else {
-                                Text("Save API Key")
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                            }
+                            saveAPIKeyLabel(isSaving: isSaving)
                         }
                         .disabled(apiKey.isEmpty || isSaving)
 
                         Button(role: .destructive, action: { removeAPIKey(instance: instance) }) {
-                            Text("Remove API Key")
-                                .frame(maxWidth: .infinity, alignment: .center)
+                            removeAPIKeyLabel()
                         }
                     }
                 } else {
@@ -435,15 +449,15 @@ struct SettingsView: View {
                     }
                 }
             }
+            .tint(theme.primary)
             .navigationTitle("Settings")
             .toolbar {
                 InstanceSwitcherToolbarItem()
             }
-            .tint(theme.primary)
             .alert("Authentication", isPresented: $showingAlert) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text(alertMessage ?? "")
+                alertMessageView()
             }
         }
     }
@@ -490,3 +504,4 @@ struct SettingsView: View {
         showingAlert = true
     }
 }
+
