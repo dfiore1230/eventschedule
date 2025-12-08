@@ -21,8 +21,12 @@ struct Event: Codable, Identifiable, Equatable {
         case description
         case startsAt
         case startAt
+        case startTime
+        case start
         case endsAt
         case endAt
+        case endTime
+        case end
         case duration
         case durationMinutes
         case venueId
@@ -76,10 +80,12 @@ struct Event: Codable, Identifiable, Equatable {
         id = try container.decode(String.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         description = try container.decodeIfPresent(String.self, forKey: .description)
-        if let explicitStart = try container.decodeIfPresent(Date.self, forKey: .startAt) {
-            startAt = explicitStart
-        } else if let alternateStart = try container.decodeIfPresent(Date.self, forKey: .startsAt) {
-            startAt = alternateStart
+
+        if let decodedStart = try Self.decodeDate(
+            from: container,
+            keys: [.startAt, .startsAt, .startTime, .start]
+        ) {
+            startAt = decodedStart
         } else {
             throw DecodingError.keyNotFound(
                 CodingKeys.startAt,
@@ -91,8 +97,10 @@ struct Event: Codable, Identifiable, Equatable {
             ?? container.decodeIfPresent(Int.self, forKey: .duration)
         durationMinutes = decodedDuration
 
-        if let explicitEnd = try container.decodeIfPresent(Date.self, forKey: .endAt) ??
-            container.decodeIfPresent(Date.self, forKey: .endsAt) {
+        if let explicitEnd = try Self.decodeDate(
+            from: container,
+            keys: [.endAt, .endsAt, .endTime, .end]
+        ) {
             endAt = explicitEnd
         } else if let durationMinutes, durationMinutes > 0 {
             endAt = startAt.addingTimeInterval(TimeInterval(durationMinutes * 60))
@@ -167,6 +175,74 @@ struct Event: Codable, Identifiable, Equatable {
         try container.encodeIfPresent(capacity, forKey: .capacity)
         try container.encode(ticketTypes, forKey: .ticketTypes)
         try container.encode(publishState, forKey: .publishState)
+    }
+
+    private static let iso8601WithFractional: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private static let iso8601: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter
+    }()
+
+    private static let fallbackDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZZZZZ"
+        return formatter
+    }()
+
+    private static let fallbackDateFormatterWithSpace: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        return formatter
+    }()
+
+    private static func decodeDate(
+        from container: KeyedDecodingContainer<CodingKeys>,
+        keys: [CodingKeys]
+    ) throws -> Date? {
+        for key in keys {
+            if let decodedDate = try? container.decodeIfPresent(Date.self, forKey: key) {
+                return decodedDate
+            }
+
+            if let timestamp = try? container.decodeIfPresent(Double.self, forKey: key) {
+                // Assume seconds since epoch
+                return Date(timeIntervalSince1970: timestamp)
+            }
+
+            if let intTimestamp = try? container.decodeIfPresent(Int.self, forKey: key) {
+                // Detect milliseconds and convert to seconds
+                let timeInterval: TimeInterval = intTimestamp > 1_000_000_000_000
+                    ? TimeInterval(intTimestamp) / 1000
+                    : TimeInterval(intTimestamp)
+                return Date(timeIntervalSince1970: timeInterval)
+            }
+
+            if let dateString = try? container.decodeIfPresent(String.self, forKey: key) {
+                if let parsed = iso8601WithFractional.date(from: dateString) {
+                    return parsed
+                }
+                if let parsed = iso8601.date(from: dateString) {
+                    return parsed
+                }
+                if let parsed = fallbackDateFormatter.date(from: dateString) {
+                    return parsed
+                }
+                if let parsed = fallbackDateFormatterWithSpace.date(from: dateString) {
+                    return parsed
+                }
+            }
+        }
+
+        return nil
     }
 }
 
