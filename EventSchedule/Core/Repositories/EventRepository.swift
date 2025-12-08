@@ -8,7 +8,6 @@ protocol EventRepository {
     func deleteEvent(id: String, instance: InstanceProfile) async throws
 }
 
-@MainActor
 final class RemoteEventRepository: EventRepository {
     private let httpClient: HTTPClientProtocol
     private var cache: [UUID: [Event]] = [:]

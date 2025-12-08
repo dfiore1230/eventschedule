@@ -41,12 +41,6 @@ struct CapabilitiesDocument: Decodable, Encodable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
-        let hasCamelAPI = container.contains(.apiBaseURLCamel)
-        let hasSnakeAPI = container.contains(.apiBaseURL)
-        let hasCamelBrand = container.contains(.brandingEndpointCamel)
-        let hasSnakeBrand = container.contains(.brandingEndpoint)
-        let hasLegacyBrand = container.contains(.legacyBrandingEndpoint)
-
         let apiBaseURLString = try container.decodeIfPresent(String.self, forKey: .apiBaseURLCamel)
             ?? container.decodeIfPresent(String.self, forKey: .apiBaseURL)
 
@@ -54,13 +48,10 @@ struct CapabilitiesDocument: Decodable, Encodable {
             ?? container.decodeIfPresent(String.self, forKey: .brandingEndpoint)
             ?? container.decodeIfPresent(String.self, forKey: .legacyBrandingEndpoint)
 
-        if let apiBaseString = apiBaseURLString, let resolvedAPIBase = URL(string: apiBaseString) {
-            apiBaseURL = resolvedAPIBase
-        } else if let apiBaseString = apiBaseURLString {
-            // Temporary safe fallback if URL parsing fails unexpectedly
-            apiBaseURL = URL(string: "https://localhost")!
+        if let string = apiBaseURLString, let resolved = URL(string: string) {
+            apiBaseURL = resolved
         } else {
-            // Temporary safe fallback if key is missing
+            // Safe fallback if key missing or invalid
             apiBaseURL = URL(string: "https://localhost")!
         }
 

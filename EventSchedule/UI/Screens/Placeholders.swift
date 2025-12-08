@@ -120,7 +120,7 @@ struct InstanceOnboardingPlaceholder: View {
                     theme: themeDTO
                 )
 
-                try await authService.save(apiKey: apiKey, for: profile)
+                authService.save(apiKey: apiKey, for: profile)
 
                 await MainActor.run {
                     instanceStore.addInstance(profile)
@@ -247,13 +247,15 @@ struct EventsListView: View {
     @Environment(\.httpClient) private var httpClient
     @Environment(\.theme) private var theme
 
-    @StateObject private var viewModel = EventsListViewModel()
+    @StateObject private var viewModel: EventsListViewModel = .init()
     @State private var repository: RemoteEventRepository?
     @State private var showingCreateForm: Bool = false
 
     var body: some View {
         NavigationStack {
-            mainContent()
+            Group {
+                mainContent()
+            }
             .navigationTitle("Events")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -357,6 +359,8 @@ struct EventsListView: View {
                     viewModel.apply(event: newEvent)
                 }
             }
+        } else {
+            EmptyView()
         }
     }
 }
@@ -492,25 +496,11 @@ struct SettingsView: View {
         guard !isSaving else { return }
         isSaving = true
 
-        Task {
-            do {
-                let authService = AuthService(httpClient: httpClient)
-                try await authService.save(apiKey: apiKey, for: instance)
-                await MainActor.run {
-                    alertMessage = "API Key saved successfully."
-                    showingAlert = true
-                }
-            } catch {
-                await MainActor.run {
-                    alertMessage = error.localizedDescription
-                    showingAlert = true
-                }
-            }
-
-            await MainActor.run {
-                isSaving = false
-            }
-        }
+        let authService = AuthService(httpClient: httpClient)
+        authService.save(apiKey: apiKey, for: instance)
+        alertMessage = "API Key saved successfully."
+        showingAlert = true
+        isSaving = false
     }
 
     private func removeAPIKey(instance: InstanceProfile) {
