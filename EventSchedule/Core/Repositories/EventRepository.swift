@@ -102,7 +102,9 @@ final class RemoteEventRepository: EventRepository {
             cache[instance.id] = response.events
             return response.events
         } catch {
+            DebugLogger.error("RemoteEventRepository: listEvents failed for instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
             if let cached = cache[instance.id] {
+                DebugLogger.log("RemoteEventRepository: returning \(cached.count) cached events after list failure for instance=\(instance.displayName) (id=\(instance.id))")
                 return cached
             }
             throw error
@@ -121,7 +123,9 @@ final class RemoteEventRepository: EventRepository {
             upsert(response.event, for: instance)
             return response.event
         } catch {
+            DebugLogger.error("RemoteEventRepository: getEvent failed for id=\(id) on instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
             if let cachedEvent = cache[instance.id]?.first(where: { $0.id == id }) {
+                DebugLogger.log("RemoteEventRepository: returning cached event id=\(id) after fetch failure on instance=\(instance.displayName) (id=\(instance.id))")
                 return cachedEvent
             }
             throw error
