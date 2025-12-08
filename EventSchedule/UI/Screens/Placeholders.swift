@@ -275,7 +275,7 @@ struct EventsListView: View {
             Text(event.startAt.formatted(date: .abbreviated, time: .shortened))
                 .font(.subheadline)
                 .foregroundColor(.secondary)
-            Text(event.venueId)
+            Text(event.venueId.isEmpty ? "Unknown venue" : event.venueId)
                 .font(.footnote)
                 .foregroundColor(.secondary)
         }
@@ -284,6 +284,8 @@ struct EventsListView: View {
     @ViewBuilder
     private func eventsList(for instance: InstanceProfile, repository repo: RemoteEventRepository) -> some View {
         List {
+            apiGuideSection()
+
             ForEach(viewModel.events) { event in
                 NavigationLink {
                     EventDetailView(event: event, repository: repo, instance: instance) { updated in
@@ -372,6 +374,84 @@ struct EventsListView: View {
                 .onAppear {
                     print("EventsListView: attempted to present create event sheet without active instance")
                 }
+        }
+    }
+
+    @ViewBuilder
+    private func apiGuideSection() -> some View {
+        Section {
+            VStack(alignment: .leading, spacing: 12) {
+                ApiGuideRow(
+                    icon: "key.fill",
+                    title: "Authentication",
+                    detail: "Create the 32-character API key in Settings → Integrations & API and send it on every /api call using the X-API-Key header with JSON headers."
+                )
+
+                ApiGuideRow(
+                    icon: "shield.lefthalf.filled",
+                    title: "Abuse protection",
+                    detail: "60 requests per minute per IP; ten invalid key attempts block the key for 15 minutes. Expect HTTP 401/423/429 responses when limits trigger."
+                )
+
+                ApiGuideRow(
+                    icon: "list.bullet.rectangle",
+                    title: "List endpoints",
+                    detail: "GET /api/schedules and /api/events return paginated data with per_page up to 1000 plus name/type filters; responses include pagination metadata for efficient paging."
+                )
+
+                ApiGuideRow(
+                    icon: "plus.app",
+                    title: "Create events",
+                    detail: "POST /api/events/{subdomain} needs name, starts_at, and venue details; the subdomain auto-links venue/talent/curator roles, resolves category_name or schedule slugs, and returns full event data on success."
+                )
+
+                ApiGuideRow(
+                    icon: "photo.on.rectangle",
+                    title: "Flyers",
+                    detail: "POST /api/events/flyer/{event_id} uploads, replaces, or removes flyers using multipart data or a flyer_image_id, returning the updated event payload."
+                )
+
+                ApiGuideRow(
+                    icon: "exclamationmark.triangle",
+                    title: "Error handling",
+                    detail: "API responses include clear statuses: 401 invalid key, 403 unauthorized, 404 not found, 422 validation issues, 423 temporarily blocked key, and 429 rate limit exceeded."
+                )
+
+                ApiGuideRow(
+                    icon: "lightbulb",
+                    title: "Mobile tips",
+                    detail: "Cache pagination meta, reuse embedded schedules/members/venues from GET /api/events, prefer category_name and schedule slugs when creating events, and reuse flyer_image_id to avoid large uploads."
+                )
+            }
+            .textCase(nil)
+            .padding(.vertical, 4)
+        } header: {
+            Text("Mobile API guide")
+        } footer: {
+            Text("Use these endpoints to keep the events list in sync with EventSchedule.")
+        }
+    }
+}
+
+private struct ApiGuideRow: View {
+    let icon: String
+    let title: String
+    let detail: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .foregroundColor(.accentColor)
+                .frame(width: 20)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.subheadline)
+                    .bold()
+                Text(detail)
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+            }
         }
     }
 }

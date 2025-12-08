@@ -41,13 +41,21 @@ struct EventDetailView: View {
                     Text(event.endAt.formatted(date: .abbreviated, time: .shortened))
                         .foregroundColor(.secondary)
                 }
+                if let duration = event.durationMinutes {
+                    HStack {
+                        Label("Duration", systemImage: "timer")
+                        Spacer()
+                        Text("\(duration) minutes")
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
 
             Section(header: Text("Location")) {
                 HStack {
                     Label("Venue", systemImage: "building.2")
                     Spacer()
-                    Text(event.venueId)
+                    Text(event.venueId.isEmpty ? "Unknown" : event.venueId)
                         .foregroundColor(.secondary)
                 }
                 if let roomId = event.roomId {
