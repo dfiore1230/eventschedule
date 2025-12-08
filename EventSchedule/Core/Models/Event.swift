@@ -98,6 +98,50 @@ struct Event: Codable, Identifiable, Equatable {
             ticketTypes = []
         }
     }
+
+    init(
+        id: String,
+        name: String,
+        description: String? = nil,
+        startAt: Date,
+        endAt: Date,
+        venueId: String,
+        roomId: String? = nil,
+        status: EventStatus = .scheduled,
+        images: [URL] = [],
+        capacity: Int? = nil,
+        ticketTypes: [TicketType] = [],
+        publishState: PublishState = .draft
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.startAt = startAt
+        self.endAt = endAt
+        self.venueId = venueId
+        self.roomId = roomId
+        self.status = status
+        self.images = images
+        self.capacity = capacity
+        self.ticketTypes = ticketTypes
+        self.publishState = publishState
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(description, forKey: .description)
+        try container.encode(startAt, forKey: .startAt)
+        try container.encode(endAt, forKey: .endAt)
+        try container.encode(venueId, forKey: .venueId)
+        try container.encodeIfPresent(roomId, forKey: .roomId)
+        try container.encode(status, forKey: .status)
+        try container.encode(images, forKey: .images)
+        try container.encodeIfPresent(capacity, forKey: .capacity)
+        try container.encode(ticketTypes, forKey: .ticketTypes)
+        try container.encode(publishState, forKey: .publishState)
+    }
 }
 
 enum EventStatus: String, Codable {
