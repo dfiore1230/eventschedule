@@ -13,6 +13,91 @@ struct Event: Codable, Identifiable, Equatable {
     var capacity: Int?
     var ticketTypes: [TicketType]
     var publishState: PublishState
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case description
+        case startAt
+        case endAt
+        case venueId
+        case roomId
+        case status
+        case images
+        case capacity
+        case ticketTypes
+        case publishState
+        case tickets
+        case venue
+    }
+
+    struct VenueReference: Decodable {
+        let id: String
+    }
+
+    struct TicketPayload: Decodable {
+        let id: String
+        let name: String
+        let price: Decimal?
+        let currency: String?
+
+        private enum CodingKeys: String, CodingKey {
+            case id
+            case name
+            case price
+            case currency
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            id = try container.decode(String.self, forKey: .id)
+            name = try container.decode(String.self, forKey: .name)
+            currency = try container.decodeIfPresent(String.self, forKey: .currency)
+
+            if let numericPrice = try? container.decodeIfPresent(Decimal.self, forKey: .price) {
+                price = numericPrice
+            } else if let stringPrice = try container.decodeIfPresent(String.self, forKey: .price),
+                      let decimalPrice = Decimal(string: stringPrice) {
+                price = decimalPrice
+            } else {
+                price = nil
+            }
+        }
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        startAt = try container.decode(Date.self, forKey: .startAt)
+        endAt = try container.decode(Date.self, forKey: .endAt)
+        roomId = try container.decodeIfPresent(String.self, forKey: .roomId)
+        status = try container.decodeIfPresent(EventStatus.self, forKey: .status) ?? .scheduled
+        images = try container.decodeIfPresent([URL].self, forKey: .images) ?? []
+        capacity = try container.decodeIfPresent(Int.self, forKey: .capacity)
+        publishState = try container.decodeIfPresent(PublishState.self, forKey: .publishState) ?? .draft
+
+        if let venueIdentifier = try container.decodeIfPresent(String.self, forKey: .venueId) {
+            venueId = venueIdentifier
+        } else if let venueRef = try container.decodeIfPresent(VenueReference.self, forKey: .venue) {
+            venueId = venueRef.id
+        } else {
+            throw DecodingError.keyNotFound(
+                CodingKeys.venueId,
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "Missing venue id")
+            )
+        }
+
+        if let decodedTicketTypes = try container.decodeIfPresent([TicketType].self, forKey: .ticketTypes) {
+            ticketTypes = decodedTicketTypes
+        } else if let ticketPayloads = try container.decodeIfPresent([TicketPayload].self, forKey: .tickets) {
+            ticketTypes = ticketPayloads.map { TicketType(id: $0.id, name: $0.name, price: $0.price, currency: $0.currency) }
+        } else {
+            ticketTypes = []
+        }
+    }
 }
 
 enum EventStatus: String, Codable {
