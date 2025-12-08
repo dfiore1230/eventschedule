@@ -8,6 +8,80 @@ protocol EventRepository {
     func deleteEvent(id: String, instance: InstanceProfile) async throws
 }
 
+private struct EventListResponse: Decodable {
+    let events: [Event]
+
+    init(from decoder: Decoder) throws {
+        if let directArray = try? decoder.singleValueContainer().decode([Event].self) {
+            events = directArray
+            return
+        }
+
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        if let dataArray = try container.decodeIfPresent([Event].self, forKey: .data) {
+            events = dataArray
+            return
+        }
+
+        if let eventsArray = try container.decodeIfPresent([Event].self, forKey: .events) {
+            events = eventsArray
+            return
+        }
+
+        if let itemsArray = try container.decodeIfPresent([Event].self, forKey: .items) {
+            events = itemsArray
+            return
+        }
+
+        throw DecodingError.dataCorruptedError(
+            forKey: .data,
+            in: container,
+            debugDescription: "No events array found in response"
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case data
+        case events
+        case items
+    }
+}
+
+private struct EventDetailResponse: Decodable {
+    let event: Event
+
+    init(from decoder: Decoder) throws {
+        if let directEvent = try? decoder.singleValueContainer().decode(Event.self) {
+            event = directEvent
+            return
+        }
+
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        if let dataEvent = try container.decodeIfPresent(Event.self, forKey: .data) {
+            event = dataEvent
+            return
+        }
+
+        if let wrappedEvent = try container.decodeIfPresent(Event.self, forKey: .event) {
+            event = wrappedEvent
+            return
+        }
+
+        throw DecodingError.dataCorruptedError(
+            forKey: .data,
+            in: container,
+            debugDescription: "No event object found in response"
+        )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case data
+        case event
+    }
+}
+
 final class RemoteEventRepository: EventRepository {
     private let httpClient: HTTPClientProtocol
     private var cache: [UUID: [Event]] = [:]
@@ -18,15 +92,15 @@ final class RemoteEventRepository: EventRepository {
 
     func listEvents(for instance: InstanceProfile) async throws -> [Event] {
         do {
-            let events: [Event] = try await httpClient.request(
+            let response: EventListResponse = try await httpClient.request(
                 "/api/events",
                 method: .get,
                 query: ["include": "venue,talent,tickets"],
                 body: Optional<Event>.none,
                 instance: instance
             )
-            cache[instance.id] = events
-            return events
+            cache[instance.id] = response.events
+            return response.events
         } catch {
             if let cached = cache[instance.id] {
                 return cached
@@ -37,15 +111,15 @@ final class RemoteEventRepository: EventRepository {
 
     func getEvent(id: String, instance: InstanceProfile) async throws -> Event {
         do {
-            let event: Event = try await httpClient.request(
+            let response: EventDetailResponse = try await httpClient.request(
                 "/api/events/\(id)",
                 method: .get,
                 query: ["include": "venue,talent,tickets"],
                 body: Optional<Event>.none,
                 instance: instance
             )
-            upsert(event, for: instance)
-            return event
+            upsert(response.event, for: instance)
+            return response.event
         } catch {
             if let cachedEvent = cache[instance.id]?.first(where: { $0.id == id }) {
                 return cachedEvent
@@ -55,27 +129,27 @@ final class RemoteEventRepository: EventRepository {
     }
 
     func createEvent(_ event: Event, instance: InstanceProfile) async throws -> Event {
-        let created: Event = try await httpClient.request(
+        let response: EventDetailResponse = try await httpClient.request(
             "/api/events",
             method: .post,
             query: ["include": "venue,talent,tickets"],
             body: event,
             instance: instance
         )
-        upsert(created, for: instance)
-        return created
+        upsert(response.event, for: instance)
+        return response.event
     }
 
     func updateEvent(_ event: Event, instance: InstanceProfile) async throws -> Event {
-        let updated: Event = try await httpClient.request(
+        let response: EventDetailResponse = try await httpClient.request(
             "/api/events/\(event.id)",
             method: .put,
             query: ["include": "venue,talent,tickets"],
             body: event,
             instance: instance
         )
-        upsert(updated, for: instance)
-        return updated
+        upsert(response.event, for: instance)
+        return response.event
     }
 
     func deleteEvent(id: String, instance: InstanceProfile) async throws {

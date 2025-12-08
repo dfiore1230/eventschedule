@@ -43,7 +43,9 @@ final class HTTPClient: HTTPClientProtocol {
         self.jsonEncoder = jsonEncoder
         self.tokenProvider = tokenProvider
 
+        self.jsonDecoder.keyDecodingStrategy = .convertFromSnakeCase
         self.jsonDecoder.dateDecodingStrategy = .iso8601
+        self.jsonEncoder.keyEncodingStrategy = .convertToSnakeCase
         self.jsonEncoder.dateEncodingStrategy = .iso8601
     }
 
