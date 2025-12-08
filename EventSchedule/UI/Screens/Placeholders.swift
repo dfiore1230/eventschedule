@@ -252,9 +252,7 @@ struct EventsListView: View {
             .disabled(instanceStore.activeInstance == nil)
         }
 
-        ToolbarItem(placement: .navigationBarTrailing) {
-            InstanceSwitcherToolbarItem()
-        }
+        InstanceSwitcherToolbarItem()
     }
 
     private func setupRepository() {
