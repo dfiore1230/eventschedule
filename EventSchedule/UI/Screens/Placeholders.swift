@@ -2,10 +2,13 @@ import SwiftUI
 
 struct InstanceOnboardingPlaceholder: View {
     @EnvironmentObject var instanceStore: InstanceStore
+    @EnvironmentObject var authStore: AuthTokenStore
     @Environment(\.theme) private var theme
     @Environment(\.httpClient) private var httpClient
 
     @State private var urlString: String = ""
+    @State private var email: String = ""
+    @State private var password: String = ""
     @State private var isConnecting: Bool = false
     @State private var errorMessage: String?
     @State private var showingError: Bool = false
@@ -28,8 +31,26 @@ struct InstanceOnboardingPlaceholder: View {
                         .cornerRadius(8)
                         .focused($urlFieldFocused)
 
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Sign in to continue")
+                            .font(.headline)
+
+                        TextField("Email or username", text: $email)
+                            .textInputAutocapitalization(.never)
+                            .keyboardType(.emailAddress)
+                            .autocorrectionDisabled()
+                            .padding()
+                            .background(Color(.secondarySystemBackground))
+                            .cornerRadius(8)
+
+                        SecureField("Password", text: $password)
+                            .padding()
+                            .background(Color(.secondarySystemBackground))
+                            .cornerRadius(8)
+                    }
+
                     Button(action: addInstance) {
-                        Text("Connect")
+                        Text("Connect & Sign In")
                             .frame(maxWidth: .infinity)
                             .padding()
                             .background(theme.primary)
@@ -43,7 +64,7 @@ struct InstanceOnboardingPlaceholder: View {
                                 }
                             }
                     }
-                    .disabled(urlString.isEmpty || isConnecting)
+                    .disabled(urlString.isEmpty || email.isEmpty || password.isEmpty || isConnecting)
 
                     Spacer()
                 }
@@ -75,6 +96,7 @@ struct InstanceOnboardingPlaceholder: View {
 
                 let capabilities = try await discoveryService.fetchCapabilities(from: normalizedURL)
                 let branding = try await brandingService.fetchBranding(from: capabilities)
+                let authService = AuthService(httpClient: httpClient)
 
                 let authMethod = InstanceProfile.AuthMethod(from: capabilities.auth.type)
                 let themeDTO = ThemeDTO(from: branding)
@@ -96,9 +118,14 @@ struct InstanceOnboardingPlaceholder: View {
                     theme: themeDTO
                 )
 
+                let session = try await authService.login(email: email, password: password, instance: profile)
+
                 await MainActor.run {
                     instanceStore.addInstance(profile)
+                    authStore.save(session: session, for: profile)
                     urlString = ""
+                    email = ""
+                    password = ""
                 }
             } catch {
                 await MainActor.run {
