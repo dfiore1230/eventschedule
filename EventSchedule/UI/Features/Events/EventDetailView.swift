@@ -5,6 +5,8 @@ struct EventDetailView: View {
 
     @State private var event: Event
     @State private var isEditing: Bool = false
+    @State private var isPerformingAction: Bool = false
+    @State private var actionError: String?
 
     private let repository: EventRepository
     private let instance: InstanceProfile
@@ -72,14 +74,12 @@ struct EventDetailView: View {
                 HStack {
                     Label("Event", systemImage: "bolt.horizontal.fill")
                     Spacer()
-                    Text(event.status.rawValue.capitalized)
-                        .foregroundColor(.secondary)
+                    StatusBadge(title: event.status.rawValue.capitalized, style: .status(event.status))
                 }
                 HStack {
                     Label("Publish", systemImage: "globe")
                     Spacer()
-                    Text(event.publishState.rawValue.capitalized)
-                        .foregroundColor(.secondary)
+                    StatusBadge(title: event.publishState.rawValue.capitalized, style: .publish(event.publishState))
                 }
                 if let capacity = event.capacity {
                     HStack {
@@ -88,6 +88,64 @@ struct EventDetailView: View {
                         Text(String(capacity))
                             .foregroundColor(.secondary)
                     }
+                }
+            }
+
+            if !event.ticketTypes.isEmpty {
+                Section(header: Text("Tickets")) {
+                    ForEach(event.ticketTypes) { ticket in
+                        HStack {
+                            Text(ticket.name)
+                            Spacer()
+                            if let price = ticket.price, let currency = ticket.currency {
+                                Text("\(currency) \(price)")
+                                    .foregroundColor(.secondary)
+                            } else {
+                                Text("Free")
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Section(header: Text("Quick actions")) {
+                Button {
+                    Task { await updatePublishState(target: event.publishState == .published ? .draft : .published) }
+                } label: {
+                    Label(event.publishState == .published ? "Unpublish" : "Publish", systemImage: event.publishState == .published ? "eye.slash" : "globe")
+                }
+                .disabled(isPerformingAction)
+
+                HStack {
+                    Button {
+                        Task { await updateStatus(target: .ongoing) }
+                    } label: {
+                        Label("Start now", systemImage: "play.circle")
+                    }
+                    .disabled(isPerformingAction || event.status == .ongoing)
+
+                    Spacer()
+
+                    Button {
+                        Task { await updateStatus(target: .completed) }
+                    } label: {
+                        Label("Mark done", systemImage: "checkmark.circle")
+                    }
+                    .disabled(isPerformingAction || event.status == .completed)
+                }
+
+                Button(role: .destructive) {
+                    Task { await updateStatus(target: .cancelled) }
+                } label: {
+                    Label("Cancel event", systemImage: "xmark.octagon")
+                }
+                .disabled(isPerformingAction || event.status == .cancelled)
+
+                if let actionError {
+                    Text(actionError)
+                        .font(.footnote)
+                        .foregroundColor(.red)
                 }
             }
         }
@@ -110,5 +168,42 @@ struct EventDetailView: View {
             }
         }
         .accentColor(theme.accent)
+    }
+
+    private func updatePublishState(target: PublishState) async {
+        await updateEvent { current in
+            var updated = current
+            updated.publishState = target
+            return updated
+        }
+    }
+
+    private func updateStatus(target: EventStatus) async {
+        await updateEvent { current in
+            var updated = current
+            updated.status = target
+            return updated
+        }
+    }
+
+    private func updateEvent(transform: (Event) -> Event) async {
+        guard !isPerformingAction else { return }
+        isPerformingAction = true
+        actionError = nil
+
+        do {
+            let updated = transform(event)
+            let saved = try await repository.updateEvent(updated, instance: instance)
+            await MainActor.run {
+                event = saved
+                onSave?(saved)
+                isPerformingAction = false
+            }
+        } catch {
+            await MainActor.run {
+                actionError = error.localizedDescription
+                isPerformingAction = false
+            }
+        }
     }
 }

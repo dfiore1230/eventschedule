@@ -224,233 +224,229 @@ struct EventsListView: View {
     @Environment(\.httpClient) private var httpClient
     @Environment(\.theme) private var theme
 
-    @StateObject private var viewModel: EventsListViewModel = .init()
+    @StateObject private var viewModel = EventsListViewModel()
     @State private var repository: RemoteEventRepository?
-    @State private var showingCreateForm: Bool = false
+    @State private var showingNewEvent: Bool = false
 
     var body: some View {
         NavigationStack {
-            contentView
-                .navigationTitle("Events")
-                .toolbar { toolbarContent }
-                .onAppear(perform: setupRepository)
-                .sheet(isPresented: $showingCreateForm) { createEventSheet() }
-                .accentColor(theme.accent)
+            Group {
+                if let instance = instanceStore.activeInstance, let repository {
+                    content(for: instance, repository: repository)
+                } else {
+                    missingInstanceView
+                }
+            }
+            .navigationTitle("Events")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    if viewModel.isLoading {
+                        ProgressView()
+                    } else {
+                        Button(action: { showingNewEvent = true }) {
+                            Image(systemName: "plus")
+                        }
+                        .disabled(instanceStore.activeInstance == nil)
+                    }
+                }
+            }
+            .task { await bootstrapIfNeeded() }
+            .onChange(of: instanceStore.activeInstance?.id) { _ in
+                Task { await bootstrapIfNeeded() }
+            }
+            .sheet(isPresented: $showingNewEvent) {
+                if let repository, let instance = instanceStore.activeInstance {
+                    NavigationStack {
+                        EventFormView(
+                            repository: repository,
+                            instance: instance
+                        ) { saved in
+                            viewModel.apply(event: saved)
+                        }
+                    }
+                }
+            }
         }
+        .accentColor(theme.accent)
+    }
+
+    private func bootstrapIfNeeded() async {
+        guard let instance = instanceStore.activeInstance else { return }
+        let repository = RemoteEventRepository(httpClient: httpClient)
+        self.repository = repository
+        viewModel.setContext(repository: repository, instance: instance)
+        await viewModel.load()
     }
 
     @ViewBuilder
-    private var contentView: some View {
-        Group {
-            mainContent()
-        }
-    }
-
-    @ToolbarContentBuilder
-    private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .navigationBarTrailing) {
-            Button(action: { showingCreateForm = true }) {
-                Image(systemName: "plus")
-            }
-            .disabled(instanceStore.activeInstance == nil)
-            .onChange(of: showingCreateForm) { oldValue, newValue in
-                print("EventsListView: create sheet toggled, showing=\(newValue)")
-            }
-        }
-
-        InstanceSwitcherToolbarItem()
-    }
-
-    private func setupRepository() {
-        if repository == nil {
-            repository = RemoteEventRepository(httpClient: httpClient)
-            print("EventsListView: repository initialized")
-        }
-    }
-
-    private func eventRow(_ event: Event) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(event.name)
-                .font(.headline)
-            Text(event.startAt.formatted(date: .abbreviated, time: .shortened))
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            Text(event.venueId.isEmpty ? "Unknown venue" : event.venueId)
-                .font(.footnote)
-                .foregroundColor(.secondary)
-        }
-    }
-
-    @ViewBuilder
-    private func eventsList(for instance: InstanceProfile, repository repo: RemoteEventRepository) -> some View {
+    private func content(for instance: InstanceProfile, repository: RemoteEventRepository) -> some View {
         List {
-            apiGuideSection()
+            if viewModel.isLoading && viewModel.events.isEmpty {
+                loadingRow
+            }
+
+            if let errorMessage = viewModel.errorMessage {
+                errorRow(message: errorMessage)
+            }
+
+            if viewModel.events.isEmpty && !viewModel.isLoading {
+                emptyState(for: instance)
+            }
 
             ForEach(viewModel.events) { event in
                 NavigationLink {
-                    EventDetailView(event: event, repository: repo, instance: instance) { updated in
+                    EventDetailView(event: event, repository: repository, instance: instance) { updated in
                         viewModel.apply(event: updated)
                     }
                 } label: {
-                    eventRow(event)
-                }
-                .onAppear {
-                    print("EventsListView: row appeared for event id=\(event.id) name=\(event.name)")
+                    EventRow(event: event)
                 }
             }
             .onDelete { offsets in
-                print("EventsListView: delete action for offsets=\(Array(offsets))")
                 Task { await viewModel.remove(at: offsets) }
             }
         }
-        .listStyle(.plain)
-        .overlay(alignment: .center) {
-            eventsOverlay()
-        }
-        .task {
-            viewModel.setContext(repository: repo, instance: instance)
-            await viewModel.load()
-        }
-        .refreshable {
-            print("EventsListView: pull-to-refresh triggered")
-            await viewModel.refresh()
-        }
+        .refreshable { await viewModel.refresh() }
     }
 
-    @ViewBuilder
-    private func eventsOverlay() -> some View {
-        if viewModel.isLoading {
-            ProgressView("Loading Events…")
-        } else if let message = viewModel.errorMessage, viewModel.events.isEmpty {
-            VStack(spacing: 8) {
-                Text("Could not load events")
-                    .font(.headline)
-                Text(message)
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-            .multilineTextAlignment(.center)
-            .padding()
-            .onAppear {
-                print("EventsListView: showing error overlay message=\(message)")
-            }
-        } else if viewModel.events.isEmpty {
-            Text("No events found")
+    private var loadingRow: some View {
+        HStack {
+            ProgressView()
+            Text("Loading events…")
                 .foregroundColor(.secondary)
-                .onAppear {
-                    print("EventsListView: showing empty state overlay")
-                }
         }
     }
 
-    @ViewBuilder
-    private func mainContent() -> some View {
-        if let instance = instanceStore.activeInstance, let repo = repository {
-            eventsList(for: instance, repository: repo)
-                .onAppear {
-                    print("EventsListView: rendering events list for instance=\(instance.displayName) (id=\(instance.id))")
-                }
-        } else {
-            Text("Add an instance to start browsing events.")
+    private func emptyState(for instance: InstanceProfile) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("No events yet")
+                .font(.headline)
+            Text("Create your first event to start scheduling for \(instance.displayName).")
                 .foregroundColor(.secondary)
-                .padding()
-                .onAppear {
-                    print("EventsListView: no active instance available for events list")
-                }
+            Button(action: { showingNewEvent = true }) {
+                Label("Create event", systemImage: "plus")
+            }
+            .buttonStyle(.borderedProminent)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 12)
     }
 
-    @ViewBuilder
-    private func createEventSheet() -> some View {
-        if let instance = instanceStore.activeInstance, let repo = repository {
-            NavigationStack {
-                EventFormView(repository: repo, instance: instance) { newEvent in
-                    viewModel.apply(event: newEvent)
-                    print("EventsListView: new event saved id=\(newEvent.id)")
-                }
+    private func errorRow(message: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Unable to load events", systemImage: "exclamationmark.triangle")
+                .foregroundColor(.red)
+            Text(message)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Button(action: { Task { await viewModel.refresh() } }) {
+                Label("Retry", systemImage: "arrow.clockwise")
             }
-        } else {
-            EmptyView()
-                .onAppear {
-                    print("EventsListView: attempted to present create event sheet without active instance")
-                }
         }
+        .padding(.vertical, 8)
     }
 
-    @ViewBuilder
-    private func apiGuideSection() -> some View {
-        Section {
-            VStack(alignment: .leading, spacing: 12) {
-                ApiGuideRow(
-                    icon: "key.fill",
-                    title: "Authentication",
-                    detail: "Create the 32-character API key in Settings → Integrations & API and send it on every /api call using the X-API-Key header with JSON headers."
-                )
-
-                ApiGuideRow(
-                    icon: "shield.lefthalf.filled",
-                    title: "Abuse protection",
-                    detail: "60 requests per minute per IP; ten invalid key attempts block the key for 15 minutes. Expect HTTP 401/423/429 responses when limits trigger."
-                )
-
-                ApiGuideRow(
-                    icon: "list.bullet.rectangle",
-                    title: "List endpoints",
-                    detail: "GET /api/schedules and /api/events return paginated data with per_page up to 1000 plus name/type filters; responses include pagination metadata for efficient paging."
-                )
-
-                ApiGuideRow(
-                    icon: "plus.app",
-                    title: "Create events",
-                    detail: "POST /api/events/{subdomain} needs name, starts_at, and venue details; the subdomain auto-links venue/talent/curator roles, resolves category_name or schedule slugs, and returns full event data on success."
-                )
-
-                ApiGuideRow(
-                    icon: "photo.on.rectangle",
-                    title: "Flyers",
-                    detail: "POST /api/events/flyer/{event_id} uploads, replaces, or removes flyers using multipart data or a flyer_image_id, returning the updated event payload."
-                )
-
-                ApiGuideRow(
-                    icon: "exclamationmark.triangle",
-                    title: "Error handling",
-                    detail: "API responses include clear statuses: 401 invalid key, 403 unauthorized, 404 not found, 422 validation issues, 423 temporarily blocked key, and 429 rate limit exceeded."
-                )
-
-                ApiGuideRow(
-                    icon: "lightbulb",
-                    title: "Mobile tips",
-                    detail: "Cache pagination meta, reuse embedded schedules/members/venues from GET /api/events, prefer category_name and schedule slugs when creating events, and reuse flyer_image_id to avoid large uploads."
-                )
+    private var missingInstanceView: some View {
+        VStack(spacing: 12) {
+            Text("Add an instance to manage events.")
+                .foregroundColor(.secondary)
+            NavigationLink {
+                InstanceOnboardingPlaceholder()
+            } label: {
+                Label("Connect to EventSchedule", systemImage: "link")
             }
-            .textCase(nil)
-            .padding(.vertical, 4)
-        } header: {
-            Text("Mobile API guide")
-        } footer: {
-            Text("Use these endpoints to keep the events list in sync with EventSchedule.")
         }
     }
 }
 
-private struct ApiGuideRow: View {
-    let icon: String
-    let title: String
-    let detail: String
+private struct EventRow: View {
+    let event: Event
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon)
-                .foregroundColor(.accentColor)
-                .frame(width: 20)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
+                Text(event.name)
+                    .font(.headline)
+                    .lineLimit(2)
+                Spacer()
+                StatusBadge(title: event.publishState.rawValue.capitalized, style: .publish(event.publishState))
+            }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
+            HStack(spacing: 12) {
+                Label(event.startAt.formatted(date: .abbreviated, time: .shortened), systemImage: "clock")
                     .font(.subheadline)
-                    .bold()
-                Text(detail)
-                    .font(.footnote)
                     .foregroundColor(.secondary)
+                Label(event.status.rawValue.capitalized, systemImage: "bolt.horizontal")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+
+            HStack(spacing: 12) {
+                Label(event.venueId.isEmpty ? "Unknown venue" : event.venueId, systemImage: "building.2")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                if let capacity = event.capacity {
+                    Label("Cap: \(capacity)", systemImage: "person.3")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+struct StatusBadge: View {
+    enum Style {
+        case publish(PublishState)
+        case status(EventStatus)
+    }
+
+    let title: String
+    let style: Style
+
+    var body: some View {
+        Text(title)
+            .font(.caption)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(backgroundColor)
+            .foregroundColor(foregroundColor)
+            .clipShape(Capsule())
+    }
+
+    private var backgroundColor: Color {
+        switch style {
+        case .publish(let state):
+            switch state {
+            case .published: return Color.green.opacity(0.15)
+            case .draft: return Color.gray.opacity(0.15)
+            case .archived: return Color.orange.opacity(0.15)
+            }
+        case .status(let status):
+            switch status {
+            case .scheduled: return Color.blue.opacity(0.15)
+            case .ongoing: return Color.green.opacity(0.15)
+            case .completed: return Color.purple.opacity(0.15)
+            case .cancelled: return Color.red.opacity(0.15)
+            }
+        }
+    }
+
+    private var foregroundColor: Color {
+        switch style {
+        case .publish(let state):
+            switch state {
+            case .published: return .green
+            case .draft: return .gray
+            case .archived: return .orange
+            }
+        case .status(let status):
+            switch status {
+            case .scheduled: return .blue
+            case .ongoing: return .green
+            case .completed: return .purple
+            case .cancelled: return .red
             }
         }
     }
