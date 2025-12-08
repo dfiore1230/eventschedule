@@ -1,6 +1,10 @@
 import Foundation
 import Combine
 
+// DebugLogger mirrors output to the Xcode console even when stdout/stderr
+// are not presented as a TTY (e.g., when running under the debugger).
+// Using it here ensures persistence failures remain visible during debugging.
+
 @MainActor
 final class InstanceStore: ObservableObject {
     @Published private(set) var instances: [InstanceProfile] = []
@@ -57,7 +61,7 @@ final class InstanceStore: ObservableObject {
                 let decoded = try JSONDecoder().decode([InstanceProfile].self, from: data)
                 self.instances = decoded
             } catch {
-                print("Failed to decode instances: \(error)")
+                DebugLogger.error("InstanceStore: failed to decode instances: \(error)")
             }
         }
 
@@ -76,7 +80,7 @@ final class InstanceStore: ObservableObject {
             let data = try JSONEncoder().encode(instances)
             defaults.set(data, forKey: storageKey)
         } catch {
-            print("Failed to encode instances: \(error)")
+            DebugLogger.error("InstanceStore: failed to encode instances: \(error)")
         }
 
         if let id = activeInstanceID {

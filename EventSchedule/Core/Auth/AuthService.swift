@@ -1,4 +1,9 @@
 import Foundation
+import Security
+
+// DebugLogger mirrors output to the Xcode console even when stdout/stderr
+// are not presented as a TTY (e.g., when running under the debugger).
+// Using it here keeps keychain diagnostics visible during debugging sessions.
 
 /// API-key based authentication service.
 ///
@@ -152,7 +157,7 @@ final class APIKeyStore {
         }
 
         if status != errSecSuccess {
-            print("Keychain save error: \(status)")
+            DebugLogger.error("APIKeyStore: keychain save error: \(status)")
         }
     }
 
@@ -173,7 +178,7 @@ final class APIKeyStore {
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         guard status == errSecSuccess, let data = item as? Data, let key = String(data: data, encoding: .utf8) else {
             if status != errSecItemNotFound {
-                print("Keychain load error: \(status)")
+                DebugLogger.error("APIKeyStore: keychain load error: \(status)")
             }
             return nil
         }
@@ -194,7 +199,7 @@ final class APIKeyStore {
 
         let status = SecItemDelete(query as CFDictionary)
         if status != errSecSuccess && status != errSecItemNotFound {
-            print("Keychain delete error: \(status)")
+            DebugLogger.error("APIKeyStore: keychain delete error: \(status)")
         }
     }
 

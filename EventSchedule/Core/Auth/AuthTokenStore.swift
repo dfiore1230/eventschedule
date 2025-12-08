@@ -1,6 +1,10 @@
 import Foundation
 import Combine
 
+// DebugLogger mirrors output to the Xcode console even when stdout/stderr
+// are not presented as a TTY (e.g., when running under the debugger).
+// Using it here keeps token store diagnostics visible during debugging sessions.
+
 struct AuthSession: Codable, Equatable {
     let token: String
     let expiryDate: Date?
@@ -39,9 +43,9 @@ final class AuthTokenStore: ObservableObject {
         guard let session = session(for: instance) else { return nil }
         if let expiry = session.expiryDate {
             let expired = expiry < Date()
-            print("AuthTokenStore: session found (expired=\(expired)) for \(identifier(for: instance))")
+            DebugLogger.log("AuthTokenStore: session found (expired=\(expired)) for \(identifier(for: instance))")
         } else {
-            print("AuthTokenStore: session found (no expiry) for \(identifier(for: instance))")
+            DebugLogger.log("AuthTokenStore: session found (no expiry) for \(identifier(for: instance))")
         }
         if let expiry = session.expiryDate, expiry < Date() {
             return nil
@@ -61,7 +65,7 @@ final class AuthTokenStore: ObservableObject {
             let data = try JSONEncoder().encode(sessions)
             UserDefaults.standard.set(data, forKey: Self.storageKey)
         } catch {
-            print("Failed to persist auth sessions: \(error)")
+            DebugLogger.error("AuthTokenStore: failed to persist auth sessions: \(error)")
         }
     }
 
@@ -73,7 +77,7 @@ final class AuthTokenStore: ObservableObject {
         do {
             return try JSONDecoder().decode([UUID: AuthSession].self, from: data)
         } catch {
-            print("Failed to load persisted auth sessions: \(error)")
+            DebugLogger.error("AuthTokenStore: failed to load persisted auth sessions: \(error)")
             return [:]
         }
     }
