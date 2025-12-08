@@ -11,16 +11,14 @@ enum DebugLogger {
     private static let generalLogger = Logger(subsystem: subsystem, category: "general")
     private static let networkLogger = Logger(subsystem: subsystem, category: "network")
 
-    private static var isDebuggerAttached: Bool {
-        // When running from Xcode the standard error stream is attached to the
-        // debug console, so we can check for a TTY to determine if we should
-        // mirror messages there.
-        isatty(STDERR_FILENO) != 0
-    }
-
     private static func mirrorToXcodeConsole(_ message: String) {
-        guard isDebuggerAttached else { return }
+        // Xcode 15+ no longer exposes the debug console as a TTY, which caused
+        // the previous detection using `isatty` to suppress all mirrored
+        // messages. Writing directly to stderr in Debug builds keeps the console
+        // output visible without affecting Release builds.
+        #if DEBUG
         fputs("[EventSchedule] \(message)\n", stderr)
+        #endif
     }
 
     static func log(_ message: String) {
