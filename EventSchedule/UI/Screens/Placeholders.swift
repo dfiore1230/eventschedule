@@ -341,8 +341,10 @@ struct EventsListView: View {
     @ViewBuilder
     private func mainContent() -> some View {
         if let instance = instanceStore.activeInstance, let repo = repository {
-            print("EventsListView: rendering events list for instance=\(instance.displayName) (id=\(instance.id))")
             eventsList(for: instance, repository: repo)
+                .onAppear {
+                    print("EventsListView: rendering events list for instance=\(instance.displayName) (id=\(instance.id))")
+                }
         } else {
             Text("Add an instance to start browsing events.")
                 .foregroundColor(.secondary)
