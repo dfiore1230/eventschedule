@@ -105,6 +105,8 @@ struct EventFormView: View {
         isSaving = true
         errorMessage = nil
 
+        DebugLogger.log("EventFormView: save started for \(originalEvent == nil ? "new" : "existing") event on instance=\(instance.displayName) (id=\(instance.id))")
+
         Task {
             do {
                 let capacityValue = Int(capacity)
@@ -123,6 +125,8 @@ struct EventFormView: View {
                     publishState: publishState
                 )
 
+                DebugLogger.log("EventFormView: attempting to \(originalEvent == nil ? "create" : "update") event id=\(payload.id)")
+
                 let savedEvent: Event
                 if originalEvent == nil {
                     savedEvent = try await repository.createEvent(payload, instance: instance)
@@ -134,11 +138,15 @@ struct EventFormView: View {
                     onSave?(savedEvent)
                     dismiss()
                 }
+
+                DebugLogger.log("EventFormView: save finished for event id=\(savedEvent.id)")
             } catch {
                 await MainActor.run {
                     errorMessage = error.localizedDescription
                     isSaving = false
                 }
+
+                DebugLogger.error("EventFormView: save failed with error=\(error.localizedDescription)")
             }
         }
     }

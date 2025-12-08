@@ -275,6 +275,7 @@ struct EventsListView: View {
         let repository = RemoteEventRepository(httpClient: httpClient)
         self.repository = repository
         viewModel.setContext(repository: repository, instance: instance)
+        DebugLogger.log("EventsListView: bootstrapping events list for instance=\(instance.displayName) (id=\(instance.id))")
         await viewModel.load()
     }
 
