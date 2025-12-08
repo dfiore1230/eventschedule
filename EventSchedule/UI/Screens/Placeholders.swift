@@ -251,7 +251,7 @@ struct EventsListView: View {
                 }
             }
             .task { await bootstrapIfNeeded() }
-            .onChange(of: instanceStore.activeInstance?.id) { _ in
+            .onChange(of: instanceStore.activeInstance?.id) { _, _ in
                 Task { await bootstrapIfNeeded() }
             }
             .sheet(isPresented: $showingNewEvent) {
@@ -560,4 +560,3 @@ struct SettingsView: View {
         showingAlert = true
     }
 }
-

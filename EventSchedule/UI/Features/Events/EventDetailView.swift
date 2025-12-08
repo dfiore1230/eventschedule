@@ -43,11 +43,12 @@ struct EventDetailView: View {
                     Text(event.endAt.formatted(date: .abbreviated, time: .shortened))
                         .foregroundColor(.secondary)
                 }
-                if let duration = event.durationMinutes {
+                if event.endAt > event.startAt {
+                    let minutes = Int(event.endAt.timeIntervalSince(event.startAt) / 60)
                     HStack {
                         Label("Duration", systemImage: "timer")
                         Spacer()
-                        Text("\(duration) minutes")
+                        Text("\(minutes) minutes")
                             .foregroundColor(.secondary)
                     }
                 }
@@ -98,7 +99,8 @@ struct EventDetailView: View {
                             Text(ticket.name)
                             Spacer()
                             if let price = ticket.price, let currency = ticket.currency {
-                                Text("\(currency) \(price)")
+                                let display = "\(currency) \(price)"
+                                Text(verbatim: display)
                                     .foregroundColor(.secondary)
                             } else {
                                 Text("Free")
@@ -207,3 +209,4 @@ struct EventDetailView: View {
         }
     }
 }
+

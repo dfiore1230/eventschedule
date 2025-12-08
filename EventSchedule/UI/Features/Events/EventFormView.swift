@@ -108,14 +108,12 @@ struct EventFormView: View {
         Task {
             do {
                 let capacityValue = Int(capacity)
-                let durationMinutes = max(0, Int(endAt.timeIntervalSince(startAt) / 60))
                 let payload = Event(
                     id: originalEvent?.id ?? UUID().uuidString,
                     name: name,
                     description: description.isEmpty ? nil : description,
                     startAt: startAt,
                     endAt: endAt,
-                    durationMinutes: durationMinutes,
                     venueId: venueId,
                     roomId: roomId.isEmpty ? nil : roomId,
                     status: status,
