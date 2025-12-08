@@ -22,29 +22,9 @@ struct MainTabView: View {
 
     var body: some View {
         TabView {
-            DashboardView()
-                .tabItem {
-                    Label("Dashboard", systemImage: "speedometer")
-                }
-
             EventsListView()
                 .tabItem {
                     Label("Events", systemImage: "calendar")
-                }
-
-            TalentListView()
-                .tabItem {
-                    Label("Talent", systemImage: "person.3")
-                }
-
-            VenuesListView()
-                .tabItem {
-                    Label("Venues", systemImage: "building.2")
-                }
-
-            TicketsSearchView()
-                .tabItem {
-                    Label("Tickets", systemImage: "ticket")
                 }
 
             SettingsView()
