@@ -468,9 +468,9 @@ struct EventFormView: View {
                     if (startWasModified || durationWasModified) && isSignificantlyDifferent(computedEndAt, originalEvent!.endAt) {
                         dto.ends_at = apiDateString(computedEndAt)
                     }
-                    if durationWasModified, let parsedDurationMinutes, parsedDurationMinutes != originalEvent!.durationMinutes {
+                    if let parsedDurationMinutes, parsedDurationMinutes != originalEvent!.durationMinutes {
                         dto.duration = .some(parsedDurationMinutes / 60)
-                    } else if durationWasModified, parsedDurationMinutes == nil, originalEvent!.durationMinutes != nil {
+                    } else if parsedDurationMinutes == nil, originalEvent!.durationMinutes != nil {
                         dto.duration = .some(nil)
                     }
                     let trimmedRoom = roomId.trimmingCharacters(in: .whitespacesAndNewlines)
