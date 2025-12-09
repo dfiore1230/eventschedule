@@ -344,14 +344,9 @@ struct EventFormView: View {
     }
 
     private func apiDateString(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        // Use the user's current time zone to avoid shifting times on edit when
-        // the event/venue time zone differs from the device setting. The server
-        // interprets these values as local times without an offset.
-        formatter.timeZone = .current
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
         return formatter.string(from: date)
     }
     
