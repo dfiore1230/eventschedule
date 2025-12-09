@@ -276,6 +276,15 @@ struct Event: Codable, Identifiable, Equatable {
         return formatter
     }()
 
+    static func payloadDateFormatter() -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ssZZZZZ"
+        return formatter
+    }
+
     private static func decodeDate(
         from container: KeyedDecodingContainer<CodingKeys>,
         keys: [CodingKeys]
