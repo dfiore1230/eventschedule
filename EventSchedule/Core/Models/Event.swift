@@ -55,12 +55,18 @@ struct Event: Codable, Identifiable, Equatable {
             case name
             case price
             case currency
+            case type
         }
 
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             id = try container.decode(String.self, forKey: .id)
-            name = try container.decode(String.self, forKey: .name)
+
+            let decodedName = try container.decodeIfPresent(String.self, forKey: .name)
+                ?? container.decodeIfPresent(String.self, forKey: .type)
+                ?? "Ticket"
+            name = decodedName.isEmpty ? "Ticket" : decodedName
+
             currency = try container.decodeIfPresent(String.self, forKey: .currency)
 
             if let numericPrice = try? container.decodeIfPresent(Decimal.self, forKey: .price) {
