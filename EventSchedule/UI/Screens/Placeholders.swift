@@ -370,7 +370,7 @@ private struct EventRow: View {
                     .font(.headline)
                     .lineLimit(2)
                 Spacer()
-                StatusBadge(title: event.publishState.rawValue.capitalized, style: .publish(event.publishState))
+                // Removed publish state badge as requested
             }
 
             HStack(spacing: 12) {
@@ -399,7 +399,6 @@ private struct EventRow: View {
 
 struct StatusBadge: View {
     enum Style {
-        case publish(PublishState)
         case status(EventStatus)
     }
 
@@ -418,12 +417,6 @@ struct StatusBadge: View {
 
     private var backgroundColor: Color {
         switch style {
-        case .publish(let state):
-            switch state {
-            case .published: return Color.green.opacity(0.15)
-            case .draft: return Color.gray.opacity(0.15)
-            case .archived: return Color.orange.opacity(0.15)
-            }
         case .status(let status):
             switch status {
             case .scheduled: return Color.blue.opacity(0.15)
@@ -436,12 +429,6 @@ struct StatusBadge: View {
 
     private var foregroundColor: Color {
         switch style {
-        case .publish(let state):
-            switch state {
-            case .published: return .green
-            case .draft: return .gray
-            case .archived: return .orange
-            }
         case .status(let status):
             switch status {
             case .scheduled: return .blue
@@ -561,3 +548,4 @@ struct SettingsView: View {
         showingAlert = true
     }
 }
+

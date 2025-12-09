@@ -234,13 +234,11 @@ struct Event: Codable, Identifiable, Equatable {
 
     var venueDisplayDescription: String {
         if let venueName, !venueName.isEmpty {
-            return "\(venueName) (\(venueId))"
+            return venueName
         }
-
         if venueId.isEmpty {
             return "Unknown venue"
         }
-
         return venueId
     }
 

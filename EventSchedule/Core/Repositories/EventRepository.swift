@@ -20,6 +20,7 @@ protocol EventRepository {
     func createEvent(_ event: Event, instance: InstanceProfile) async throws -> Event
     func updateEvent(_ event: Event, instance: InstanceProfile) async throws -> Event
     func deleteEvent(id: String, instance: InstanceProfile) async throws
+    func patchEvent<T: Encodable>(id: String, body: T, instance: InstanceProfile) async throws -> Event
 }
 
 private struct EventListResponse: Decodable {
@@ -151,6 +152,42 @@ final class RemoteEventRepository: EventRepository {
         self.httpClient = httpClient
     }
 
+    private func enrichVenueNames(_ events: [Event], for instance: InstanceProfile) async -> [Event] {
+        var venues = venueCache[instance.id] ?? []
+        if venues.isEmpty {
+            if let res = try? await listEventResources(for: instance) {
+                venues = res.venues.map { Venue(id: $0.id, name: $0.name) }
+            }
+        }
+        let map = Dictionary(uniqueKeysWithValues: venues.map { ($0.id, $0.name) })
+        return events.map { e in
+            if e.venueName == nil, let name = map[e.venueId] {
+                var copy = e
+                copy.venueName = name
+                DebugLogger.log("Enrichment: set venue name for event id=\(e.id) -> \(name)")
+                return copy
+            }
+            return e
+        }
+    }
+
+    private func enrichVenueName(_ event: Event, for instance: InstanceProfile) async -> Event {
+        if event.venueName != nil { return event }
+        var venues = venueCache[instance.id] ?? []
+        if venues.isEmpty {
+            if let res = try? await listEventResources(for: instance) {
+                venues = res.venues.map { Venue(id: $0.id, name: $0.name) }
+            }
+        }
+        if let name = venues.first(where: { $0.id == event.venueId })?.name {
+            var copy = event
+            copy.venueName = name
+            DebugLogger.log("Enrichment: set venue name for event id=\(event.id) -> \(name)")
+            return copy
+        }
+        return event
+    }
+
     func listEvents(for instance: InstanceProfile) async throws -> [Event] {
         do {
             let response: EventListResponse = try await httpClient.request(
@@ -160,9 +197,10 @@ final class RemoteEventRepository: EventRepository {
                 body: Optional<Event>.none,
                 instance: instance
             )
-            cache[instance.id] = response.events
-            consoleLog("RemoteEventRepository: fetched \(response.events.count) events for instance=\(instance.displayName) (id=\(instance.id))")
-            return response.events
+            let enriched = await enrichVenueNames(response.events, for: instance)
+            cache[instance.id] = enriched
+            consoleLog("RemoteEventRepository: fetched \(enriched.count) events for instance=\(instance.displayName) (id=\(instance.id))")
+            return enriched
         } catch {
             consoleError("RemoteEventRepository: listEvents failed for instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
             if case let DecodingError.dataCorrupted(context) = error {
@@ -191,9 +229,10 @@ final class RemoteEventRepository: EventRepository {
                 body: Optional<Event>.none,
                 instance: instance
             )
-            upsert(response.event, for: instance)
-            consoleLog("RemoteEventRepository: fetched event id=\(response.event.id) for instance=\(instance.displayName) (id=\(instance.id))")
-            return response.event
+            let enriched = await enrichVenueName(response.event, for: instance)
+            upsert(enriched, for: instance)
+            consoleLog("RemoteEventRepository: fetched event id=\(enriched.id) for instance=\(instance.displayName) (id=\(instance.id))")
+            return enriched
         } catch {
             consoleError("RemoteEventRepository: getEvent failed for id=\(id) on instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
             if case let DecodingError.dataCorrupted(context) = error {
@@ -290,7 +329,7 @@ final class RemoteEventRepository: EventRepository {
             startsAt: formatter.string(from: event.startAt),
             endAt: formatter.string(from: event.endAt),
             durationMinutes: event.durationMinutes,
-            venueId: includeVenueId ? event.venueId : nil,
+            venueId: includeVenueId ? (event.venueId.isEmpty ? nil : event.venueId) : nil,
             roomId: event.roomId,
             status: event.status,
             images: event.images,
@@ -298,7 +337,7 @@ final class RemoteEventRepository: EventRepository {
             ticketTypes: event.ticketTypes,
             publishState: event.publishState,
             curatorId: event.curatorId,
-            members: event.talentIds
+            members: event.talentIds.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         )
         do {
             let response: EventDetailResponse = try await httpClient.request(
@@ -308,9 +347,10 @@ final class RemoteEventRepository: EventRepository {
                 body: dto,
                 instance: instance
             )
-            upsert(response.event, for: instance)
-            consoleLog("RemoteEventRepository: created event id=\(response.event.id) for instance=\(instance.displayName) (id=\(instance.id))")
-            return response.event
+            let enriched = await enrichVenueName(response.event, for: instance)
+            upsert(enriched, for: instance)
+            consoleLog("RemoteEventRepository: created event id=\(enriched.id) for instance=\(instance.displayName) (id=\(instance.id))")
+            return enriched
         } catch {
             consoleError("RemoteEventRepository: createEvent failed on instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
             if case let DecodingError.dataCorrupted(context) = error {
@@ -328,16 +368,62 @@ final class RemoteEventRepository: EventRepository {
 
     func updateEvent(_ event: Event, instance: InstanceProfile) async throws -> Event {
         do {
+            let (subdomain, scheduleType) = try await resolveSubdomain(for: instance)
+            let resources: EventResources
+            if let cachedResources = resourcesCache[instance.id] {
+                resources = cachedResources
+            } else {
+                resources = try await listEventResources(for: instance)
+            }
+            let validVenueIds = Set(resources.venues.map { $0.id })
+            let validTalentIds = Set(resources.talent.map { $0.id })
+            let includeVenueId = !(scheduleType?.lowercased().contains("venue") ?? false)
+            let safeVenueId: String?
+            if !includeVenueId {
+                safeVenueId = nil
+            } else if event.venueId.isEmpty {
+                safeVenueId = nil
+            } else if validVenueIds.contains(event.venueId) {
+                safeVenueId = event.venueId
+            } else {
+                safeVenueId = nil
+            }
+            let safeMembers: [String] = (event.talentIds ?? []).filter { id in
+                let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+                return !trimmed.isEmpty && validTalentIds.contains(trimmed)
+            }
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            let dto = UpdateEventDTO(
+                id: event.id,
+                name: event.name,
+                description: event.description,
+                startsAt: formatter.string(from: event.startAt),
+                endAt: formatter.string(from: event.endAt),
+                durationMinutes: event.durationMinutes,
+                venueId: safeVenueId,
+                roomId: event.roomId,
+                status: event.status,
+                images: event.images,
+                capacity: event.capacity,
+                ticketTypes: event.ticketTypes,
+                publishState: event.publishState,
+                curatorId: event.curatorId,
+                members: safeMembers
+            )
             let response: EventDetailResponse = try await httpClient.request(
                 "events/\(event.id)",
-                method: .put,
+                method: .post,
                 query: ["include": "venue,talent,tickets"],
-                body: event,
+                body: dto,
                 instance: instance
             )
-            upsert(response.event, for: instance)
-            consoleLog("RemoteEventRepository: updated event id=\(response.event.id) for instance=\(instance.displayName) (id=\(instance.id))")
-            return response.event
+            let enriched = await enrichVenueName(response.event, for: instance)
+            upsert(enriched, for: instance)
+            consoleLog("RemoteEventRepository: updated event id=\(enriched.id) for instance=\(instance.displayName) (id=\(instance.id))")
+            return enriched
         } catch {
             consoleError("RemoteEventRepository: updateEvent failed for id=\(event.id) on instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
             if case let DecodingError.dataCorrupted(context) = error {
@@ -366,6 +452,24 @@ final class RemoteEventRepository: EventRepository {
             consoleLog("RemoteEventRepository: deleted event id=\(id) for instance=\(instance.displayName) (id=\(instance.id))")
         } catch {
             consoleError("RemoteEventRepository: deleteEvent failed for id=\(id) on instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
+            throw error
+        }
+    }
+
+    func patchEvent<T: Encodable>(id: String, body: T, instance: InstanceProfile) async throws -> Event {
+        do {
+            let response: GenericEventResponse = try await httpClient.request(
+                "events/\(id)",
+                method: .patch,
+                query: ["include": "venue,talent,tickets"],
+                body: body,
+                instance: instance
+            )
+            upsert(response.data, for: instance)
+            consoleLog("RemoteEventRepository: patched event id=\(response.data.id) for instance=\(instance.displayName) (id=\(instance.id))")
+            return response.data
+        } catch {
+            consoleError("RemoteEventRepository: patchEvent failed for id=\(id) on instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
             throw error
         }
     }
@@ -466,4 +570,62 @@ final class RemoteEventRepository: EventRepository {
             if !members.isEmpty { try container.encode(members, forKey: .members) }
         }
     }
+
+    private struct UpdateEventDTO: Encodable {
+        let id: String?
+        let name: String
+        let description: String?
+        let startsAt: String
+        let endAt: String
+        let durationMinutes: Int?
+        let venueId: String?
+        let roomId: String?
+        let status: EventStatus
+        let images: [URL]
+        let capacity: Int?
+        let ticketTypes: [TicketType]
+        let publishState: PublishState
+        let curatorId: String?
+        let members: [String]
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case name
+            case description
+            case startsAt = "starts_at"
+            case endAt = "ends_at"
+            case durationMinutes = "duration_minutes"
+            case venueId = "venue_id"
+            case roomId = "room_id"
+            case status
+            case images
+            case capacity
+            case ticketTypes = "ticket_types"
+            case publishState = "publish_state"
+            case curatorId = "curator_role_id"
+            case members
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encodeIfPresent(id, forKey: .id)
+            try container.encode(name, forKey: .name)
+            try container.encodeIfPresent(description, forKey: .description)
+            try container.encode(startsAt, forKey: .startsAt)
+            try container.encode(endAt, forKey: .endAt)
+            try container.encodeIfPresent(durationMinutes, forKey: .durationMinutes)
+            if let venueId { try container.encode(venueId, forKey: .venueId) }
+            try container.encodeIfPresent(roomId, forKey: .roomId)
+            try container.encode(status, forKey: .status)
+            try container.encode(images, forKey: .images)
+            try container.encodeIfPresent(capacity, forKey: .capacity)
+            try container.encode(ticketTypes, forKey: .ticketTypes)
+            try container.encode(publishState, forKey: .publishState)
+            try container.encodeIfPresent(curatorId, forKey: .curatorId)
+            if !members.isEmpty { try container.encode(members, forKey: .members) }
+        }
+    }
+    
+    private struct GenericEventResponse: Decodable { let data: Event }
 }
+

@@ -7,6 +7,7 @@ struct EventDetailView: View {
     @State private var isEditing: Bool = false
     @State private var isPerformingAction: Bool = false
     @State private var actionError: String?
+    @State private var showingDeleteConfirm: Bool = false
 
     private let repository: EventRepository
     private let instance: InstanceProfile
@@ -77,11 +78,6 @@ struct EventDetailView: View {
                     Spacer()
                     StatusBadge(title: event.status.rawValue.capitalized, style: .status(event.status))
                 }
-                HStack {
-                    Label("Publish", systemImage: "globe")
-                    Spacer()
-                    StatusBadge(title: event.publishState.rawValue.capitalized, style: .publish(event.publishState))
-                }
                 if let capacity = event.capacity {
                     HStack {
                         Label("Capacity", systemImage: "person.3")
@@ -112,37 +108,18 @@ struct EventDetailView: View {
             }
 
             Section(header: Text("Quick actions")) {
-                Button {
-                    Task { await updatePublishState(target: event.publishState == .published ? .draft : .published) }
+                Button(role: .destructive) {
+                    showingDeleteConfirm = true
                 } label: {
-                    Label(event.publishState == .published ? "Unpublish" : "Publish", systemImage: event.publishState == .published ? "eye.slash" : "globe")
+                    Label("Delete event", systemImage: "trash")
                 }
                 .disabled(isPerformingAction)
-
-                HStack {
-                    Button {
-                        Task { await updateStatus(target: .ongoing) }
-                    } label: {
-                        Label("Start now", systemImage: "play.circle")
-                    }
-                    .disabled(isPerformingAction || event.status == .ongoing)
-
-                    Spacer()
-
-                    Button {
-                        Task { await updateStatus(target: .completed) }
-                    } label: {
-                        Label("Mark done", systemImage: "checkmark.circle")
-                    }
-                    .disabled(isPerformingAction || event.status == .completed)
+                .alert("Delete Event", isPresented: $showingDeleteConfirm) {
+                    Button("Delete", role: .destructive) { Task { await deleteEvent() } }
+                    Button("Cancel", role: .cancel) { }
+                } message: {
+                    Text("This action cannot be undone.")
                 }
-
-                Button(role: .destructive) {
-                    Task { await updateStatus(target: .cancelled) }
-                } label: {
-                    Label("Cancel event", systemImage: "xmark.octagon")
-                }
-                .disabled(isPerformingAction || event.status == .cancelled)
 
                 if let actionError {
                     Text(actionError)
@@ -172,12 +149,16 @@ struct EventDetailView: View {
         .accentColor(theme.accent)
     }
 
-    private func updatePublishState(target: PublishState) async {
-        DebugLogger.log("EventDetailView: requested publish state change to \(target.rawValue) for event id=\(event.id)")
-        await updateEvent { current in
-            var updated = current
-            updated.publishState = target
-            return updated
+    private struct ActionPatchDTO: Encodable {
+        var status: String?
+    }
+
+    private func apiString(for status: EventStatus) -> String {
+        switch status {
+        case .scheduled: return "scheduled"
+        case .ongoing: return "ongoing"
+        case .completed: return "completed"
+        case .cancelled: return "cancelled"
         }
     }
 
@@ -199,7 +180,16 @@ struct EventDetailView: View {
 
         do {
             let updated = transform(event)
-            let saved = try await repository.updateEvent(updated, instance: instance)
+            var dto = ActionPatchDTO()
+            if updated.status != event.status {
+                dto.status = apiString(for: updated.status)
+            }
+            // If nothing changed, bail out
+            if dto.status == nil {
+                await MainActor.run { isPerformingAction = false }
+                return
+            }
+            let saved = try await repository.patchEvent(id: event.id, body: dto, instance: instance)
             await MainActor.run {
                 event = saved
                 onSave?(saved)
@@ -216,5 +206,48 @@ struct EventDetailView: View {
             DebugLogger.error("EventDetailView: update failed for event id=\(event.id) error=\(error.localizedDescription)")
         }
     }
-}
 
+    private func deleteEvent() async {
+        guard !isPerformingAction else { return }
+        isPerformingAction = true
+        actionError = nil
+        DebugLogger.log("EventDetailView: deleting event id=\(event.id)")
+        do {
+            try await repository.deleteEvent(id: event.id, instance: instance)
+            await MainActor.run {
+                onSave?(event)
+                isPerformingAction = false
+            }
+            DebugLogger.log("EventDetailView: delete succeeded for event id=\(event.id)")
+        } catch {
+            await MainActor.run {
+                actionError = error.localizedDescription
+                isPerformingAction = false
+            }
+            DebugLogger.error("EventDetailView: delete failed for event id=\(event.id) error=\(error.localizedDescription)")
+        }
+    }
+
+    private func archiveEvent() async {
+        guard !isPerformingAction else { return }
+        isPerformingAction = true
+        actionError = nil
+        DebugLogger.log("EventDetailView: archiving (soft-delete) event id=\(event.id)")
+        struct ArchiveDTO: Encodable { let publish_state: String }
+        do {
+            let saved = try await repository.patchEvent(id: event.id, body: ArchiveDTO(publish_state: "archived"), instance: instance)
+            await MainActor.run {
+                event = saved
+                onSave?(saved)
+                isPerformingAction = false
+            }
+            DebugLogger.log("EventDetailView: archive succeeded for event id=\(event.id)")
+        } catch {
+            await MainActor.run {
+                actionError = error.localizedDescription
+                isPerformingAction = false
+            }
+            DebugLogger.error("EventDetailView: archive failed for event id=\(event.id) error=\(error.localizedDescription)")
+        }
+    }
+}
