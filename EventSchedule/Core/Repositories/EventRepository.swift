@@ -320,7 +320,7 @@ final class RemoteEventRepository: EventRepository {
         DebugLogger.log("RemoteEventRepository: creating under subdomain=\(subdomain) type=\(scheduleType ?? "<nil>") includeVenueId=\(includeVenueId)")
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.timeZone = .current
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         let dto = CreateEventDTO(
             id: event.id,
@@ -394,7 +394,7 @@ final class RemoteEventRepository: EventRepository {
             }
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            formatter.timeZone = .current
             formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
             let dto = UpdateEventDTO(
                 id: event.id,
