@@ -272,7 +272,10 @@ struct Event: Codable, Identifiable, Equatable {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        // Backend treats "yyyy-MM-dd HH:mm:ss" values as local times without an
+        // explicit offset. Use the user's current time zone so parsed Dates
+        // round-trip without shifting when the API responds with this format.
+        formatter.timeZone = .current
         return formatter
     }()
 
