@@ -368,7 +368,7 @@ final class RemoteEventRepository: EventRepository {
 
     func updateEvent(_ event: Event, instance: InstanceProfile) async throws -> Event {
         do {
-            let (subdomain, scheduleType) = try await resolveSubdomain(for: instance)
+            let (_, scheduleType) = try await resolveSubdomain(for: instance)
             let resources: EventResources
             if let cachedResources = resourcesCache[instance.id] {
                 resources = cachedResources
@@ -388,7 +388,7 @@ final class RemoteEventRepository: EventRepository {
             } else {
                 safeVenueId = nil
             }
-            let safeMembers: [String] = (event.talentIds ?? []).filter { id in
+            let safeMembers: [String] = event.talentIds.filter { id in
                 let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
                 return !trimmed.isEmpty && validTalentIds.contains(trimmed)
             }
