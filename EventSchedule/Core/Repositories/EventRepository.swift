@@ -539,7 +539,7 @@ final class RemoteEventRepository: EventRepository {
             case description
             case startsAt = "starts_at"
             case endAt = "ends_at"
-            case durationMinutes = "duration_minutes"
+            case duration
             case venueId = "venue_id"
             case roomId = "room_id"
             case status
@@ -559,7 +559,7 @@ final class RemoteEventRepository: EventRepository {
             try container.encode(startsAt, forKey: .startsAt)
             try container.encode(endAt, forKey: .endAt)
             if let durationMinutes, durationMinutes > 0 {
-                try container.encode(durationMinutes / 60, forKey: .durationMinutes)
+                try container.encode(durationMinutes / 60, forKey: .duration)
             }
             if let venueId { try container.encode(venueId, forKey: .venueId) }
             try container.encodeIfPresent(roomId, forKey: .roomId)
@@ -596,7 +596,7 @@ final class RemoteEventRepository: EventRepository {
             case description
             case startsAt = "starts_at"
             case endAt = "ends_at"
-            case durationMinutes = "duration_minutes"
+            case duration
             case venueId = "venue_id"
             case roomId = "room_id"
             case status
@@ -616,7 +616,7 @@ final class RemoteEventRepository: EventRepository {
             try container.encode(startsAt, forKey: .startsAt)
             try container.encode(endAt, forKey: .endAt)
             if let durationMinutes, durationMinutes > 0 {
-                try container.encode(durationMinutes / 60, forKey: .durationMinutes)
+                try container.encode(durationMinutes / 60, forKey: .duration)
             }
             if let venueId { try container.encode(venueId, forKey: .venueId) }
             try container.encodeIfPresent(roomId, forKey: .roomId)

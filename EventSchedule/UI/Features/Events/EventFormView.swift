@@ -339,7 +339,7 @@ struct EventFormView: View {
         var description: String?
         var starts_at: String?
         var ends_at: String?
-        var duration_minutes: Int??
+        var duration: Int??
         var room_id: String??
         var status: String?
         var capacity: Int??
@@ -435,9 +435,9 @@ struct EventFormView: View {
                         dto.ends_at = apiDateString(computedEndAt)
                     }
                     if let parsedDurationMinutes {
-                        dto.duration_minutes = .some(parsedDurationMinutes / 60)
+                        dto.duration = .some(parsedDurationMinutes / 60)
                     } else if originalEvent!.durationMinutes != nil {
-                        dto.duration_minutes = .some(nil)
+                        dto.duration = .some(nil)
                     }
                     let trimmedRoom = roomId.trimmingCharacters(in: .whitespacesAndNewlines)
                     let originalRoomTrimmed = originalEvent!.roomId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
