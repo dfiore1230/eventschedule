@@ -94,6 +94,7 @@ struct EventFormView: View {
         _roomId = State(initialValue: event?.roomId ?? "")
         _status = State(initialValue: event?.status ?? .scheduled)
         _capacity = State(initialValue: event?.capacity.map { String($0) } ?? "")
+        _durationHours = State(initialValue: event?.durationMinutes.map { String($0 / 60) } ?? "")
 
         if let evt = event {
             // If Event exposes a timezone string from primary schedule, set it here
@@ -378,12 +379,27 @@ struct EventFormView: View {
                         .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
                         .filter { talentSelections.contains($0) }
 
+                    let parsedDurationMinutes: Int?
+                    if let durationValue = Double(durationHours.trimmingCharacters(in: .whitespacesAndNewlines)), durationValue > 0 {
+                        parsedDurationMinutes = Int(durationValue * 60)
+                    } else {
+                        parsedDurationMinutes = nil
+                    }
+
+                    let computedEndAt: Date
+                    if let parsedDurationMinutes, parsedDurationMinutes > 0 {
+                        computedEndAt = startAtLocal.addingTimeInterval(TimeInterval(parsedDurationMinutes * 60))
+                    } else {
+                        computedEndAt = endAtLocal
+                    }
+
                     let payload = Event(
                         id: UUID().uuidString,
                         name: name,
                         description: description.isEmpty ? nil : description,
                         startAt: startAtLocal,
-                        endAt: endAtLocal,
+                        endAt: computedEndAt,
+                        durationMinutes: parsedDurationMinutes,
                         venueId: venueId,
                         roomId: roomId.isEmpty ? nil : roomId,
                         status: status,
