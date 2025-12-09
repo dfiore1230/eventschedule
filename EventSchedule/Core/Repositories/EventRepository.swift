@@ -257,7 +257,7 @@ final class RemoteEventRepository: EventRepository {
                 "events/resources",
                 method: .get,
                 query: ["per_page": "1000"],
-                body: Optional<EventResources>.none,
+                body: (nil as (any Encodable)?),
                 instance: instance
             )
             resourcesCache[instance.id] = response.resources

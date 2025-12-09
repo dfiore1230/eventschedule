@@ -40,6 +40,13 @@ struct EventRole: Identifiable, Codable, Equatable {
             ?? container.decodeIfPresent(String.self, forKey: .roleType)
             ?? ""
     }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(type, forKey: .type)
+    }
 }
 
 struct EventResources: Decodable, Equatable {
