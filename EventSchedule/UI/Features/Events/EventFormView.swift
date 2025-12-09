@@ -75,14 +75,18 @@ struct EventFormView: View {
 
     @State private var isSaving: Bool = false
     @State private var errorMessage: String?
+    @State private var startWasModified: Bool = false
+    @State private var durationWasModified: Bool = false
 
     private let originalEvent: Event?
+    private let initialDurationHours: String
 
     init(event: Event? = nil, repository: EventRepository, instance: InstanceProfile, onSave: ((Event) -> Void)? = nil) {
         self.repository = repository
         self.instance = instance
         self.onSave = onSave
         self.originalEvent = event
+        self.initialDurationHours = Self.durationHoursString(from: event?.durationMinutes)
 
         _name = State(initialValue: event?.name ?? "")
         _description = State(initialValue: event?.description ?? "")
@@ -145,8 +149,19 @@ struct EventFormView: View {
                     Text("Category: \(selectedCategory)")
                 }
                 DatePicker("Start", selection: $startAtLocal)
+                    .onChange(of: startAtLocal) { newValue in
+                        if originalEvent == nil || isSignificantlyDifferent(newValue, originalEvent!.startAt) {
+                            startWasModified = true
+                        }
+                    }
                 TextField("Duration (hours)", text: $durationHours)
                     .keyboardType(.decimalPad)
+                    .onChange(of: durationHours) { newValue in
+                        let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmed != initialDurationHours {
+                            durationWasModified = true
+                        }
+                    }
                 TextField("Description", text: $description, axis: .vertical)
                     .lineLimit(3...5)
             }
@@ -447,10 +462,10 @@ struct EventFormView: View {
                     if description != (originalEvent!.description ?? "") {
                         dto.description = description.isEmpty ? nil : description
                     }
-                    if isSignificantlyDifferent(startAtLocal, originalEvent!.startAt) {
+                    if startWasModified && isSignificantlyDifferent(startAtLocal, originalEvent!.startAt) {
                         dto.starts_at = apiDateString(startAtLocal)
                     }
-                    if isSignificantlyDifferent(computedEndAt, originalEvent!.endAt) {
+                    if (startWasModified || durationWasModified) && isSignificantlyDifferent(computedEndAt, originalEvent!.endAt) {
                         dto.ends_at = apiDateString(computedEndAt)
                     }
                     if let parsedDurationMinutes, parsedDurationMinutes != originalEvent!.durationMinutes {
