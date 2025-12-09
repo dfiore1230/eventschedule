@@ -110,9 +110,13 @@ struct Event: Codable, Identifiable, Equatable {
             )
         }
 
-        let decodedDuration = try container.decodeIfPresent(Int.self, forKey: .durationMinutes)
-            ?? container.decodeIfPresent(Int.self, forKey: .duration)
-        durationMinutes = decodedDuration
+        if let decodedDuration = try container.decodeIfPresent(Int.self, forKey: .durationMinutes)
+            ?? container.decodeIfPresent(Int.self, forKey: .duration) {
+            // API provides duration in hours, but the model stores minutes
+            durationMinutes = decodedDuration * 60
+        } else {
+            durationMinutes = nil
+        }
 
         if let explicitEnd = try Self.decodeDate(
             from: container,
@@ -218,7 +222,10 @@ struct Event: Codable, Identifiable, Equatable {
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         try container.encode(formatter.string(from: startAt), forKey: .startsAt)
         try container.encode(formatter.string(from: endAt), forKey: .endAt)
-        try container.encodeIfPresent(durationMinutes, forKey: .durationMinutes)
+        // API expects duration in hours
+        if let durationMinutes, durationMinutes > 0 {
+            try container.encode(durationMinutes / 60, forKey: .durationMinutes)
+        }
         try container.encode(venueId, forKey: .venueId)
         try container.encodeIfPresent(roomId, forKey: .roomId)
         try container.encode(status, forKey: .status)
