@@ -34,6 +34,24 @@ private struct EventListResponse: Decodable {
             return
         }
 
+        if let nestedData = try? container.nestedContainer(keyedBy: NestedCodingKeys.self, forKey: .data) {
+            if let nestedEvents = try nestedData.decodeIfPresent([Event].self, forKey: .events) {
+                events = nestedEvents
+                return
+            }
+
+            if let nestedItems = try nestedData.decodeIfPresent([Event].self, forKey: .items) {
+                events = nestedItems
+                return
+            }
+
+            if let deeperData = try nestedData.nestedContainer(keyedBy: NestedCodingKeys.self, forKey: .data),
+               let deepItems = try deeperData.decodeIfPresent([Event].self, forKey: .items) {
+                events = deepItems
+                return
+            }
+        }
+
         throw DecodingError.dataCorruptedError(
             forKey: .data,
             in: container,
@@ -42,6 +60,12 @@ private struct EventListResponse: Decodable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case data
+        case events
+        case items
+    }
+
+    private enum NestedCodingKeys: String, CodingKey {
         case data
         case events
         case items
@@ -69,6 +93,18 @@ private struct EventDetailResponse: Decodable {
             return
         }
 
+        if let nestedData = try? container.nestedContainer(keyedBy: NestedCodingKeys.self, forKey: .data) {
+            if let nestedEvent = try nestedData.decodeIfPresent(Event.self, forKey: .event) {
+                event = nestedEvent
+                return
+            }
+
+            if let deeperEvent = try nestedData.decodeIfPresent(Event.self, forKey: .data) {
+                event = deeperEvent
+                return
+            }
+        }
+
         throw DecodingError.dataCorruptedError(
             forKey: .data,
             in: container,
@@ -77,6 +113,11 @@ private struct EventDetailResponse: Decodable {
     }
 
     private enum CodingKeys: String, CodingKey {
+        case data
+        case event
+    }
+
+    private enum NestedCodingKeys: String, CodingKey {
         case data
         case event
     }
