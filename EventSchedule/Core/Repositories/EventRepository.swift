@@ -16,6 +16,7 @@ protocol EventRepository {
     func listEvents(for instance: InstanceProfile) async throws -> [Event]
     func getEvent(id: String, instance: InstanceProfile) async throws -> Event
     func listVenues(for instance: InstanceProfile) async throws -> [Venue]
+    func listEventResources(for instance: InstanceProfile) async throws -> EventResources
     func createEvent(_ event: Event, instance: InstanceProfile) async throws -> Event
     func updateEvent(_ event: Event, instance: InstanceProfile) async throws -> Event
     func deleteEvent(id: String, instance: InstanceProfile) async throws
@@ -143,6 +144,7 @@ final class RemoteEventRepository: EventRepository {
     private let httpClient: HTTPClientProtocol
     private var cache: [UUID: [Event]] = [:]
     private var venueCache: [UUID: [Venue]] = [:]
+    private var resourcesCache: [UUID: EventResources] = [:]
 
     init(httpClient: HTTPClientProtocol = HTTPClient()) {
         self.httpClient = httpClient
@@ -211,67 +213,61 @@ final class RemoteEventRepository: EventRepository {
     }
 
     func listVenues(for instance: InstanceProfile) async throws -> [Venue] {
-        struct VenueListResponse: Decodable {
-            let venues: [Venue]
+        let resources = try await listEventResources(for: instance)
+        return resources.venues.map { Venue(id: $0.id, name: $0.name) }
+    }
+
+    func listEventResources(for instance: InstanceProfile) async throws -> EventResources {
+        struct ResourcesResponse: Decodable {
+            let resources: EventResources
 
             init(from decoder: Decoder) throws {
-                if let direct = try? decoder.singleValueContainer().decode([Venue].self) {
-                    venues = direct
+                if let direct = try? EventResources(from: decoder) {
+                    resources = direct
                     return
                 }
 
                 let container = try decoder.container(keyedBy: CodingKeys.self)
-
-                if let dataArray = try container.decodeIfPresent([Venue].self, forKey: .data) {
-                    venues = dataArray
+                if let nested = try container.decodeIfPresent(EventResources.self, forKey: .data) {
+                    resources = nested
                     return
                 }
 
-                if let venueArray = try container.decodeIfPresent([Venue].self, forKey: .venues) {
-                    venues = venueArray
+                if let venues = try container.decodeIfPresent([EventRole].self, forKey: .venues) {
+                    let curators = try container.decodeIfPresent([EventRole].self, forKey: .curators) ?? []
+                    let talent = try container.decodeIfPresent([EventRole].self, forKey: .talent) ?? []
+                    resources = EventResources(venues: venues, curators: curators, talent: talent)
                     return
                 }
 
-                if let nestedData = try? container.nestedContainer(keyedBy: NestedCodingKeys.self, forKey: .data),
-                   let nestedVenues = try nestedData.decodeIfPresent([Venue].self, forKey: .venues) {
-                    venues = nestedVenues
-                    return
-                }
-
-                consoleError("VenueListResponse: Unable to locate venues array. CodingPath=\(decoder.codingPath.map { $0.stringValue }.joined(separator: ".")) attempted keys: data, venues, data.venues")
-                throw DecodingError.dataCorruptedError(
-                    forKey: .data,
-                    in: container,
-                    debugDescription: "No venues array found in response"
-                )
+                consoleError("ResourcesResponse: Unable to decode resources. CodingPath=\(decoder.codingPath.map { $0.stringValue }.joined(separator: "."))")
+                throw DecodingError.dataCorruptedError(forKey: .data, in: container, debugDescription: "No resources found in response")
             }
 
             private enum CodingKeys: String, CodingKey {
                 case data
                 case venues
-            }
-
-            private enum NestedCodingKeys: String, CodingKey {
-                case data
-                case venues
+                case curators
+                case talent
             }
         }
 
         do {
-            let response: VenueListResponse = try await httpClient.request(
-                "venues",
+            let response: ResourcesResponse = try await httpClient.request(
+                "events/resources",
                 method: .get,
-                query: nil,
-                body: Optional<Venue>.none,
+                query: ["per_page": "1000"],
+                body: Optional<EventResources>.none,
                 instance: instance
             )
-            venueCache[instance.id] = response.venues
-            consoleLog("RemoteEventRepository: fetched \(response.venues.count) venues for instance=\(instance.displayName) (id=\(instance.id))")
-            return response.venues
+            resourcesCache[instance.id] = response.resources
+            venueCache[instance.id] = response.resources.venues.map { Venue(id: $0.id, name: $0.name) }
+            consoleLog("RemoteEventRepository: fetched event resources venues=\(response.resources.venues.count) curators=\(response.resources.curators.count) talent=\(response.resources.talent.count) for instance=\(instance.displayName) (id=\(instance.id))")
+            return response.resources
         } catch {
-            consoleError("RemoteEventRepository: listVenues failed for instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
-            if let cached = venueCache[instance.id] {
-                consoleLog("RemoteEventRepository: returning \(cached.count) cached venues after list failure for instance=\(instance.displayName) (id=\(instance.id))")
+            consoleError("RemoteEventRepository: listEventResources failed for instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
+            if let cached = resourcesCache[instance.id] {
+                consoleLog("RemoteEventRepository: returning cached resources after failure for instance=\(instance.displayName) (id=\(instance.id))")
                 return cached
             }
             throw error

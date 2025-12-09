@@ -15,12 +15,16 @@ struct EventFormView: View {
     @State private var venueId: String
     @State private var venueName: String?
     @State private var availableVenues: [Venue] = []
+    @State private var availableCurators: [EventRole] = []
+    @State private var availableTalent: [EventRole] = []
     @State private var isLoadingVenues: Bool = false
     @State private var venueErrorMessage: String?
     @State private var roomId: String
     @State private var status: EventStatus
     @State private var publishState: PublishState
     @State private var capacity: String
+    @State private var curatorId: String = ""
+    @State private var talentSelections: Set<String> = []
 
     @State private var isSaving: Bool = false
     @State private var errorMessage: String?
@@ -39,6 +43,8 @@ struct EventFormView: View {
         _endAt = State(initialValue: event?.endAt ?? Date().addingTimeInterval(3600))
         _venueId = State(initialValue: event?.venueId ?? "")
         _venueName = State(initialValue: event?.venueName)
+        _curatorId = State(initialValue: event?.curatorId ?? "")
+        _talentSelections = State(initialValue: Set(event?.talentIds ?? []))
         _roomId = State(initialValue: event?.roomId ?? "")
         _status = State(initialValue: event?.status ?? .scheduled)
         _publishState = State(initialValue: event?.publishState ?? .draft)
@@ -76,6 +82,39 @@ struct EventFormView: View {
                     Text(venueErrorMessage)
                         .font(.footnote)
                         .foregroundColor(.red)
+                }
+            }
+
+            if !availableCurators.isEmpty || !availableTalent.isEmpty {
+                Section(header: Text("People")) {
+                    if !availableCurators.isEmpty {
+                        Picker("Curator", selection: $curatorId) {
+                            Text("None").tag("")
+                            ForEach(availableCurators) { curator in
+                                Text(curator.name).tag(curator.id)
+                            }
+                        }
+                    }
+
+                    if !availableTalent.isEmpty {
+                        VStack(alignment: .leading) {
+                            Text("Talent")
+                            ForEach(availableTalent) { talent in
+                                Toggle(isOn: Binding(
+                                    get: { talentSelections.contains(talent.id) },
+                                    set: { isOn in
+                                        if isOn {
+                                            talentSelections.insert(talent.id)
+                                        } else {
+                                            talentSelections.remove(talent.id)
+                                        }
+                                    }
+                                )) {
+                                    Text(talent.name)
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -118,7 +157,7 @@ struct EventFormView: View {
                 .disabled(isSaving || name.isEmpty || venueId.isEmpty)
             }
         }
-        .task { await loadVenues() }
+        .task { await loadResources() }
         .accentColor(theme.accent)
     }
 
@@ -147,7 +186,9 @@ struct EventFormView: View {
                     images: originalEvent?.images ?? [],
                     capacity: capacityValue,
                     ticketTypes: originalEvent?.ticketTypes ?? [],
-                    publishState: publishState
+                    publishState: publishState,
+                    curatorId: curatorId.isEmpty ? nil : curatorId,
+                    talentIds: Array(talentSelections)
                 )
 
                 DebugLogger.log("EventFormView: attempting to \(originalEvent == nil ? "create" : "update") event id=\(payload.id)")
@@ -176,7 +217,7 @@ struct EventFormView: View {
         }
     }
 
-    private func loadVenues() async {
+    private func loadResources() async {
         guard !isLoadingVenues else { return }
         guard availableVenues.isEmpty else { return }
 
@@ -184,14 +225,26 @@ struct EventFormView: View {
         venueErrorMessage = nil
 
         do {
-            let venues = try await repository.listVenues(for: instance)
+            let resources = try await repository.listEventResources(for: instance)
             await MainActor.run {
-                availableVenues = venues
-                if venueId.isEmpty, let firstVenue = venues.first {
+                availableVenues = resources.venues.map { Venue(id: $0.id, name: $0.name) }
+                availableCurators = resources.curators
+                availableTalent = resources.talent
+
+                if venueId.isEmpty, let firstVenue = availableVenues.first {
                     venueId = firstVenue.id
                     venueName = firstVenue.name
-                } else if let selected = venues.first(where: { $0.id == venueId }) {
+                } else if let selected = availableVenues.first(where: { $0.id == venueId }) {
                     venueName = selected.name
+                }
+
+                if curatorId.isEmpty, let firstCurator = availableCurators.first {
+                    curatorId = firstCurator.id
+                }
+
+                if talentSelections.isEmpty {
+                    let defaults = availableTalent.prefix(1).map { $0.id }
+                    talentSelections = Set(defaults)
                 }
             }
         } catch {
