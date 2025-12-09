@@ -8,6 +8,7 @@ struct Event: Codable, Identifiable, Equatable {
     var endAt: Date
     var durationMinutes: Int?
     var venueId: String
+    var venueName: String?
     var roomId: String?
     var status: EventStatus
     var images: [URL]
@@ -42,6 +43,7 @@ struct Event: Codable, Identifiable, Equatable {
 
     struct VenueReference: Decodable {
         let id: String
+        let name: String?
     }
 
     struct TicketPayload: Decodable {
@@ -86,6 +88,7 @@ struct Event: Codable, Identifiable, Equatable {
         id = try container.decode(String.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         description = try container.decodeIfPresent(String.self, forKey: .description)
+        venueName = nil
 
         if let decodedStart = try Self.decodeDate(
             from: container,
@@ -123,6 +126,7 @@ struct Event: Codable, Identifiable, Equatable {
             venueId = venueIdentifier
         } else if let venueRef = try container.decodeIfPresent(VenueReference.self, forKey: .venue) {
             venueId = venueRef.id
+            venueName = venueRef.name
         } else {
             venueId = "Unknown venue"
         }
@@ -144,6 +148,7 @@ struct Event: Codable, Identifiable, Equatable {
         endAt: Date,
         durationMinutes: Int? = nil,
         venueId: String,
+        venueName: String? = nil,
         roomId: String? = nil,
         status: EventStatus = .scheduled,
         images: [URL] = [],
@@ -158,6 +163,7 @@ struct Event: Codable, Identifiable, Equatable {
         self.endAt = endAt
         self.durationMinutes = durationMinutes
         self.venueId = venueId
+        self.venueName = venueName
         self.roomId = roomId
         self.status = status
         self.images = images
@@ -181,6 +187,18 @@ struct Event: Codable, Identifiable, Equatable {
         try container.encodeIfPresent(capacity, forKey: .capacity)
         try container.encode(ticketTypes, forKey: .ticketTypes)
         try container.encode(publishState, forKey: .publishState)
+    }
+
+    var venueDisplayDescription: String {
+        if let venueName, !venueName.isEmpty {
+            return "\(venueName) (\(venueId))"
+        }
+
+        if venueId.isEmpty {
+            return "Unknown venue"
+        }
+
+        return venueId
     }
 
     private static let iso8601WithFractional: ISO8601DateFormatter = {

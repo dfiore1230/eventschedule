@@ -383,7 +383,7 @@ private struct EventRow: View {
             }
 
             HStack(spacing: 12) {
-                Label(event.venueId.isEmpty ? "Unknown venue" : event.venueId, systemImage: "building.2")
+                Label(event.venueDisplayDescription, systemImage: "building.2")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 if let capacity = event.capacity {

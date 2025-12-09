@@ -15,6 +15,7 @@ private func consoleError(_ message: String) {
 protocol EventRepository {
     func listEvents(for instance: InstanceProfile) async throws -> [Event]
     func getEvent(id: String, instance: InstanceProfile) async throws -> Event
+    func listVenues(for instance: InstanceProfile) async throws -> [Venue]
     func createEvent(_ event: Event, instance: InstanceProfile) async throws -> Event
     func updateEvent(_ event: Event, instance: InstanceProfile) async throws -> Event
     func deleteEvent(id: String, instance: InstanceProfile) async throws
@@ -141,6 +142,7 @@ private struct EventDetailResponse: Decodable {
 final class RemoteEventRepository: EventRepository {
     private let httpClient: HTTPClientProtocol
     private var cache: [UUID: [Event]] = [:]
+    private var venueCache: [UUID: [Venue]] = [:]
 
     init(httpClient: HTTPClientProtocol = HTTPClient()) {
         self.httpClient = httpClient
@@ -203,6 +205,74 @@ final class RemoteEventRepository: EventRepository {
             if let cachedEvent = cache[instance.id]?.first(where: { $0.id == id }) {
                 consoleLog("RemoteEventRepository: returning cached event id=\(id) after fetch failure on instance=\(instance.displayName) (id=\(instance.id))")
                 return cachedEvent
+            }
+            throw error
+        }
+    }
+
+    func listVenues(for instance: InstanceProfile) async throws -> [Venue] {
+        struct VenueListResponse: Decodable {
+            let venues: [Venue]
+
+            init(from decoder: Decoder) throws {
+                if let direct = try? decoder.singleValueContainer().decode([Venue].self) {
+                    venues = direct
+                    return
+                }
+
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+
+                if let dataArray = try container.decodeIfPresent([Venue].self, forKey: .data) {
+                    venues = dataArray
+                    return
+                }
+
+                if let venueArray = try container.decodeIfPresent([Venue].self, forKey: .venues) {
+                    venues = venueArray
+                    return
+                }
+
+                if let nestedData = try? container.nestedContainer(keyedBy: NestedCodingKeys.self, forKey: .data),
+                   let nestedVenues = try nestedData.decodeIfPresent([Venue].self, forKey: .venues) {
+                    venues = nestedVenues
+                    return
+                }
+
+                consoleError("VenueListResponse: Unable to locate venues array. CodingPath=\(decoder.codingPath.map { $0.stringValue }.joined(separator: ".")) attempted keys: data, venues, data.venues")
+                throw DecodingError.dataCorruptedError(
+                    forKey: .data,
+                    in: container,
+                    debugDescription: "No venues array found in response"
+                )
+            }
+
+            private enum CodingKeys: String, CodingKey {
+                case data
+                case venues
+            }
+
+            private enum NestedCodingKeys: String, CodingKey {
+                case data
+                case venues
+            }
+        }
+
+        do {
+            let response: VenueListResponse = try await httpClient.request(
+                "/api/venues",
+                method: .get,
+                query: nil,
+                body: Optional<Venue>.none,
+                instance: instance
+            )
+            venueCache[instance.id] = response.venues
+            consoleLog("RemoteEventRepository: fetched \(response.venues.count) venues for instance=\(instance.displayName) (id=\(instance.id))")
+            return response.venues
+        } catch {
+            consoleError("RemoteEventRepository: listVenues failed for instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
+            if let cached = venueCache[instance.id] {
+                consoleLog("RemoteEventRepository: returning \(cached.count) cached venues after list failure for instance=\(instance.displayName) (id=\(instance.id))")
+                return cached
             }
             throw error
         }
