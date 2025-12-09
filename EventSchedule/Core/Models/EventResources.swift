@@ -68,22 +68,31 @@ struct EventResources: Decodable, Equatable {
     }
 
     init(from decoder: Decoder) throws {
-        if let direct = try? EventResources.decodeResources(from: decoder) {
-            self = direct
-            return
-        }
-
         let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        // 1) Try nested data container first: { data: { venues: [], curators: [], talent: [] } }
         if let nested = try? container.nestedContainer(keyedBy: CodingKeys.self, forKey: .data) {
-            venues = (try? nested.decode([EventRole].self, forKey: .venues)) ?? []
-            curators = (try? nested.decode([EventRole].self, forKey: .curators)) ?? []
-            talent = (try? nested.decode([EventRole].self, forKey: .talent)) ?? []
+            let v = (try? nested.decode([EventRole].self, forKey: .venues)) ?? []
+            let c = (try? nested.decode([EventRole].self, forKey: .curators)) ?? []
+            let t = (try? nested.decode([EventRole].self, forKey: .talent)) ?? []
+            venues = v
+            curators = c
+            talent = t
             return
         }
 
-        venues = (try? container.decode([EventRole].self, forKey: .venues)) ?? []
-        curators = (try? container.decode([EventRole].self, forKey: .curators)) ?? []
-        talent = (try? container.decode([EventRole].self, forKey: .talent)) ?? []
+        // 2) Fall back to top-level keys: { venues: [], curators: [], talent: [] }
+        if container.contains(.venues) || container.contains(.curators) || container.contains(.talent) {
+            venues = (try? container.decode([EventRole].self, forKey: .venues)) ?? []
+            curators = (try? container.decode([EventRole].self, forKey: .curators)) ?? []
+            talent = (try? container.decode([EventRole].self, forKey: .talent)) ?? []
+            return
+        }
+
+        // 3) Default to empty if neither shape is present
+        venues = []
+        curators = []
+        talent = []
     }
 
     private static func decodeResources(from decoder: Decoder) throws -> EventResources {
@@ -94,3 +103,4 @@ struct EventResources: Decodable, Equatable {
         return EventResources(venues: venues, curators: curators, talent: talent)
     }
 }
+

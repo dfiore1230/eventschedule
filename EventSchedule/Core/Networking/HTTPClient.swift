@@ -100,6 +100,8 @@ final class HTTPClient: HTTPClientProtocol {
         body: Encodable?,
         instance: InstanceProfile
     ) async throws -> (Data, HTTPURLResponse) {
+        DebugLogger.network("HTTPClient.performRequest path=\(path) base=\(instance.baseURL.absoluteString)")
+        
         guard var urlComponents = URLComponents(url: instance.baseURL, resolvingAgainstBaseURL: false) else {
             DebugLogger.error("HTTPClient: failed to construct URLComponents for base=\(instance.baseURL) and path=\(path)")
             throw APIError.invalidURL
@@ -128,6 +130,8 @@ final class HTTPClient: HTTPClientProtocol {
             throw APIError.invalidURL
         }
 
+        DebugLogger.network("Resolved URL: \(url.absoluteString)")
+
         var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -140,11 +144,16 @@ final class HTTPClient: HTTPClientProtocol {
             DebugLogger.network("Auth header: no API key available for instance \(instance.displayName)")
         }
 
+        DebugLogger.network("Request headers: \(request.allHTTPHeaderFields ?? [:])")
+
         if let body = body {
             do {
                 let encoded = try jsonEncoder.encode(AnyEncodable(body))
                 request.httpBody = encoded
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                if let body = request.httpBody, let s = String(data: body, encoding: .utf8) {
+                    DebugLogger.network("Request body: \(s.prefix(1024))")
+                }
             } catch {
                 throw APIError.encodingError(error)
             }
@@ -169,12 +178,16 @@ final class HTTPClient: HTTPClientProtocol {
 
         if let http = response as? HTTPURLResponse {
             let contentType = http.value(forHTTPHeaderField: "Content-Type") ?? "<nil>"
-            DebugLogger.network("HTTP ⬅️ \(http.statusCode) \(http.url?.absoluteString ?? "<nil>") content-type: \(contentType)")
+            DebugLogger.network("HTTP ⬅️ status=\(http.statusCode) url=\(http.url?.absoluteString ?? "<nil>") content-type=\(contentType)")
             let preview = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
+            let limited = String(preview.prefix(2048))
             if (200..<300).contains(http.statusCode) {
-                DebugLogger.network("HTTP ⬅️ body: \(preview)")
+                DebugLogger.network("HTTP ⬅️ body (2xx): \(limited)")
+                if !contentType.lowercased().contains("json") {
+                    DebugLogger.network("Warning: 2xx response with non-JSON content-type: \(contentType)")
+                }
             } else {
-                DebugLogger.network("HTTP ⬅️ body (non-2xx): \(preview)")
+                DebugLogger.network("HTTP ⬅️ body (non-2xx): \(limited)")
             }
         }
 

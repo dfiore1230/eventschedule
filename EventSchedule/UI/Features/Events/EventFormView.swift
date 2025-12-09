@@ -75,7 +75,9 @@ struct EventFormView: View {
                         }
                     }
                 } else {
-                    TextField("Venue ID", text: $venueId)
+                    Text("No venues available. Add a venue in the web app, then refresh.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
                 }
                 TextField("Room ID", text: $roomId)
                 if let venueErrorMessage {
@@ -154,7 +156,7 @@ struct EventFormView: View {
                         Text("Save")
                     }
                 }
-                .disabled(isSaving || name.isEmpty || venueId.isEmpty)
+                .disabled(isSaving || name.isEmpty || venueId.isEmpty || availableVenues.isEmpty)
             }
         }
         .task { await loadResources() }
@@ -231,11 +233,17 @@ struct EventFormView: View {
                 availableCurators = resources.curators
                 availableTalent = resources.talent
 
-                if venueId.isEmpty, let firstVenue = availableVenues.first {
+                if availableVenues.isEmpty {
+                    venueId = ""
+                    venueName = nil
+                } else if venueId.isEmpty, let firstVenue = availableVenues.first {
                     venueId = firstVenue.id
                     venueName = firstVenue.name
                 } else if let selected = availableVenues.first(where: { $0.id == venueId }) {
                     venueName = selected.name
+                } else {
+                    venueId = ""
+                    venueName = nil
                 }
 
                 if curatorId.isEmpty, let firstCurator = availableCurators.first {

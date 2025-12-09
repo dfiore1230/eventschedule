@@ -145,6 +145,7 @@ final class RemoteEventRepository: EventRepository {
     private var cache: [UUID: [Event]] = [:]
     private var venueCache: [UUID: [Venue]] = [:]
     private var resourcesCache: [UUID: EventResources] = [:]
+    private var subdomainCache: [UUID: (subdomain: String, type: String?)] = [:]
 
     init(httpClient: HTTPClientProtocol = HTTPClient()) {
         self.httpClient = httpClient
@@ -275,12 +276,35 @@ final class RemoteEventRepository: EventRepository {
     }
 
     func createEvent(_ event: Event, instance: InstanceProfile) async throws -> Event {
+        let (subdomain, scheduleType) = try await resolveSubdomain(for: instance)
+        DebugLogger.log("RemoteEventRepository: creating under subdomain=\(subdomain) type=\(scheduleType ?? "<nil>") includeVenueId=\((scheduleType?.lowercased() == "venue") ? false : true)")
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        let dto = CreateEventDTO(
+            id: event.id,
+            name: event.name,
+            description: event.description,
+            startsAt: formatter.string(from: event.startAt),
+            endAt: formatter.string(from: event.endAt),
+            durationMinutes: event.durationMinutes,
+            venueId: (scheduleType?.lowercased() == "venue") ? nil : event.venueId,
+            roomId: event.roomId,
+            status: event.status,
+            images: event.images,
+            capacity: event.capacity,
+            ticketTypes: event.ticketTypes,
+            publishState: event.publishState,
+            curatorId: event.curatorId,
+            members: event.talentIds
+        )
         do {
             let response: EventDetailResponse = try await httpClient.request(
-                "events",
+                "events/\(subdomain)",
                 method: .post,
                 query: ["include": "venue,talent,tickets"],
-                body: event,
+                body: dto,
                 instance: instance
             )
             upsert(response.event, for: instance)
@@ -367,5 +391,78 @@ final class RemoteEventRepository: EventRepository {
         consoleLog("RemoteEventRepository: removed event id=\(id) from cache. count before=\(before) after=\(after)")
         cache[instance.id] = events
     }
-}
 
+    private struct SchedulesResponse: Decodable { let data: [ScheduleDTO] }
+    private struct ScheduleDTO: Decodable { let subdomain: String; let type: String? }
+
+    private func resolveSubdomain(for instance: InstanceProfile) async throws -> (String, String?) {
+        if let cached = subdomainCache[instance.id] { return (cached.subdomain, cached.type) }
+        let response: SchedulesResponse = try await httpClient.request(
+            "schedules",
+            method: .get,
+            query: ["per_page": "1000"],
+            body: (nil as (any Encodable)?),
+            instance: instance
+        )
+        guard let chosen = (response.data.first { ($0.type ?? "").lowercased() == "venue" } ?? response.data.first) else {
+            throw APIError.serverError(statusCode: 0, message: "No schedules available for event creation")
+        }
+        subdomainCache[instance.id] = (subdomain: chosen.subdomain, type: chosen.type)
+        return (chosen.subdomain, chosen.type)
+    }
+
+    private struct CreateEventDTO: Encodable {
+        let id: String
+        let name: String
+        let description: String?
+        let startsAt: String
+        let endAt: String
+        let durationMinutes: Int?
+        let venueId: String?
+        let roomId: String?
+        let status: EventStatus
+        let images: [URL]
+        let capacity: Int?
+        let ticketTypes: [TicketType]
+        let publishState: PublishState
+        let curatorId: String?
+        let members: [String]
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case name
+            case description
+            case startsAt = "starts_at"
+            case endAt = "ends_at"
+            case durationMinutes = "duration_minutes"
+            case venueId = "venue_id"
+            case roomId = "room_id"
+            case status
+            case images
+            case capacity
+            case ticketTypes = "ticket_types"
+            case publishState = "publish_state"
+            case curatorId = "curator_role_id"
+            case members
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(id, forKey: .id)
+            try container.encode(name, forKey: .name)
+            try container.encodeIfPresent(description, forKey: .description)
+            try container.encode(startsAt, forKey: .startsAt)
+            try container.encode(endAt, forKey: .endAt)
+            try container.encodeIfPresent(durationMinutes, forKey: .durationMinutes)
+            if let venueId { try container.encode(venueId, forKey: .venueId) }
+            try container.encodeIfPresent(roomId, forKey: .roomId)
+            try container.encode(status, forKey: .status)
+            try container.encode(images, forKey: .images)
+            try container.encodeIfPresent(capacity, forKey: .capacity)
+            try container.encode(ticketTypes, forKey: .ticketTypes)
+            try container.encode(publishState, forKey: .publishState)
+            try container.encodeIfPresent(curatorId, forKey: .curatorId)
+            if !members.isEmpty { try container.encode(members, forKey: .members) }
+        }
+    }
+}
