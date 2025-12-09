@@ -94,7 +94,7 @@ struct EventFormView: View {
         _roomId = State(initialValue: event?.roomId ?? "")
         _status = State(initialValue: event?.status ?? .scheduled)
         _capacity = State(initialValue: event?.capacity.map { String($0) } ?? "")
-        _durationHours = State(initialValue: event?.durationMinutes.map { String($0 / 60) } ?? "")
+        _durationHours = State(initialValue: Self.durationHoursString(from: event?.durationMinutes))
 
         if let evt = event {
             // If Event exposes a timezone string from primary schedule, set it here
@@ -104,7 +104,23 @@ struct EventFormView: View {
             }
         }
     }
-    
+
+    private static func durationHoursString(from minutes: Int?) -> String {
+        guard let minutes else { return "" }
+        let hours = Double(minutes) / 60.0
+        if hours.truncatingRemainder(dividingBy: 1) == 0 {
+            return String(Int(hours))
+        }
+        var formatted = String(format: "%.2f", hours)
+        while formatted.contains("."), formatted.last == "0" {
+            formatted.removeLast()
+        }
+        if formatted.last == "." {
+            formatted.removeLast()
+        }
+        return formatted
+    }
+
     var body: some View {
         Form {
             Section(header: Text("Details")) {
@@ -437,9 +453,9 @@ struct EventFormView: View {
                     if isSignificantlyDifferent(computedEndAt, originalEvent!.endAt) {
                         dto.ends_at = apiDateString(computedEndAt)
                     }
-                    if let parsedDurationMinutes {
+                    if let parsedDurationMinutes, parsedDurationMinutes != originalEvent!.durationMinutes {
                         dto.duration = .some(parsedDurationMinutes / 60)
-                    } else if originalEvent!.durationMinutes != nil {
+                    } else if parsedDurationMinutes == nil, originalEvent!.durationMinutes != nil {
                         dto.duration = .some(nil)
                     }
                     let trimmedRoom = roomId.trimmingCharacters(in: .whitespacesAndNewlines)
