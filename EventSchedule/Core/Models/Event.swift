@@ -216,7 +216,10 @@ struct Event: Codable, Identifiable, Equatable {
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
         try container.encodeIfPresent(description, forKey: .description)
-        let formatter = Self.payloadDateFormatter()
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         try container.encode(formatter.string(from: startAt), forKey: .startsAt)
         try container.encode(formatter.string(from: endAt), forKey: .endAt)
         // API expects duration in hours
