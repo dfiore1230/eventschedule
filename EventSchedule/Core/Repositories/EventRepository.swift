@@ -558,7 +558,9 @@ final class RemoteEventRepository: EventRepository {
             try container.encodeIfPresent(description, forKey: .description)
             try container.encode(startsAt, forKey: .startsAt)
             try container.encode(endAt, forKey: .endAt)
-            try container.encodeIfPresent(durationMinutes, forKey: .durationMinutes)
+            if let durationMinutes, durationMinutes > 0 {
+                try container.encode(durationMinutes / 60, forKey: .durationMinutes)
+            }
             if let venueId { try container.encode(venueId, forKey: .venueId) }
             try container.encodeIfPresent(roomId, forKey: .roomId)
             try container.encode(status, forKey: .status)
@@ -613,7 +615,9 @@ final class RemoteEventRepository: EventRepository {
             try container.encodeIfPresent(description, forKey: .description)
             try container.encode(startsAt, forKey: .startsAt)
             try container.encode(endAt, forKey: .endAt)
-            try container.encodeIfPresent(durationMinutes, forKey: .durationMinutes)
+            if let durationMinutes, durationMinutes > 0 {
+                try container.encode(durationMinutes / 60, forKey: .durationMinutes)
+            }
             if let venueId { try container.encode(venueId, forKey: .venueId) }
             try container.encodeIfPresent(roomId, forKey: .roomId)
             try container.encode(status, forKey: .status)
