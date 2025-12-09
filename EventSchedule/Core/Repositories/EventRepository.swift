@@ -396,12 +396,19 @@ final class RemoteEventRepository: EventRepository {
             formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.timeZone = .current
             formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            let cachedEvent = cache[instance.id]?.first(where: { $0.id == event.id })
+            let timeChanged: Bool
+            if let cachedEvent {
+                timeChanged = cachedEvent.startAt != event.startAt || cachedEvent.endAt != event.endAt
+            } else {
+                timeChanged = true
+            }
             let dto = UpdateEventDTO(
                 id: event.id,
                 name: event.name,
                 description: event.description,
-                startsAt: formatter.string(from: event.startAt),
-                endAt: formatter.string(from: event.endAt),
+                startsAt: timeChanged ? formatter.string(from: event.startAt) : nil,
+                endAt: timeChanged ? formatter.string(from: event.endAt) : nil,
                 durationMinutes: event.durationMinutes,
                 venueId: safeVenueId,
                 roomId: event.roomId,
@@ -577,8 +584,8 @@ final class RemoteEventRepository: EventRepository {
         let id: String?
         let name: String
         let description: String?
-        let startsAt: String
-        let endAt: String
+        let startsAt: String?
+        let endAt: String?
         let durationMinutes: Int?
         let venueId: String?
         let roomId: String?
@@ -613,8 +620,8 @@ final class RemoteEventRepository: EventRepository {
             try container.encodeIfPresent(id, forKey: .id)
             try container.encode(name, forKey: .name)
             try container.encodeIfPresent(description, forKey: .description)
-            try container.encode(startsAt, forKey: .startsAt)
-            try container.encode(endAt, forKey: .endAt)
+            try container.encodeIfPresent(startsAt, forKey: .startsAt)
+            try container.encodeIfPresent(endAt, forKey: .endAt)
             if let durationMinutes, durationMinutes > 0 {
                 try container.encode(durationMinutes / 60, forKey: .duration)
             }
