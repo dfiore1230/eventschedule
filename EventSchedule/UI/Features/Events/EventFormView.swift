@@ -162,15 +162,7 @@ struct EventFormView: View {
                             }
                         }
                         .onChange(of: venueId) { _ in
-                            if let selected = availableVenues.first(where: { $0.id == venueId }) {
-                                if let tz = (selected as AnyObject).timezone as? String, !tz.isEmpty {
-                                    venueTimeZoneIdentifier = tz
-                                } else {
-                                    venueTimeZoneIdentifier = nil
-                                }
-                            } else {
-                                venueTimeZoneIdentifier = nil
-                            }
+                            venueTimeZoneIdentifier = nil
                         }
                     } else {
                         Text("No venues available. Add a venue in the web app, then refresh.")
@@ -398,8 +390,8 @@ struct EventFormView: View {
                         images: [],
                         capacity: Int(capacity),
                         ticketTypes: [],
-                        curatorId: curatorSelections.first
-                        // talentIds: validTalentIds
+                        curatorId: curatorSelections.first,
+                        talentIds: validTalentIds
                     )
 
                     DebugLogger.log("EventFormView: attempting to create event id=\(payload.id)")
@@ -500,7 +492,7 @@ struct EventFormView: View {
         do {
             let resources = try await repository.listEventResources(for: instance)
             await MainActor.run {
-                availableVenues = resources.venues
+                availableVenues = resources.venues.map { Venue(id: $0.id, name: $0.name) }
 
                 availableCurators = resources.curators
                 availableTalent = resources.talent
@@ -523,11 +515,7 @@ struct EventFormView: View {
                 }
 
                 // Attempt to set venue timezone from resources if exposed
-                if let selected = availableVenues.first(where: { $0.id == venueId }) {
-                    if let tz = (selected as AnyObject).timezone as? String, !tz.isEmpty {
-                        venueTimeZoneIdentifier = tz
-                    }
-                }
+                venueTimeZoneIdentifier = nil
             }
         } catch {
             await MainActor.run {
