@@ -218,7 +218,7 @@ struct Event: Codable, Identifiable, Equatable {
         try container.encodeIfPresent(description, forKey: .description)
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = .current
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         try container.encode(formatter.string(from: startAt), forKey: .startsAt)
         try container.encode(formatter.string(from: endAt), forKey: .endAt)
