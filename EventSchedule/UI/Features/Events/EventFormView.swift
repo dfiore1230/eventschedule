@@ -75,14 +75,18 @@ struct EventFormView: View {
 
     @State private var isSaving: Bool = false
     @State private var errorMessage: String?
+    @State private var startWasModified: Bool = false
+    @State private var durationWasModified: Bool = false
 
     private let originalEvent: Event?
+    private let initialDurationHours: String
 
     init(event: Event? = nil, repository: EventRepository, instance: InstanceProfile, onSave: ((Event) -> Void)? = nil) {
         self.repository = repository
         self.instance = instance
         self.onSave = onSave
         self.originalEvent = event
+        self.initialDurationHours = Self.durationHoursString(from: event?.durationMinutes)
 
         _name = State(initialValue: event?.name ?? "")
         _description = State(initialValue: event?.description ?? "")
@@ -94,7 +98,7 @@ struct EventFormView: View {
         _roomId = State(initialValue: event?.roomId ?? "")
         _status = State(initialValue: event?.status ?? .scheduled)
         _capacity = State(initialValue: event?.capacity.map { String($0) } ?? "")
-        _durationHours = State(initialValue: event?.durationMinutes.map { String($0 / 60) } ?? "")
+        _durationHours = State(initialValue: Self.durationHoursString(from: event?.durationMinutes))
 
         if let evt = event {
             // If Event exposes a timezone string from primary schedule, set it here
@@ -104,7 +108,23 @@ struct EventFormView: View {
             }
         }
     }
-    
+
+    private static func durationHoursString(from minutes: Int?) -> String {
+        guard let minutes else { return "" }
+        let hours = Double(minutes) / 60.0
+        if hours.truncatingRemainder(dividingBy: 1) == 0 {
+            return String(Int(hours))
+        }
+        var formatted = String(format: "%.2f", hours)
+        while formatted.contains("."), formatted.last == "0" {
+            formatted.removeLast()
+        }
+        if formatted.last == "." {
+            formatted.removeLast()
+        }
+        return formatted
+    }
+
     var body: some View {
         Form {
             Section(header: Text("Details")) {
@@ -129,8 +149,19 @@ struct EventFormView: View {
                     Text("Category: \(selectedCategory)")
                 }
                 DatePicker("Start", selection: $startAtLocal)
+                    .onChange(of: startAtLocal) { newValue in
+                        if originalEvent == nil || isSignificantlyDifferent(newValue, originalEvent!.startAt) {
+                            startWasModified = true
+                        }
+                    }
                 TextField("Duration (hours)", text: $durationHours)
                     .keyboardType(.decimalPad)
+                    .onChange(of: durationHours) { newValue in
+                        let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmed != initialDurationHours {
+                            durationWasModified = true
+                        }
+                    }
                 TextField("Description", text: $description, axis: .vertical)
                     .lineLimit(3...5)
             }
@@ -431,15 +462,15 @@ struct EventFormView: View {
                     if description != (originalEvent!.description ?? "") {
                         dto.description = description.isEmpty ? nil : description
                     }
-                    if isSignificantlyDifferent(startAtLocal, originalEvent!.startAt) {
+                    if startWasModified && isSignificantlyDifferent(startAtLocal, originalEvent!.startAt) {
                         dto.starts_at = apiDateString(startAtLocal)
                     }
-                    if isSignificantlyDifferent(computedEndAt, originalEvent!.endAt) {
+                    if (startWasModified || durationWasModified) && isSignificantlyDifferent(computedEndAt, originalEvent!.endAt) {
                         dto.ends_at = apiDateString(computedEndAt)
                     }
-                    if let parsedDurationMinutes {
+                    if durationWasModified, let parsedDurationMinutes, parsedDurationMinutes != originalEvent!.durationMinutes {
                         dto.duration = .some(parsedDurationMinutes / 60)
-                    } else if originalEvent!.durationMinutes != nil {
+                    } else if durationWasModified, parsedDurationMinutes == nil, originalEvent!.durationMinutes != nil {
                         dto.duration = .some(nil)
                     }
                     let trimmedRoom = roomId.trimmingCharacters(in: .whitespacesAndNewlines)
