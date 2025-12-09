@@ -58,7 +58,7 @@ struct EventDetailView: View {
                 HStack {
                     Label("Venue", systemImage: "building.2")
                     Spacer()
-                    Text(event.venueId.isEmpty ? "Unknown" : event.venueId)
+                    Text(event.venueDisplayDescription)
                         .foregroundColor(.secondary)
                 }
                 if let roomId = event.roomId {

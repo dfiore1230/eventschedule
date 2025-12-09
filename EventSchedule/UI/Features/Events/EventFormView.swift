@@ -13,6 +13,10 @@ struct EventFormView: View {
     @State private var startAt: Date
     @State private var endAt: Date
     @State private var venueId: String
+    @State private var venueName: String?
+    @State private var availableVenues: [Venue] = []
+    @State private var isLoadingVenues: Bool = false
+    @State private var venueErrorMessage: String?
     @State private var roomId: String
     @State private var status: EventStatus
     @State private var publishState: PublishState
@@ -34,6 +38,7 @@ struct EventFormView: View {
         _startAt = State(initialValue: event?.startAt ?? Date())
         _endAt = State(initialValue: event?.endAt ?? Date().addingTimeInterval(3600))
         _venueId = State(initialValue: event?.venueId ?? "")
+        _venueName = State(initialValue: event?.venueName)
         _roomId = State(initialValue: event?.roomId ?? "")
         _status = State(initialValue: event?.status ?? .scheduled)
         _publishState = State(initialValue: event?.publishState ?? .draft)
@@ -54,8 +59,24 @@ struct EventFormView: View {
             }
 
             Section(header: Text("Location")) {
-                TextField("Venue ID", text: $venueId)
+                if isLoadingVenues {
+                    ProgressView("Loading venues…")
+                }
+                if !availableVenues.isEmpty {
+                    Picker("Venue", selection: $venueId) {
+                        ForEach(availableVenues) { venue in
+                            Text("\(venue.name) (\(venue.id))").tag(venue.id)
+                        }
+                    }
+                } else {
+                    TextField("Venue ID", text: $venueId)
+                }
                 TextField("Room ID", text: $roomId)
+                if let venueErrorMessage {
+                    Text(venueErrorMessage)
+                        .font(.footnote)
+                        .foregroundColor(.red)
+                }
             }
 
             Section(header: Text("Status")) {
@@ -97,6 +118,7 @@ struct EventFormView: View {
                 .disabled(isSaving || name.isEmpty || venueId.isEmpty)
             }
         }
+        .task { await loadVenues() }
         .accentColor(theme.accent)
     }
 
@@ -110,13 +132,16 @@ struct EventFormView: View {
         Task {
             do {
                 let capacityValue = Int(capacity)
+                let selectedVenueName = availableVenues.first(where: { $0.id == venueId })?.name ?? venueName
                 let payload = Event(
                     id: originalEvent?.id ?? UUID().uuidString,
                     name: name,
                     description: description.isEmpty ? nil : description,
                     startAt: startAt,
                     endAt: endAt,
+                    durationMinutes: originalEvent?.durationMinutes,
                     venueId: venueId,
+                    venueName: selectedVenueName,
                     roomId: roomId.isEmpty ? nil : roomId,
                     status: status,
                     images: originalEvent?.images ?? [],
@@ -148,6 +173,35 @@ struct EventFormView: View {
 
                 DebugLogger.error("EventFormView: save failed with error=\(error.localizedDescription)")
             }
+        }
+    }
+
+    private func loadVenues() async {
+        guard !isLoadingVenues else { return }
+        guard availableVenues.isEmpty else { return }
+
+        isLoadingVenues = true
+        venueErrorMessage = nil
+
+        do {
+            let venues = try await repository.listVenues(for: instance)
+            await MainActor.run {
+                availableVenues = venues
+                if venueId.isEmpty, let firstVenue = venues.first {
+                    venueId = firstVenue.id
+                    venueName = firstVenue.name
+                } else if let selected = venues.first(where: { $0.id == venueId }) {
+                    venueName = selected.name
+                }
+            }
+        } catch {
+            await MainActor.run {
+                venueErrorMessage = error.localizedDescription
+            }
+        }
+
+        await MainActor.run {
+            isLoadingVenues = false
         }
     }
 }
