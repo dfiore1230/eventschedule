@@ -277,7 +277,8 @@ final class RemoteEventRepository: EventRepository {
 
     func createEvent(_ event: Event, instance: InstanceProfile) async throws -> Event {
         let (subdomain, scheduleType) = try await resolveSubdomain(for: instance)
-        DebugLogger.log("RemoteEventRepository: creating under subdomain=\(subdomain) type=\(scheduleType ?? "<nil>") includeVenueId=\((scheduleType?.lowercased() == "venue") ? false : true)")
+        let includeVenueId = !(scheduleType?.lowercased().contains("venue") ?? false)
+        DebugLogger.log("RemoteEventRepository: creating under subdomain=\(subdomain) type=\(scheduleType ?? "<nil>") includeVenueId=\(includeVenueId)")
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.timeZone = TimeZone(secondsFromGMT: 0)
@@ -289,7 +290,7 @@ final class RemoteEventRepository: EventRepository {
             startsAt: formatter.string(from: event.startAt),
             endAt: formatter.string(from: event.endAt),
             durationMinutes: event.durationMinutes,
-            venueId: (scheduleType?.lowercased() == "venue") ? nil : event.venueId,
+            venueId: includeVenueId ? event.venueId : nil,
             roomId: event.roomId,
             status: event.status,
             images: event.images,
