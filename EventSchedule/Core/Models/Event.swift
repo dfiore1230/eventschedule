@@ -15,6 +15,8 @@ struct Event: Codable, Identifiable, Equatable {
     var capacity: Int?
     var ticketTypes: [TicketType]
     var publishState: PublishState
+    var curatorId: String?
+    var talentIds: [String]
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -39,6 +41,12 @@ struct Event: Codable, Identifiable, Equatable {
         case publishState
         case tickets
         case venue
+        case curatorId
+        case curatorRoleId
+        case curator
+        case curators
+        case members
+        case talentIds
     }
 
     struct VenueReference: Decodable {
@@ -138,6 +146,29 @@ struct Event: Codable, Identifiable, Equatable {
         } else {
             ticketTypes = []
         }
+
+        // Curator
+        if let explicitCuratorId = try container.decodeIfPresent(String.self, forKey: .curatorId) ??
+            container.decodeIfPresent(String.self, forKey: .curatorRoleId) {
+            curatorId = explicitCuratorId
+        } else if let curatorRole = try? container.decodeIfPresent(VenueReference.self, forKey: .curator) {
+            curatorId = curatorRole.id
+        } else if let curatorRoles = try? container.decodeIfPresent([VenueReference].self, forKey: .curators) {
+            curatorId = curatorRoles.first?.id
+        } else {
+            curatorId = nil
+        }
+
+        // Talent
+        if let decodedTalentIds = try container.decodeIfPresent([String].self, forKey: .talentIds) {
+            talentIds = decodedTalentIds
+        } else if let memberDictionary = try? container.decodeIfPresent([String: VenueReference].self, forKey: .members) {
+            talentIds = Array(memberDictionary.keys)
+        } else if let memberArray = try? container.decodeIfPresent([VenueReference].self, forKey: .members) {
+            talentIds = memberArray.map { $0.id }
+        } else {
+            talentIds = []
+        }
     }
 
     init(
@@ -154,7 +185,9 @@ struct Event: Codable, Identifiable, Equatable {
         images: [URL] = [],
         capacity: Int? = nil,
         ticketTypes: [TicketType] = [],
-        publishState: PublishState = .draft
+        publishState: PublishState = .draft,
+        curatorId: String? = nil,
+        talentIds: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -170,6 +203,8 @@ struct Event: Codable, Identifiable, Equatable {
         self.capacity = capacity
         self.ticketTypes = ticketTypes
         self.publishState = publishState
+        self.curatorId = curatorId
+        self.talentIds = talentIds
     }
 
     func encode(to encoder: Encoder) throws {
@@ -187,6 +222,10 @@ struct Event: Codable, Identifiable, Equatable {
         try container.encodeIfPresent(capacity, forKey: .capacity)
         try container.encode(ticketTypes, forKey: .ticketTypes)
         try container.encode(publishState, forKey: .publishState)
+        try container.encodeIfPresent(curatorId, forKey: .curatorRoleId)
+        if !talentIds.isEmpty {
+            try container.encode(talentIds, forKey: .members)
+        }
     }
 
     var venueDisplayDescription: String {
