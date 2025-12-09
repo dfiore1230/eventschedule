@@ -339,6 +339,7 @@ struct EventFormView: View {
         var description: String?
         var starts_at: String?
         var ends_at: String?
+        var duration_minutes: Int??
         var room_id: String??
         var status: String?
         var capacity: Int??
@@ -371,6 +372,20 @@ struct EventFormView: View {
 
         DebugLogger.log("EventFormView: save started for \(originalEvent == nil ? "new" : "existing") event on instance=\(instance.displayName) (id=\(instance.id))")
 
+        let parsedDurationMinutes: Int?
+        if let durationValue = Double(durationHours.trimmingCharacters(in: .whitespacesAndNewlines)), durationValue > 0 {
+            parsedDurationMinutes = Int(durationValue * 60)
+        } else {
+            parsedDurationMinutes = nil
+        }
+
+        let computedEndAt: Date
+        if let parsedDurationMinutes, parsedDurationMinutes > 0 {
+            computedEndAt = startAtLocal.addingTimeInterval(TimeInterval(parsedDurationMinutes * 60))
+        } else {
+            computedEndAt = endAtLocal
+        }
+
         Task {
             do {
                 if originalEvent == nil {
@@ -378,20 +393,6 @@ struct EventFormView: View {
                         .map { $0.id }
                         .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
                         .filter { talentSelections.contains($0) }
-
-                    let parsedDurationMinutes: Int?
-                    if let durationValue = Double(durationHours.trimmingCharacters(in: .whitespacesAndNewlines)), durationValue > 0 {
-                        parsedDurationMinutes = Int(durationValue * 60)
-                    } else {
-                        parsedDurationMinutes = nil
-                    }
-
-                    let computedEndAt: Date
-                    if let parsedDurationMinutes, parsedDurationMinutes > 0 {
-                        computedEndAt = startAtLocal.addingTimeInterval(TimeInterval(parsedDurationMinutes * 60))
-                    } else {
-                        computedEndAt = endAtLocal
-                    }
 
                     let payload = Event(
                         id: UUID().uuidString,
@@ -430,8 +431,13 @@ struct EventFormView: View {
                     if isSignificantlyDifferent(startAtLocal, originalEvent!.startAt) {
                         dto.starts_at = apiDateString(startAtLocal)
                     }
-                    if isSignificantlyDifferent(endAtLocal, originalEvent!.endAt) {
-                        dto.ends_at = apiDateString(endAtLocal)
+                    if isSignificantlyDifferent(computedEndAt, originalEvent!.endAt) {
+                        dto.ends_at = apiDateString(computedEndAt)
+                    }
+                    if let parsedDurationMinutes {
+                        dto.duration_minutes = .some(parsedDurationMinutes / 60)
+                    } else if originalEvent!.durationMinutes != nil {
+                        dto.duration_minutes = .some(nil)
                     }
                     let trimmedRoom = roomId.trimmingCharacters(in: .whitespacesAndNewlines)
                     let originalRoomTrimmed = originalEvent!.roomId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
