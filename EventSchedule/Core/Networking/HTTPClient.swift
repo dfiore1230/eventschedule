@@ -105,7 +105,16 @@ final class HTTPClient: HTTPClientProtocol {
             throw APIError.invalidURL
         }
 
-        urlComponents.path = path.hasPrefix("/") ? path : "/" + path
+        // If the caller provides a relative path, append it to the base URL's path.
+        // Otherwise (leading slash), treat it as an absolute path to avoid altering
+        // existing behaviors that rely on explicit absolute paths (e.g. branding).
+        if path.hasPrefix("/") {
+            urlComponents.path = path
+        } else {
+            let basePath = urlComponents.path
+            let trimmedBasePath = basePath.hasSuffix("/") ? String(basePath.dropLast()) : basePath
+            urlComponents.path = (trimmedBasePath.isEmpty ? "" : trimmedBasePath) + "/" + path
+        }
 
         if let query = query {
             urlComponents.queryItems = query.compactMap { key, value in

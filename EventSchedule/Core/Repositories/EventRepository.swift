@@ -151,7 +151,7 @@ final class RemoteEventRepository: EventRepository {
     func listEvents(for instance: InstanceProfile) async throws -> [Event] {
         do {
             let response: EventListResponse = try await httpClient.request(
-                "/api/events",
+                "events",
                 method: .get,
                 query: ["include": "venue,talent,tickets"],
                 body: Optional<Event>.none,
@@ -182,7 +182,7 @@ final class RemoteEventRepository: EventRepository {
     func getEvent(id: String, instance: InstanceProfile) async throws -> Event {
         do {
             let response: EventDetailResponse = try await httpClient.request(
-                "/api/events/\(id)",
+                "events/\(id)",
                 method: .get,
                 query: ["include": "venue,talent,tickets"],
                 body: Optional<Event>.none,
@@ -259,7 +259,7 @@ final class RemoteEventRepository: EventRepository {
 
         do {
             let response: VenueListResponse = try await httpClient.request(
-                "/api/venues",
+                "venues",
                 method: .get,
                 query: nil,
                 body: Optional<Venue>.none,
@@ -281,7 +281,7 @@ final class RemoteEventRepository: EventRepository {
     func createEvent(_ event: Event, instance: InstanceProfile) async throws -> Event {
         do {
             let response: EventDetailResponse = try await httpClient.request(
-                "/api/events",
+                "events",
                 method: .post,
                 query: ["include": "venue,talent,tickets"],
                 body: event,
@@ -308,7 +308,7 @@ final class RemoteEventRepository: EventRepository {
     func updateEvent(_ event: Event, instance: InstanceProfile) async throws -> Event {
         do {
             let response: EventDetailResponse = try await httpClient.request(
-                "/api/events/\(event.id)",
+                "events/\(event.id)",
                 method: .put,
                 query: ["include": "venue,talent,tickets"],
                 body: event,
@@ -335,7 +335,7 @@ final class RemoteEventRepository: EventRepository {
     func deleteEvent(id: String, instance: InstanceProfile) async throws {
         do {
             try await httpClient.requestVoid(
-                "/api/events/\(id)",
+                "events/\(id)",
                 method: .delete,
                 query: nil,
                 body: Optional<Event>.none,
