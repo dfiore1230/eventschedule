@@ -394,19 +394,12 @@ final class RemoteEventRepository: EventRepository {
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withInternetDateTime]
             formatter.timeZone = TimeZone(secondsFromGMT: 0)
-            let cachedEvent = cache[instance.id]?.first(where: { $0.id == event.id })
-            let timeChanged: Bool
-            if let cachedEvent {
-                timeChanged = cachedEvent.startAt != event.startAt || cachedEvent.endAt != event.endAt
-            } else {
-                timeChanged = true
-            }
             let dto = UpdateEventDTO(
                 id: event.id,
                 name: event.name,
                 description: event.description,
-                startsAt: timeChanged ? formatter.string(from: event.startAt) : nil,
-                endAt: timeChanged ? formatter.string(from: event.endAt) : nil,
+                startsAt: formatter.string(from: event.startAt),
+                endAt: formatter.string(from: event.endAt),
                 durationMinutes: event.durationMinutes,
                 venueId: safeVenueId,
                 roomId: event.roomId,
