@@ -32,10 +32,20 @@ protocol EventRepository {
     func getEvent(id: String, instance: InstanceProfile) async throws -> Event
     func listVenues(for instance: InstanceProfile) async throws -> [Venue]
     func listEventResources(for instance: InstanceProfile) async throws -> EventResources
-    func createEvent(_ event: Event, instance: InstanceProfile) async throws -> Event
-    func updateEvent(_ event: Event, instance: InstanceProfile) async throws -> Event
+    func createEvent(_ event: Event, instance: InstanceProfile, timeZoneOverride: TimeZone?) async throws -> Event
+    func updateEvent(_ event: Event, instance: InstanceProfile, timeZoneOverride: TimeZone?) async throws -> Event
     func deleteEvent(id: String, instance: InstanceProfile) async throws
     func patchEvent<T: Encodable>(id: String, body: T, instance: InstanceProfile) async throws -> Event
+}
+
+extension EventRepository {
+    func createEvent(_ event: Event, instance: InstanceProfile) async throws -> Event {
+        try await createEvent(event, instance: instance, timeZoneOverride: nil)
+    }
+
+    func updateEvent(_ event: Event, instance: InstanceProfile) async throws -> Event {
+        try await updateEvent(event, instance: instance, timeZoneOverride: nil)
+    }
 }
 
 private struct EventListResponse: Decodable {
@@ -361,16 +371,21 @@ final class RemoteEventRepository: EventRepository {
         }
     }
 
-    func createEvent(_ event: Event, instance: InstanceProfile) async throws -> Event {
+    func createEvent(
+        _ event: Event,
+        instance: InstanceProfile,
+        timeZoneOverride: TimeZone? = nil
+    ) async throws -> Event {
         let (subdomain, scheduleType) = try await resolveSubdomain(for: instance)
         let includeVenueId = !(scheduleType?.lowercased().contains("venue") ?? false)
         DebugLogger.log("RemoteEventRepository: creating under subdomain=\(subdomain) type=\(scheduleType ?? "<nil>") includeVenueId=\(includeVenueId)")
+        let payloadTimeZone = timeZoneOverride ?? payloadTimeZoneProvider()
         let dto = CreateEventDTO(
             id: event.id,
             name: event.name,
             description: event.description,
-            startsAt: apiDateString(event.startAt, timeZone: payloadTimeZoneProvider()),
-            endAt: apiDateString(event.endAt, timeZone: payloadTimeZoneProvider()),
+            startsAt: apiDateString(event.startAt, timeZone: payloadTimeZone),
+            endAt: apiDateString(event.endAt, timeZone: payloadTimeZone),
             durationMinutes: event.durationMinutes,
             venueId: includeVenueId ? (event.venueId.isEmpty ? nil : event.venueId) : nil,
             roomId: event.roomId,
@@ -412,7 +427,11 @@ final class RemoteEventRepository: EventRepository {
         }
     }
 
-    func updateEvent(_ event: Event, instance: InstanceProfile) async throws -> Event {
+    func updateEvent(
+        _ event: Event,
+        instance: InstanceProfile,
+        timeZoneOverride: TimeZone? = nil
+    ) async throws -> Event {
         do {
             let (_, scheduleType) = try await resolveSubdomain(for: instance)
             let resources: EventResources
@@ -438,12 +457,13 @@ final class RemoteEventRepository: EventRepository {
                 let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
                 return !trimmed.isEmpty && validTalentIds.contains(trimmed)
             }
+            let payloadTimeZone = timeZoneOverride ?? payloadTimeZoneProvider()
             let dto = UpdateEventDTO(
                 id: event.id,
                 name: event.name,
                 description: event.description,
-                startsAt: apiDateString(event.startAt, timeZone: payloadTimeZoneProvider()),
-                endAt: apiDateString(event.endAt, timeZone: payloadTimeZoneProvider()),
+                startsAt: apiDateString(event.startAt, timeZone: payloadTimeZone),
+                endAt: apiDateString(event.endAt, timeZone: payloadTimeZone),
                 durationMinutes: event.durationMinutes,
                 venueId: safeVenueId,
                 roomId: event.roomId,
