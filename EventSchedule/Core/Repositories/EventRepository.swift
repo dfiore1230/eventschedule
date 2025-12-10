@@ -293,7 +293,9 @@ final class RemoteEventRepository: EventRepository {
                 if let venues = try container.decodeIfPresent([EventRole].self, forKey: .venues) {
                     let curators = try container.decodeIfPresent([EventRole].self, forKey: .curators) ?? []
                     let talent = try container.decodeIfPresent([EventRole].self, forKey: .talent) ?? []
-                    resources = EventResources(venues: venues, curators: curators, talent: talent)
+                    let categories = try container.decodeIfPresent([String].self, forKey: .categories) ?? []
+                    let groups = try container.decodeIfPresent([EventGroup].self, forKey: .groups) ?? []
+                    resources = EventResources(venues: venues, curators: curators, talent: talent, categories: categories, groups: groups)
                     return
                 }
 
@@ -306,6 +308,8 @@ final class RemoteEventRepository: EventRepository {
                 case venues
                 case curators
                 case talent
+                case categories
+                case groups
             }
         }
 
@@ -350,7 +354,10 @@ final class RemoteEventRepository: EventRepository {
             ticketTypes: event.ticketTypes,
             publishState: event.publishState,
             curatorId: event.curatorId,
-            members: event.talentIds.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            members: event.talentIds.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
+            category: event.category,
+            groupSlug: event.groupSlug,
+            url: event.onlineURL
         )
         do {
             let response: EventDetailResponse = try await httpClient.request(
@@ -420,7 +427,10 @@ final class RemoteEventRepository: EventRepository {
                 ticketTypes: event.ticketTypes,
                 publishState: event.publishState,
                 curatorId: event.curatorId,
-                members: safeMembers
+                members: safeMembers,
+                category: event.category,
+                groupSlug: event.groupSlug,
+                url: event.onlineURL
             )
             let response: EventDetailResponse = try await httpClient.request(
                 "events/\(event.id)",
@@ -541,6 +551,9 @@ final class RemoteEventRepository: EventRepository {
         let publishState: PublishState
         let curatorId: String?
         let members: [String]
+        let category: String?
+        let groupSlug: String?
+        let url: URL?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -558,6 +571,9 @@ final class RemoteEventRepository: EventRepository {
             case publishState = "publish_state"
             case curatorId = "curator_role_id"
             case members
+            case category
+            case groupSlug = "group_slug"
+            case url
         }
 
         func encode(to encoder: Encoder) throws {
@@ -578,6 +594,9 @@ final class RemoteEventRepository: EventRepository {
             try container.encode(ticketTypes, forKey: .ticketTypes)
             try container.encode(publishState, forKey: .publishState)
             try container.encodeIfPresent(curatorId, forKey: .curatorId)
+            try container.encodeIfPresent(category, forKey: .category)
+            try container.encodeIfPresent(groupSlug, forKey: .groupSlug)
+            try container.encodeIfPresent(url, forKey: .url)
             if !members.isEmpty { try container.encode(members, forKey: .members) }
         }
     }
@@ -598,6 +617,9 @@ final class RemoteEventRepository: EventRepository {
         let publishState: PublishState
         let curatorId: String?
         let members: [String]
+        let category: String?
+        let groupSlug: String?
+        let url: URL?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -615,6 +637,9 @@ final class RemoteEventRepository: EventRepository {
             case publishState = "publish_state"
             case curatorId = "curator_role_id"
             case members
+            case category
+            case groupSlug = "group_slug"
+            case url
         }
 
         func encode(to encoder: Encoder) throws {
@@ -635,6 +660,9 @@ final class RemoteEventRepository: EventRepository {
             try container.encode(ticketTypes, forKey: .ticketTypes)
             try container.encode(publishState, forKey: .publishState)
             try container.encodeIfPresent(curatorId, forKey: .curatorId)
+            try container.encodeIfPresent(category, forKey: .category)
+            try container.encodeIfPresent(groupSlug, forKey: .groupSlug)
+            try container.encodeIfPresent(url, forKey: .url)
             if !members.isEmpty { try container.encode(members, forKey: .members) }
         }
     }

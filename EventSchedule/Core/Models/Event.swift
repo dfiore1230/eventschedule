@@ -17,6 +17,9 @@ struct Event: Codable, Identifiable, Equatable {
     var publishState: PublishState
     var curatorId: String?
     var talentIds: [String]
+    var category: String?
+    var groupSlug: String?
+    var onlineURL: URL?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -47,6 +50,11 @@ struct Event: Codable, Identifiable, Equatable {
         case curators
         case members
         case talentIds
+        case category
+        case groupSlug = "group_slug"
+        case url
+        case onlineUrl = "online_url"
+        case eventUrl = "event_url"
     }
 
     struct VenueReference: Decodable {
@@ -133,6 +141,8 @@ struct Event: Codable, Identifiable, Equatable {
         images = try container.decodeIfPresent([URL].self, forKey: .images) ?? []
         capacity = try container.decodeIfPresent(Int.self, forKey: .capacity)
         publishState = try container.decodeIfPresent(PublishState.self, forKey: .publishState) ?? .draft
+        category = try container.decodeIfPresent(String.self, forKey: .category)
+        groupSlug = try container.decodeIfPresent(String.self, forKey: .groupSlug)
 
         if let venueIdentifier = try container.decodeIfPresent(String.self, forKey: .venueId) {
             venueId = venueIdentifier
@@ -149,6 +159,19 @@ struct Event: Codable, Identifiable, Equatable {
             ticketTypes = ticketPayloads.map { TicketType(id: $0.id, name: $0.name, price: $0.price, currency: $0.currency) }
         } else {
             ticketTypes = []
+        }
+
+        if let decodedURL = try container.decodeIfPresent(URL.self, forKey: .onlineUrl)
+            ?? container.decodeIfPresent(URL.self, forKey: .eventUrl)
+            ?? container.decodeIfPresent(URL.self, forKey: .url) {
+            onlineURL = decodedURL
+        } else if let urlString = try container.decodeIfPresent(String.self, forKey: .onlineUrl)
+            ?? container.decodeIfPresent(String.self, forKey: .eventUrl)
+            ?? container.decodeIfPresent(String.self, forKey: .url),
+                  let parsed = URL(string: urlString) {
+            onlineURL = parsed
+        } else {
+            onlineURL = nil
         }
 
         // Curator
@@ -191,7 +214,10 @@ struct Event: Codable, Identifiable, Equatable {
         ticketTypes: [TicketType] = [],
         publishState: PublishState = .draft,
         curatorId: String? = nil,
-        talentIds: [String] = []
+        talentIds: [String] = [],
+        category: String? = nil,
+        groupSlug: String? = nil,
+        onlineURL: URL? = nil
     ) {
         self.id = id
         self.name = name
@@ -209,6 +235,9 @@ struct Event: Codable, Identifiable, Equatable {
         self.publishState = publishState
         self.curatorId = curatorId
         self.talentIds = talentIds
+        self.category = category
+        self.groupSlug = groupSlug
+        self.onlineURL = onlineURL
     }
 
     func encode(to encoder: Encoder) throws {
@@ -234,6 +263,9 @@ struct Event: Codable, Identifiable, Equatable {
         try container.encode(ticketTypes, forKey: .ticketTypes)
         try container.encode(publishState, forKey: .publishState)
         try container.encodeIfPresent(curatorId, forKey: .curatorRoleId)
+        try container.encodeIfPresent(category, forKey: .category)
+        try container.encodeIfPresent(groupSlug, forKey: .groupSlug)
+        try container.encodeIfPresent(onlineURL, forKey: .url)
         if !talentIds.isEmpty {
             try container.encode(talentIds, forKey: .members)
         }

@@ -69,6 +69,13 @@ final class EventsListViewModel: ObservableObject {
             DebugLogger.log("EventsListViewModel: appended new event id=\(event.id)")
         }
     }
+
+    func remove(id: String) {
+        let before = events.count
+        events.removeAll { $0.id == id }
+        let after = events.count
+        DebugLogger.log("EventsListViewModel: removed event id=\(id) count before=\(before) after=\(after)")
+    }
 }
 
 private extension Array {
