@@ -318,10 +318,9 @@ final class RemoteEventRepository: EventRepository {
         let (subdomain, scheduleType) = try await resolveSubdomain(for: instance)
         let includeVenueId = !(scheduleType?.lowercased().contains("venue") ?? false)
         DebugLogger.log("RemoteEventRepository: creating under subdomain=\(subdomain) type=\(scheduleType ?? "<nil>") includeVenueId=\(includeVenueId)")
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        formatter.timeZone = .current
-        formatter.locale = Locale(identifier: "en_US_POSIX")
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
         let dto = CreateEventDTO(
             id: event.id,
             name: event.name,
