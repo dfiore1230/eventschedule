@@ -584,7 +584,8 @@ struct EventFormView: View {
                         talentIds: validTalentIds,
                         category: selectedCategory.isEmpty ? nil : selectedCategory,
                         groupSlug: selectedGroupSlug.isEmpty ? nil : selectedGroupSlug,
-                        onlineURL: onlineLink
+                        onlineURL: onlineLink,
+                        timezone: currentEditingTimeZone.identifier
                     )
 
                     let savedEvent = try await repository.createEvent(
