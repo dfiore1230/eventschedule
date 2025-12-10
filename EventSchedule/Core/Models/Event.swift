@@ -438,15 +438,15 @@ extension Event {
         return .current
     }
 
-    func formattedDateTime(_ date: Date, fallbackTimeZone: TimeZone? = nil) -> String {
-        let style = Date.FormatStyle.dateTime
-            .timeZone(displayTimeZone(fallback: fallbackTimeZone))
-            .month(.abbreviated)
-            .day()
-            .year()
-            .hour()
-            .minute()
-        return date.formatted(style)
+    func formattedDateTime(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = displayTimeZone
+        // Matches: abbreviated month, day, year, hour and minute (e.g., "Jan 3, 2025 at 5:42 PM")
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }
 
