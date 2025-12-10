@@ -154,12 +154,6 @@ struct EventDetailView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button("Edit") {
-                    EventInstrumentation.log(
-                        action: "event_detail_edit_tap",
-                        eventId: event.id,
-                        eventName: event.name,
-                        instance: instance
-                    )
                     isEditing = true
                 }
             }
@@ -177,15 +171,6 @@ struct EventDetailView: View {
             }
         }
         .accentColor(theme.accent)
-        .onAppear {
-            EventInstrumentation.log(
-                action: "event_detail_viewed",
-                eventId: event.id,
-                eventName: event.name,
-                instance: instance,
-                metadata: ["status": event.status.rawValue]
-            )
-        }
     }
 
     private struct ActionPatchDTO: Encodable {
@@ -202,14 +187,6 @@ struct EventDetailView: View {
     }
 
     private func updateStatus(target: EventStatus) async {
-        DebugLogger.log("EventDetailView: requested status change to \(target.rawValue) for event id=\(event.id)")
-        EventInstrumentation.log(
-            action: "event_detail_status_tap",
-            eventId: event.id,
-            eventName: event.name,
-            instance: instance,
-            metadata: ["target": target.rawValue]
-        )
         await updateEvent { current in
             var updated = current
             updated.status = target
@@ -222,8 +199,6 @@ struct EventDetailView: View {
         isPerformingAction = true
         actionError = nil
 
-        DebugLogger.log("EventDetailView: performing update for event id=\(event.id)")
-
         do {
             let updated = transform(event)
             var dto = ActionPatchDTO()
@@ -235,42 +210,17 @@ struct EventDetailView: View {
                 await MainActor.run { isPerformingAction = false }
                 return
             }
-            EventInstrumentation.log(
-                action: "event_detail_update_request",
-                eventId: event.id,
-                eventName: event.name,
-                instance: instance,
-                metadata: ["status": dto.status ?? "unchanged"]
-            )
             let saved = try await repository.patchEvent(id: event.id, body: dto, instance: instance)
             await MainActor.run {
                 event = saved
                 onSave?(saved)
                 isPerformingAction = false
             }
-
-            DebugLogger.log("EventDetailView: update succeeded for event id=\(event.id)")
-            EventInstrumentation.log(
-                action: "event_detail_update_success",
-                eventId: saved.id,
-                eventName: saved.name,
-                instance: instance,
-                metadata: ["status": saved.status.rawValue]
-            )
         } catch {
             await MainActor.run {
                 actionError = error.localizedDescription
                 isPerformingAction = false
             }
-
-            DebugLogger.error("EventDetailView: update failed for event id=\(event.id) error=\(error.localizedDescription)")
-            EventInstrumentation.error(
-                action: "event_detail_update_failure",
-                eventId: event.id,
-                eventName: event.name,
-                instance: instance,
-                error: error
-            )
         }
     }
 
@@ -278,13 +228,6 @@ struct EventDetailView: View {
         guard !isPerformingAction else { return }
         isPerformingAction = true
         actionError = nil
-        DebugLogger.log("EventDetailView: deleting event id=\(event.id)")
-        EventInstrumentation.log(
-            action: "event_detail_delete_request",
-            eventId: event.id,
-            eventName: event.name,
-            instance: instance
-        )
         do {
             try await repository.deleteEvent(id: event.id, instance: instance)
             await MainActor.run {
@@ -292,26 +235,11 @@ struct EventDetailView: View {
                 dismiss()
                 isPerformingAction = false
             }
-            DebugLogger.log("EventDetailView: delete succeeded for event id=\(event.id)")
-            EventInstrumentation.log(
-                action: "event_detail_delete_success",
-                eventId: event.id,
-                eventName: event.name,
-                instance: instance
-            )
         } catch {
             await MainActor.run {
                 actionError = error.localizedDescription
                 isPerformingAction = false
             }
-            DebugLogger.error("EventDetailView: delete failed for event id=\(event.id) error=\(error.localizedDescription)")
-            EventInstrumentation.error(
-                action: "event_detail_delete_failure",
-                eventId: event.id,
-                eventName: event.name,
-                instance: instance,
-                error: error
-            )
         }
     }
 
@@ -319,13 +247,6 @@ struct EventDetailView: View {
         guard !isPerformingAction else { return }
         isPerformingAction = true
         actionError = nil
-        DebugLogger.log("EventDetailView: archiving (soft-delete) event id=\(event.id)")
-        EventInstrumentation.log(
-            action: "event_detail_archive_request",
-            eventId: event.id,
-            eventName: event.name,
-            instance: instance
-        )
         struct ArchiveDTO: Encodable { let publish_state: String }
         do {
             let saved = try await repository.patchEvent(id: event.id, body: ArchiveDTO(publish_state: "archived"), instance: instance)
@@ -334,26 +255,11 @@ struct EventDetailView: View {
                 onSave?(saved)
                 isPerformingAction = false
             }
-            DebugLogger.log("EventDetailView: archive succeeded for event id=\(event.id)")
-            EventInstrumentation.log(
-                action: "event_detail_archive_success",
-                eventId: event.id,
-                eventName: event.name,
-                instance: instance
-            )
         } catch {
             await MainActor.run {
                 actionError = error.localizedDescription
                 isPerformingAction = false
             }
-            DebugLogger.error("EventDetailView: archive failed for event id=\(event.id) error=\(error.localizedDescription)")
-            EventInstrumentation.error(
-                action: "event_detail_archive_failure",
-                eventId: event.id,
-                eventName: event.name,
-                instance: instance,
-                error: error
-            )
         }
     }
 }
