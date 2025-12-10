@@ -100,6 +100,11 @@ struct Event: Codable, Identifiable, Equatable {
         }
     }
 
+    struct CategoryPayload: Decodable {
+        let id: Int?
+        let name: String?
+    }
+
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
 
@@ -149,7 +154,15 @@ struct Event: Codable, Identifiable, Equatable {
         images = try container.decodeIfPresent([URL].self, forKey: .images) ?? []
         capacity = try container.decodeIfPresent(Int.self, forKey: .capacity)
         publishState = try container.decodeIfPresent(PublishState.self, forKey: .publishState) ?? .draft
-        category = try container.decodeIfPresent(String.self, forKey: .category)
+        if let categoryString = try? container.decodeIfPresent(String.self, forKey: .category) {
+            category = categoryString
+        } else if let categoryObject = try? container.decodeIfPresent(CategoryPayload.self, forKey: .category) {
+            category = categoryObject.name ?? categoryObject.id.map(String.init)
+        } else if let categoryNumber = try? container.decodeIfPresent(Int.self, forKey: .category) {
+            category = String(categoryNumber)
+        } else {
+            category = nil
+        }
         groupSlug = try container.decodeIfPresent(String.self, forKey: .groupSlug)
 
         if let venueIdentifier = try container.decodeIfPresent(String.self, forKey: .venueId) {
