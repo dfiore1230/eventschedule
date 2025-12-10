@@ -19,6 +19,15 @@ enum DateFormatterFactory {
         return formatter
     }
 
+    static func localPayloadFormatter(timeZone: TimeZone) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return formatter
+    }
+
     static func displayFormatter(timeZone: TimeZone, locale: Locale = .current) -> DateFormatter {
         let formatter = DateFormatter()
         formatter.locale = locale

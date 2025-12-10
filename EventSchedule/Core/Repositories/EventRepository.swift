@@ -13,8 +13,8 @@ private func consoleError(_ message: String) {
 }
 
 @inline(__always)
-private func apiDateString(_ date: Date) -> String {
-    let formatter = Event.payloadDateFormatter()
+private func apiDateString(_ date: Date, timeZone: TimeZone) -> String {
+    let formatter = Event.payloadDateFormatter(timeZone: timeZone)
     return formatter.string(from: date)
 }
 
@@ -386,8 +386,8 @@ final class RemoteEventRepository: EventRepository {
             id: event.id,
             name: event.name,
             description: event.description,
-            startsAt: apiDateString(event.startAt),
-            endAt: apiDateString(event.endAt),
+            startsAt: apiDateString(event.startAt, timeZone: payloadTimeZone),
+            endAt: apiDateString(event.endAt, timeZone: payloadTimeZone),
             durationMinutes: event.durationMinutes,
             timezone: payloadTimeZone.identifier,
             venueId: includeVenueId ? (event.venueId.isEmpty ? nil : event.venueId) : nil,
@@ -485,8 +485,8 @@ final class RemoteEventRepository: EventRepository {
                 id: event.id,
                 name: event.name,
                 description: event.description,
-                startsAt: apiDateString(event.startAt),
-                endAt: apiDateString(event.endAt),
+                startsAt: apiDateString(event.startAt, timeZone: payloadTimeZone),
+                endAt: apiDateString(event.endAt, timeZone: payloadTimeZone),
                 durationMinutes: event.durationMinutes,
                 timezone: payloadTimeZone.identifier,
                 venueId: safeVenueId,
