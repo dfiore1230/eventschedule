@@ -427,3 +427,23 @@ struct TicketType: Codable, Identifiable, Equatable {
     }
 }
 
+extension Event {
+    var displayTimeZone: TimeZone {
+        if let timezone, let zone = TimeZone(identifier: timezone) {
+            return zone
+        }
+        return .current
+    }
+
+    func formattedDateTime(_ date: Date) -> String {
+        let style = Date.FormatStyle.dateTime
+            .timeZone(displayTimeZone)
+            .month(.abbreviated)
+            .day()
+            .year()
+            .hour()
+            .minute()
+        return date.formatted(style)
+    }
+}
+

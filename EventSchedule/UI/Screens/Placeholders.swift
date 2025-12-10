@@ -380,7 +380,7 @@ private struct EventRow: View {
             }
 
             HStack(spacing: 12) {
-                Label(event.startAt.formatted(date: .abbreviated, time: .shortened), systemImage: "clock")
+                Label(event.formattedDateTime(event.startAt), systemImage: "clock")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 Label(event.status.rawValue.capitalized, systemImage: "bolt.horizontal")
