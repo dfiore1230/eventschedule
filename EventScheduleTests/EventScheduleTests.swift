@@ -100,8 +100,8 @@ struct EventScheduleTests {
         let encodedStart = try (encodedJSON["starts_at"] as? String).unwrap()
         let encodedEnd = try (encodedJSON["ends_at"] as? String).unwrap()
 
-        #expect(encodedStart == "2024-03-10T09:30:00Z")
-        #expect(encodedEnd == "2024-03-10T10:30:00Z")
+        #expect(encodedStart == "2024-03-10 01:30:00")
+        #expect(encodedEnd == "2024-03-10 03:30:00")
     }
 
     @Test func displayFormattersRespectSelectedTimeZone() async throws {
@@ -110,7 +110,7 @@ struct EventScheduleTests {
         let utcDate = try utcCalendar.date(from: DateComponents(year: 2024, month: 12, day: 15, hour: 15, minute: 0)).unwrap()
 
         let payloadString = Event.payloadDateFormatter().string(from: utcDate)
-        #expect(payloadString == "2024-12-15T15:00:00Z")
+        #expect(payloadString == "2024-12-15 15:00:00")
 
         let posixLocale = Locale(identifier: "en_US_POSIX")
         let tokyo = try TimeZone(identifier: "Asia/Tokyo").unwrap()

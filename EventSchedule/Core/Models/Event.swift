@@ -268,7 +268,8 @@ struct Event: Codable, Identifiable, Equatable {
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
         try container.encodeIfPresent(description, forKey: .description)
-        let formatter = DateFormatterFactory.utcISO8601Formatter()
+        let encodingTimeZone = timezone.flatMap { TimeZone(identifier: $0) } ?? DateFormatterFactory.utcTimeZone
+        let formatter = Event.payloadDateFormatter(timeZone: encodingTimeZone)
 
         try container.encode(formatter.string(from: startAt), forKey: .startsAt)
         try container.encode(formatter.string(from: endAt), forKey: .endAt)
@@ -326,8 +327,8 @@ struct Event: Codable, Identifiable, Equatable {
         return formatter
     }()
 
-    static func payloadDateFormatter() -> DateFormatter {
-        DateFormatterFactory.utcPayloadFormatter()
+    static func payloadDateFormatter(timeZone: TimeZone = DateFormatterFactory.utcTimeZone) -> DateFormatter {
+        DateFormatterFactory.localPayloadFormatter(timeZone: timeZone)
     }
 
     private static func decodeDate(
@@ -335,7 +336,8 @@ struct Event: Codable, Identifiable, Equatable {
         keys: [CodingKeys],
         timeZone: TimeZone?
     ) throws -> Date? {
-        let parsingTimeZone = timeZone ?? DateFormatterFactory.utcTimeZone
+        let parsingTimeZone = DateFormatterFactory.utcTimeZone
+        let fallbackParsingTimeZone = timeZone ?? DateFormatterFactory.utcTimeZone
 
         for key in keys {
             if let decodedDate = try? container.decodeIfPresent(Date.self, forKey: key) {
@@ -356,40 +358,43 @@ struct Event: Codable, Identifiable, Equatable {
             }
 
             if let dateString = try? container.decodeIfPresent(String.self, forKey: key) {
-                let isoLocal = DateFormatter()
-                isoLocal.locale = Locale(identifier: "en_US_POSIX")
-                isoLocal.calendar = Calendar(identifier: .gregorian)
-                isoLocal.timeZone = parsingTimeZone
-                isoLocal.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-                if let parsed = isoLocal.date(from: dateString) {
-                    return parsed
-                }
+                let timeZonesToTry: [TimeZone] = [parsingTimeZone, fallbackParsingTimeZone]
+                for tz in timeZonesToTry {
+                    let isoLocal = DateFormatter()
+                    isoLocal.locale = Locale(identifier: "en_US_POSIX")
+                    isoLocal.calendar = Calendar(identifier: .gregorian)
+                    isoLocal.timeZone = tz
+                    isoLocal.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                    if let parsed = isoLocal.date(from: dateString) {
+                        return parsed
+                    }
 
-                let isoLocalFractional = DateFormatter()
-                isoLocalFractional.locale = Locale(identifier: "en_US_POSIX")
-                isoLocalFractional.calendar = Calendar(identifier: .gregorian)
-                isoLocalFractional.timeZone = parsingTimeZone
-                isoLocalFractional.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
-                if let parsed = isoLocalFractional.date(from: dateString) {
-                    return parsed
-                }
+                    let isoLocalFractional = DateFormatter()
+                    isoLocalFractional.locale = Locale(identifier: "en_US_POSIX")
+                    isoLocalFractional.calendar = Calendar(identifier: .gregorian)
+                    isoLocalFractional.timeZone = tz
+                    isoLocalFractional.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+                    if let parsed = isoLocalFractional.date(from: dateString) {
+                        return parsed
+                    }
 
-                if let parsed = iso8601WithFractional.date(from: dateString) {
-                    return parsed
-                }
-                if let parsed = iso8601.date(from: dateString) {
-                    return parsed
-                }
-                if let parsed = fallbackDateFormatter.date(from: dateString) {
-                    return parsed
-                }
-                let spaceFormatter = DateFormatter()
-                spaceFormatter.locale = Locale(identifier: "en_US_POSIX")
-                spaceFormatter.calendar = Calendar(identifier: .gregorian)
-                spaceFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                spaceFormatter.timeZone = parsingTimeZone
-                if let parsed = spaceFormatter.date(from: dateString) {
-                    return parsed
+                    if let parsed = iso8601WithFractional.date(from: dateString) {
+                        return parsed
+                    }
+                    if let parsed = iso8601.date(from: dateString) {
+                        return parsed
+                    }
+                    if let parsed = fallbackDateFormatter.date(from: dateString) {
+                        return parsed
+                    }
+                    let spaceFormatter = DateFormatter()
+                    spaceFormatter.locale = Locale(identifier: "en_US_POSIX")
+                    spaceFormatter.calendar = Calendar(identifier: .gregorian)
+                    spaceFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                    spaceFormatter.timeZone = tz
+                    if let parsed = spaceFormatter.date(from: dateString) {
+                        return parsed
+                    }
                 }
             }
         }
