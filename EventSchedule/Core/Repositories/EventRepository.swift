@@ -12,6 +12,21 @@ private func consoleError(_ message: String) {
     fputs(message + "\n", stderr)
 }
 
+@inline(__always)
+private func apiDateString(_ date: Date) -> String {
+    struct Formatter {
+        static let shared: DateFormatter = {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            formatter.timeZone = .current
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            return formatter
+        }()
+    }
+
+    return Formatter.shared.string(from: date)
+}
+
 protocol EventRepository {
     func listEvents(for instance: InstanceProfile) async throws -> [Event]
     func getEvent(id: String, instance: InstanceProfile) async throws -> Event
@@ -318,15 +333,12 @@ final class RemoteEventRepository: EventRepository {
         let (subdomain, scheduleType) = try await resolveSubdomain(for: instance)
         let includeVenueId = !(scheduleType?.lowercased().contains("venue") ?? false)
         DebugLogger.log("RemoteEventRepository: creating under subdomain=\(subdomain) type=\(scheduleType ?? "<nil>") includeVenueId=\(includeVenueId)")
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
         let dto = CreateEventDTO(
             id: event.id,
             name: event.name,
             description: event.description,
-            startsAt: formatter.string(from: event.startAt),
-            endAt: formatter.string(from: event.endAt),
+            startsAt: apiDateString(event.startAt),
+            endAt: apiDateString(event.endAt),
             durationMinutes: event.durationMinutes,
             venueId: includeVenueId ? (event.venueId.isEmpty ? nil : event.venueId) : nil,
             roomId: event.roomId,
@@ -391,15 +403,12 @@ final class RemoteEventRepository: EventRepository {
                 let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
                 return !trimmed.isEmpty && validTalentIds.contains(trimmed)
             }
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime]
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)
             let dto = UpdateEventDTO(
                 id: event.id,
                 name: event.name,
                 description: event.description,
-                startsAt: formatter.string(from: event.startAt),
-                endAt: formatter.string(from: event.endAt),
+                startsAt: apiDateString(event.startAt),
+                endAt: apiDateString(event.endAt),
                 durationMinutes: event.durationMinutes,
                 venueId: safeVenueId,
                 roomId: event.roomId,
