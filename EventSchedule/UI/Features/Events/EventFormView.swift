@@ -5,6 +5,7 @@ struct EventFormView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.theme) private var theme
     @Environment(\.httpClient) private var httpClient
+    @EnvironmentObject private var appSettings: AppSettings
 
     private let repository: EventRepository
     private let instance: InstanceProfile
@@ -344,10 +345,7 @@ struct EventFormView: View {
     }
 
     private func apiDateString(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
+        let formatter = Event.payloadDateFormatter(timeZone: appSettings.timeZone)
         return formatter.string(from: date)
     }
     

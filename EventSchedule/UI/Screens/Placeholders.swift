@@ -221,6 +221,7 @@ struct InstanceOnboardingPlaceholder: View {
 
 struct EventsListView: View {
     @EnvironmentObject var instanceStore: InstanceStore
+    @EnvironmentObject var appSettings: AppSettings
     @Environment(\.httpClient) private var httpClient
     @Environment(\.theme) private var theme
 
@@ -272,7 +273,10 @@ struct EventsListView: View {
 
     private func bootstrapIfNeeded() async {
         guard let instance = instanceStore.activeInstance else { return }
-        let repository = RemoteEventRepository(httpClient: httpClient)
+        let repository = RemoteEventRepository(
+            httpClient: httpClient,
+            payloadTimeZoneProvider: { appSettings.timeZone }
+        )
         self.repository = repository
         viewModel.setContext(repository: repository, instance: instance)
         DebugLogger.log("EventsListView: bootstrapping events list for instance=\(instance.displayName) (id=\(instance.id))")
@@ -441,6 +445,7 @@ struct StatusBadge: View {
 }
 struct SettingsView: View {
     @EnvironmentObject var instanceStore: InstanceStore
+    @EnvironmentObject var appSettings: AppSettings
     @Environment(\.httpClient) private var httpClient
     @Environment(\.theme) private var theme
 
@@ -448,6 +453,17 @@ struct SettingsView: View {
     @State private var isSaving: Bool = false
     @State private var showingAlert: Bool = false
     @State private var alertMessage: String?
+    @State private var selectedTimeZone: String = TimeZone.current.identifier
+    @State private var timeZoneQuery: String = ""
+
+    private var filteredTimeZones: [String] {
+        if timeZoneQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return TimeZone.knownTimeZoneIdentifiers.sorted()
+        }
+        return TimeZone.knownTimeZoneIdentifiers
+            .filter { $0.localizedCaseInsensitiveContains(timeZoneQuery) }
+            .sorted()
+    }
 
     @ViewBuilder
     private func saveAPIKeyLabel(isSaving: Bool) -> some View {
@@ -500,17 +516,50 @@ struct SettingsView: View {
                             removeAPIKeyLabel()
                         }
                     }
+
                 } else {
                     Section {
                         Text("Add an instance to configure authentication.")
                             .foregroundColor(.secondary)
                     }
                 }
+
+                Section("Localization") {
+                    TextField("Search time zones", text: $timeZoneQuery)
+                        .textInputAutocapitalization(.never)
+
+                    Picker("Local Time Zone", selection: $selectedTimeZone) {
+                        ForEach(filteredTimeZones, id: \.self) { identifier in
+                            if let zone = TimeZone(identifier: identifier) {
+                                let offsetHours = Double(zone.secondsFromGMT()) / 3600.0
+                                let offset = String(format: "%+.1f", offsetHours)
+                                Text("\(zone.identifier) (UTC\(offset))")
+                                    .tag(identifier)
+                            }
+                        }
+                    }
+
+                    Button("Reset to Device Time Zone") {
+                        appSettings.resetTimeZoneToCurrent()
+                        selectedTimeZone = appSettings.timeZoneIdentifier
+                    }
+                    .disabled(selectedTimeZone == TimeZone.current.identifier)
+
+                    Text("Local time zone is used when saving event start and end times.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
             }
             .tint(theme.primary)
             .navigationTitle("Settings")
             .toolbar {
                 InstanceSwitcherToolbarItem()
+            }
+            .onAppear {
+                selectedTimeZone = appSettings.timeZoneIdentifier
+            }
+            .onChange(of: selectedTimeZone) { newValue in
+                appSettings.timeZoneIdentifier = newValue
             }
             .alert("Authentication", isPresented: $showingAlert) {
                 Button("OK", role: .cancel) {}
