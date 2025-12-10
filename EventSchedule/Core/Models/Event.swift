@@ -428,16 +428,19 @@ struct TicketType: Codable, Identifiable, Equatable {
 }
 
 extension Event {
-    var displayTimeZone: TimeZone {
+    func displayTimeZone(fallback: TimeZone? = nil) -> TimeZone {
         if let timezone, let zone = TimeZone(identifier: timezone) {
             return zone
+        }
+        if let fallback {
+            return fallback
         }
         return .current
     }
 
-    func formattedDateTime(_ date: Date) -> String {
+    func formattedDateTime(_ date: Date, fallbackTimeZone: TimeZone? = nil) -> String {
         let style = Date.FormatStyle.dateTime
-            .timeZone(displayTimeZone)
+            .timeZone(displayTimeZone(fallback: fallbackTimeZone))
             .month(.abbreviated)
             .day()
             .year()
