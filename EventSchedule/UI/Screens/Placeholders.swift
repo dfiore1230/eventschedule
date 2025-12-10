@@ -368,6 +368,7 @@ struct EventsListView: View {
 
 private struct EventRow: View {
     let event: Event
+    @EnvironmentObject private var appSettings: AppSettings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -380,7 +381,10 @@ private struct EventRow: View {
             }
 
             HStack(spacing: 12) {
-                Label(event.formattedDateTime(event.startAt), systemImage: "clock")
+                Label(
+                    event.formattedDateTime(event.startAt, fallbackTimeZone: appSettings.timeZone),
+                    systemImage: "clock"
+                )
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 Label(event.status.rawValue.capitalized, systemImage: "bolt.horizontal")
