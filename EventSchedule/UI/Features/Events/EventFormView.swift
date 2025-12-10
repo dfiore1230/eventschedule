@@ -548,6 +548,7 @@ struct EventFormView: View {
         var url: String??
         var images: [URL]?
         var ticket_types: [TicketType]?
+        var timezone: String??
 
         struct MemberPatch: Encodable {
             var id: String?
@@ -653,6 +654,10 @@ struct EventFormView: View {
 
                     if startChanged { dto.starts_at = apiDateString(startAtLocal) }
                     if endChanged { dto.ends_at = apiDateString(computedEndAt) }
+                    let newTimeZoneIdentifier = currentEditingTimeZone.identifier
+                    if startChanged || endChanged || originalEvent?.timezone != newTimeZoneIdentifier {
+                        dto.timezone = .some(newTimeZoneIdentifier)
+                    }
                     if let parsedDurationMinutes, parsedDurationMinutes != originalEvent!.durationMinutes {
                         dto.duration = .some(parsedDurationMinutes / 60)
                     } else if parsedDurationMinutes == nil, originalEvent!.durationMinutes != nil {
