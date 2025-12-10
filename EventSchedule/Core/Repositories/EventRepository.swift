@@ -380,6 +380,17 @@ final class RemoteEventRepository: EventRepository {
         let includeVenueId = !(scheduleType?.lowercased().contains("venue") ?? false)
         DebugLogger.log("RemoteEventRepository: creating under subdomain=\(subdomain) type=\(scheduleType ?? "<nil>") includeVenueId=\(includeVenueId)")
         let payloadTimeZone = timeZoneOverride ?? payloadTimeZoneProvider()
+        EventInstrumentation.log(
+            action: "event_create_request",
+            eventId: event.id,
+            eventName: event.name,
+            instance: instance,
+            metadata: [
+                "includeVenueId": String(includeVenueId),
+                "payloadTimeZone": payloadTimeZone.identifier,
+                "hasOnlineUrl": String(event.onlineURL != nil)
+            ]
+        )
         let dto = CreateEventDTO(
             id: event.id,
             name: event.name,
@@ -411,9 +422,29 @@ final class RemoteEventRepository: EventRepository {
             let enriched = await enrichVenueName(response.event, for: instance)
             upsert(enriched, for: instance)
             consoleLog("RemoteEventRepository: created event id=\(enriched.id) for instance=\(instance.displayName) (id=\(instance.id))")
+            EventInstrumentation.log(
+                action: "event_create_success",
+                eventId: enriched.id,
+                eventName: enriched.name,
+                instance: instance,
+                metadata: [
+                    "venueId": enriched.venueId,
+                    "status": enriched.status.rawValue
+                ]
+            )
             return enriched
         } catch {
             consoleError("RemoteEventRepository: createEvent failed on instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
+            EventInstrumentation.error(
+                action: "event_create_failure",
+                eventId: event.id,
+                eventName: event.name,
+                instance: instance,
+                error: error,
+                metadata: [
+                    "payloadTimeZone": (timeZoneOverride ?? payloadTimeZoneProvider()).identifier
+                ]
+            )
             if case let DecodingError.dataCorrupted(context) = error {
                 consoleError("DecodingError.dataCorrupted: codingPath=\(context.codingPath.map { $0.stringValue }.joined(separator: ".")) debug=\(context.debugDescription)")
             } else if case let DecodingError.keyNotFound(key, context) = error {
@@ -478,6 +509,17 @@ final class RemoteEventRepository: EventRepository {
                 groupSlug: event.groupSlug,
                 url: event.onlineURL
             )
+            EventInstrumentation.log(
+                action: "event_update_request",
+                eventId: event.id,
+                eventName: event.name,
+                instance: instance,
+                metadata: [
+                    "payloadTimeZone": payloadTimeZone.identifier,
+                    "includeVenueId": String(includeVenueId),
+                    "membersCount": String(safeMembers.count)
+                ]
+            )
             let response: EventDetailResponse = try await httpClient.request(
                 "events/\(event.id)",
                 method: .post,
@@ -488,9 +530,26 @@ final class RemoteEventRepository: EventRepository {
             let enriched = await enrichVenueName(response.event, for: instance)
             upsert(enriched, for: instance)
             consoleLog("RemoteEventRepository: updated event id=\(enriched.id) for instance=\(instance.displayName) (id=\(instance.id))")
+            EventInstrumentation.log(
+                action: "event_update_success",
+                eventId: enriched.id,
+                eventName: enriched.name,
+                instance: instance,
+                metadata: [
+                    "status": enriched.status.rawValue,
+                    "publishState": enriched.publishState.rawValue
+                ]
+            )
             return enriched
         } catch {
             consoleError("RemoteEventRepository: updateEvent failed for id=\(event.id) on instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
+            EventInstrumentation.error(
+                action: "event_update_failure",
+                eventId: event.id,
+                eventName: event.name,
+                instance: instance,
+                error: error
+            )
             if case let DecodingError.dataCorrupted(context) = error {
                 consoleError("DecodingError.dataCorrupted: codingPath=\(context.codingPath.map { $0.stringValue }.joined(separator: ".")) debug=\(context.debugDescription)")
             } else if case let DecodingError.keyNotFound(key, context) = error {
@@ -523,6 +582,12 @@ final class RemoteEventRepository: EventRepository {
 
     func patchEvent<T: Encodable>(id: String, body: T, instance: InstanceProfile) async throws -> Event {
         do {
+            EventInstrumentation.log(
+                action: "event_patch_request",
+                eventId: id,
+                instance: instance,
+                metadata: ["bodyType": String(describing: T.self)]
+            )
             let response: GenericEventResponse = try await httpClient.request(
                 "events/\(id)",
                 method: .patch,
@@ -532,9 +597,23 @@ final class RemoteEventRepository: EventRepository {
             )
             upsert(response.data, for: instance)
             consoleLog("RemoteEventRepository: patched event id=\(response.data.id) for instance=\(instance.displayName) (id=\(instance.id))")
+            EventInstrumentation.log(
+                action: "event_patch_success",
+                eventId: response.data.id,
+                eventName: response.data.name,
+                instance: instance,
+                metadata: ["status": response.data.status.rawValue]
+            )
             return response.data
         } catch {
             consoleError("RemoteEventRepository: patchEvent failed for id=\(id) on instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
+            EventInstrumentation.error(
+                action: "event_patch_failure",
+                eventId: id,
+                instance: instance,
+                error: error,
+                metadata: ["bodyType": String(describing: T.self)]
+            )
             throw error
         }
     }

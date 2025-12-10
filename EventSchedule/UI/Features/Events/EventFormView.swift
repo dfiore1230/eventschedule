@@ -474,6 +474,36 @@ struct EventFormView: View {
         .task { userTimeZoneIdentifier = appSettings.timeZoneIdentifier }
         .environment(\.timeZone, currentEditingTimeZone)
         .accentColor(theme.accent)
+        .onAppear {
+            EventInstrumentation.log(
+                action: "event_form_presented",
+                eventId: originalEvent?.id,
+                eventName: originalEvent?.name,
+                instance: instance,
+                metadata: [
+                    "mode": originalEvent == nil ? "create" : "edit",
+                    "timeZone": currentEditingTimeZone.identifier
+                ]
+            )
+        }
+        .onChange(of: isInPerson) { _, newValue in
+            EventInstrumentation.log(
+                action: "event_form_toggle_in_person",
+                eventId: originalEvent?.id,
+                eventName: originalEvent?.name ?? name,
+                instance: instance,
+                metadata: ["enabled": String(newValue)]
+            )
+        }
+        .onChange(of: isOnline) { _, newValue in
+            EventInstrumentation.log(
+                action: "event_form_toggle_online",
+                eventId: originalEvent?.id,
+                eventName: originalEvent?.name ?? name,
+                instance: instance,
+                metadata: ["enabled": String(newValue)]
+            )
+        }
     }
 
     private func apiDateString(_ date: Date) -> String {
@@ -588,6 +618,16 @@ struct EventFormView: View {
                     )
 
                     DebugLogger.log("EventFormView: attempting to create event id=\(payload.id)")
+                    EventInstrumentation.log(
+                        action: "event_form_submit_create",
+                        eventId: payload.id,
+                        eventName: payload.name,
+                        instance: instance,
+                        metadata: [
+                            "hasOnlineUrl": String(payload.onlineURL != nil),
+                            "venueId": payload.venueId
+                        ]
+                    )
 
                     let savedEvent = try await repository.createEvent(
                         payload,
@@ -684,6 +724,17 @@ struct EventFormView: View {
                         dto.curators = selectedCuratorIds.map { EventPatchDTO.CuratorPatch(id: $0) }
                     }
 
+                    EventInstrumentation.log(
+                        action: "event_form_submit_update",
+                        eventId: originalEvent!.id,
+                        eventName: originalEvent!.name,
+                        instance: instance,
+                        metadata: [
+                            "participantsModified": String(participantsModified),
+                            "curatorsModified": String(curatorsModified)
+                        ]
+                    )
+
                     let savedEvent = try await repository.patchEvent(id: originalEvent!.id, body: dto, instance: instance)
 
                     await MainActor.run {
@@ -700,6 +751,13 @@ struct EventFormView: View {
                 }
 
                 DebugLogger.error("EventFormView: save failed with error=\(error.localizedDescription)")
+                EventInstrumentation.error(
+                    action: "event_form_submit_failure",
+                    eventId: originalEvent?.id,
+                    eventName: originalEvent?.name ?? name,
+                    instance: instance,
+                    error: error
+                )
             }
         }
     }
