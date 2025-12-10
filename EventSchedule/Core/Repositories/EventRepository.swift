@@ -13,17 +13,8 @@ private func consoleError(_ message: String) {
 }
 
 @inline(__always)
-private func apiDateString(_ date: Date, timeZone: TimeZone) -> String {
-    struct FormatterCache {
-        static var cache: [String: DateFormatter] = [:]
-    }
-
-    if let cached = FormatterCache.cache[timeZone.identifier] {
-        return cached.string(from: date)
-    }
-
-    let formatter = Event.payloadDateFormatter(timeZone: timeZone)
-    FormatterCache.cache[timeZone.identifier] = formatter
+private func apiDateString(_ date: Date) -> String {
+    let formatter = Event.payloadDateFormatter()
     return formatter.string(from: date)
 }
 
@@ -395,8 +386,8 @@ final class RemoteEventRepository: EventRepository {
             id: event.id,
             name: event.name,
             description: event.description,
-            startsAt: apiDateString(event.startAt, timeZone: payloadTimeZone),
-            endAt: apiDateString(event.endAt, timeZone: payloadTimeZone),
+            startsAt: apiDateString(event.startAt),
+            endAt: apiDateString(event.endAt),
             durationMinutes: event.durationMinutes,
             timezone: payloadTimeZone.identifier,
             venueId: includeVenueId ? (event.venueId.isEmpty ? nil : event.venueId) : nil,
@@ -494,8 +485,8 @@ final class RemoteEventRepository: EventRepository {
                 id: event.id,
                 name: event.name,
                 description: event.description,
-                startsAt: apiDateString(event.startAt, timeZone: payloadTimeZone),
-                endAt: apiDateString(event.endAt, timeZone: payloadTimeZone),
+                startsAt: apiDateString(event.startAt),
+                endAt: apiDateString(event.endAt),
                 durationMinutes: event.durationMinutes,
                 timezone: payloadTimeZone.identifier,
                 venueId: safeVenueId,

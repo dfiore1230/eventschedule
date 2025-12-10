@@ -268,9 +268,7 @@ struct Event: Codable, Identifiable, Equatable {
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
         try container.encodeIfPresent(description, forKey: .description)
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        let formatter = DateFormatterFactory.utcISO8601Formatter()
 
         try container.encode(formatter.string(from: startAt), forKey: .startsAt)
         try container.encode(formatter.string(from: endAt), forKey: .endAt)
@@ -305,22 +303,18 @@ struct Event: Codable, Identifiable, Equatable {
     }
 
     private static let iso8601WithFractional: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
+        DateFormatterFactory.utcISO8601Formatter(includeFractionalSeconds: true)
     }()
 
     private static let iso8601: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        return formatter
+        DateFormatterFactory.utcISO8601Formatter()
     }()
 
     private static let fallbackDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssZZZZZ"
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.timeZone = DateFormatterFactory.utcTimeZone
         return formatter
     }()
 
@@ -328,17 +322,12 @@ struct Event: Codable, Identifiable, Equatable {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.timeZone = DateFormatterFactory.utcTimeZone
         return formatter
     }()
 
-    static func payloadDateFormatter(timeZone: TimeZone = .current) -> DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.timeZone = timeZone
-        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
-        return formatter
+    static func payloadDateFormatter() -> DateFormatter {
+        DateFormatterFactory.utcPayloadFormatter()
     }
 
     private static func decodeDate(
@@ -346,6 +335,8 @@ struct Event: Codable, Identifiable, Equatable {
         keys: [CodingKeys],
         timeZone: TimeZone?
     ) throws -> Date? {
+        let parsingTimeZone = timeZone ?? DateFormatterFactory.utcTimeZone
+
         for key in keys {
             if let decodedDate = try? container.decodeIfPresent(Date.self, forKey: key) {
                 return decodedDate
@@ -365,24 +356,22 @@ struct Event: Codable, Identifiable, Equatable {
             }
 
             if let dateString = try? container.decodeIfPresent(String.self, forKey: key) {
-                if let timeZone {
-                    let isoLocal = DateFormatter()
-                    isoLocal.locale = Locale(identifier: "en_US_POSIX")
-                    isoLocal.calendar = Calendar(identifier: .gregorian)
-                    isoLocal.timeZone = timeZone
-                    isoLocal.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-                    if let parsed = isoLocal.date(from: dateString) {
-                        return parsed
-                    }
+                let isoLocal = DateFormatter()
+                isoLocal.locale = Locale(identifier: "en_US_POSIX")
+                isoLocal.calendar = Calendar(identifier: .gregorian)
+                isoLocal.timeZone = parsingTimeZone
+                isoLocal.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                if let parsed = isoLocal.date(from: dateString) {
+                    return parsed
+                }
 
-                    let isoLocalFractional = DateFormatter()
-                    isoLocalFractional.locale = Locale(identifier: "en_US_POSIX")
-                    isoLocalFractional.calendar = Calendar(identifier: .gregorian)
-                    isoLocalFractional.timeZone = timeZone
-                    isoLocalFractional.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
-                    if let parsed = isoLocalFractional.date(from: dateString) {
-                        return parsed
-                    }
+                let isoLocalFractional = DateFormatter()
+                isoLocalFractional.locale = Locale(identifier: "en_US_POSIX")
+                isoLocalFractional.calendar = Calendar(identifier: .gregorian)
+                isoLocalFractional.timeZone = parsingTimeZone
+                isoLocalFractional.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+                if let parsed = isoLocalFractional.date(from: dateString) {
+                    return parsed
                 }
 
                 if let parsed = iso8601WithFractional.date(from: dateString) {
@@ -398,7 +387,7 @@ struct Event: Codable, Identifiable, Equatable {
                 spaceFormatter.locale = Locale(identifier: "en_US_POSIX")
                 spaceFormatter.calendar = Calendar(identifier: .gregorian)
                 spaceFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-                spaceFormatter.timeZone = timeZone ?? TimeZone(secondsFromGMT: 0)
+                spaceFormatter.timeZone = parsingTimeZone
                 if let parsed = spaceFormatter.date(from: dateString) {
                     return parsed
                 }
@@ -460,13 +449,10 @@ extension Event {
     }
 
     func formattedDateTime(_ date: Date, fallbackTimeZone: TimeZone? = nil) -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale.current
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.timeZone = displayTimeZone(fallback: fallbackTimeZone)
-        // Matches: abbreviated month, day, year, hour and minute (e.g., "Jan 3, 2025 at 5:42 PM")
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
+        let formatter = DateFormatterFactory.displayFormatter(
+            timeZone: displayTimeZone(fallback: fallbackTimeZone),
+            locale: Locale.current
+        )
         return formatter.string(from: date)
     }
 }
