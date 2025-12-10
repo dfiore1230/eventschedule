@@ -477,7 +477,7 @@ struct EventFormView: View {
     }
 
     private func apiDateString(_ date: Date) -> String {
-        let formatter = Event.payloadDateFormatter(timeZone: currentEditingTimeZone)
+        let formatter = Event.payloadDateFormatter()
         return formatter.string(from: date)
     }
     

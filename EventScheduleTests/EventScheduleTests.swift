@@ -58,4 +58,70 @@ struct EventScheduleTests {
         #expect(isoFormatter.date(from: encodedEnd) == event.endAt)
     }
 
+    @Test func dstPayloadsRemainUTC() async throws {
+        let pacific = try TimeZone(identifier: "America/Los_Angeles").unwrap()
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = pacific
+
+        let startComponents = DateComponents(year: 2024, month: 3, day: 10, hour: 1, minute: 30)
+        let endComponents = DateComponents(year: 2024, month: 3, day: 10, hour: 3, minute: 30)
+
+        let start = try calendar.date(from: startComponents).unwrap()
+        let end = try calendar.date(from: endComponents).unwrap()
+
+        let event = Event(
+            id: "dst-event",
+            name: "DST Sample",
+            description: nil,
+            startAt: start,
+            endAt: end,
+            durationMinutes: 120,
+            venueId: "venue-1",
+            venueName: nil,
+            roomId: nil,
+            status: .scheduled,
+            images: [],
+            capacity: nil,
+            ticketTypes: [],
+            publishState: .draft,
+            timezone: pacific.identifier,
+            curatorId: nil,
+            talentIds: [],
+            category: nil,
+            groupSlug: nil,
+            onlineURL: nil
+        )
+
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        let encoded = try encoder.encode(event)
+
+        let encodedJSON = try (JSONSerialization.jsonObject(with: encoded) as? [String: Any]).unwrap()
+        let encodedStart = try (encodedJSON["starts_at"] as? String).unwrap()
+        let encodedEnd = try (encodedJSON["ends_at"] as? String).unwrap()
+
+        #expect(encodedStart == "2024-03-10T09:30:00Z")
+        #expect(encodedEnd == "2024-03-10T10:30:00Z")
+    }
+
+    @Test func displayFormattersRespectSelectedTimeZone() async throws {
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = DateFormatterFactory.utcTimeZone
+        let utcDate = try utcCalendar.date(from: DateComponents(year: 2024, month: 12, day: 15, hour: 15, minute: 0)).unwrap()
+
+        let payloadString = Event.payloadDateFormatter().string(from: utcDate)
+        #expect(payloadString == "2024-12-15T15:00:00Z")
+
+        let posixLocale = Locale(identifier: "en_US_POSIX")
+        let tokyo = try TimeZone(identifier: "Asia/Tokyo").unwrap()
+        let newYork = try TimeZone(identifier: "America/New_York").unwrap()
+
+        let tokyoDisplay = DateFormatterFactory.displayFormatter(timeZone: tokyo, locale: posixLocale).string(from: utcDate)
+        let newYorkDisplay = DateFormatterFactory.displayFormatter(timeZone: newYork, locale: posixLocale).string(from: utcDate)
+
+        #expect(tokyoDisplay == "Dec 16, 2024 at 12:00 AM")
+        #expect(newYorkDisplay == "Dec 15, 2024 at 10:00 AM")
+        #expect(tokyoDisplay != newYorkDisplay)
+    }
+
 }
