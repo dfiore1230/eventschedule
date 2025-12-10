@@ -238,7 +238,8 @@ struct Event: Codable, Identifiable, Equatable {
         talentIds: [String] = [],
         category: String? = nil,
         groupSlug: String? = nil,
-        onlineURL: URL? = nil
+        onlineURL: URL? = nil,
+        timezone: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -254,7 +255,7 @@ struct Event: Codable, Identifiable, Equatable {
         self.capacity = capacity
         self.ticketTypes = ticketTypes
         self.publishState = publishState
-        self.timezone = nil
+        self.timezone = timezone
         self.curatorId = curatorId
         self.talentIds = talentIds
         self.category = category
@@ -336,7 +337,7 @@ struct Event: Codable, Identifiable, Equatable {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.calendar = Calendar(identifier: .gregorian)
         formatter.timeZone = timeZone
-        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        formatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ssXXXXX"
         return formatter
     }
 
