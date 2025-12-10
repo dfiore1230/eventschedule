@@ -246,12 +246,6 @@ struct EventsListView: View {
                     } else {
                         Button(action: {
                             showingNewEvent = true
-                            if let instance = instanceStore.activeInstance {
-                                EventInstrumentation.log(
-                                    action: "events_list_tap_create",
-                                    instance: instance
-                                )
-                            }
                         }) {
                             Image(systemName: "plus")
                         }
@@ -287,7 +281,6 @@ struct EventsListView: View {
         )
         self.repository = repository
         viewModel.setContext(repository: repository, instance: instance)
-        DebugLogger.log("EventsListView: bootstrapping events list for instance=\(instance.displayName) (id=\(instance.id))")
         await viewModel.load()
     }
 
@@ -315,30 +308,13 @@ struct EventsListView: View {
                     })
                 } label: {
                     EventRow(event: event)
-                        .onAppear {
-                            EventInstrumentation.log(
-                                action: "events_list_row_displayed",
-                                eventId: event.id,
-                                eventName: event.name,
-                                instance: instance
-                            )
-                        }
                 }
-                .simultaneousGesture(TapGesture().onEnded {
-                    EventInstrumentation.log(
-                        action: "events_list_row_selected",
-                        eventId: event.id,
-                        eventName: event.name,
-                        instance: instance
-                    )
-                })
             }
             .onDelete { offsets in
                 Task { await viewModel.remove(at: offsets) }
             }
         }
         .refreshable {
-            EventInstrumentation.log(action: "events_list_pull_to_refresh", instance: instance)
             await viewModel.refresh()
         }
     }

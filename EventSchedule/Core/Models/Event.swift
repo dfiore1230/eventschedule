@@ -364,6 +364,26 @@ struct Event: Codable, Identifiable, Equatable {
             }
 
             if let dateString = try? container.decodeIfPresent(String.self, forKey: key) {
+                if let timeZone {
+                    let isoLocal = DateFormatter()
+                    isoLocal.locale = Locale(identifier: "en_US_POSIX")
+                    isoLocal.calendar = Calendar(identifier: .gregorian)
+                    isoLocal.timeZone = timeZone
+                    isoLocal.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+                    if let parsed = isoLocal.date(from: dateString) {
+                        return parsed
+                    }
+
+                    let isoLocalFractional = DateFormatter()
+                    isoLocalFractional.locale = Locale(identifier: "en_US_POSIX")
+                    isoLocalFractional.calendar = Calendar(identifier: .gregorian)
+                    isoLocalFractional.timeZone = timeZone
+                    isoLocalFractional.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+                    if let parsed = isoLocalFractional.date(from: dateString) {
+                        return parsed
+                    }
+                }
+
                 if let parsed = iso8601WithFractional.date(from: dateString) {
                     return parsed
                 }
