@@ -611,8 +611,11 @@ struct EventFormView: View {
                     if description != (originalEvent!.description ?? "") {
                         dto.description = description.isEmpty ? nil : description
                     }
-                    dto.starts_at = apiDateString(startAtLocal)
-                    dto.ends_at = apiDateString(computedEndAt)
+                    let startChanged = startWasModified || isSignificantlyDifferent(startAtLocal, originalEvent!.startAt)
+                    let endChanged = durationWasModified || isSignificantlyDifferent(computedEndAt, originalEvent!.endAt)
+
+                    if startChanged { dto.starts_at = apiDateString(startAtLocal) }
+                    if endChanged { dto.ends_at = apiDateString(computedEndAt) }
                     if let parsedDurationMinutes, parsedDurationMinutes != originalEvent!.durationMinutes {
                         dto.duration = .some(parsedDurationMinutes / 60)
                     } else if parsedDurationMinutes == nil, originalEvent!.durationMinutes != nil {
