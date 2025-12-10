@@ -416,6 +416,10 @@ struct EventFormView: View {
             computedEndAt = endAtLocal
         }
 
+        // Temporary workaround: bump timestamps by one second on every save to dodge the timezone bug.
+        let startForApi = startAtLocal.addingTimeInterval(1)
+        let endForApi = computedEndAt.addingTimeInterval(1)
+
         Task {
             do {
                 if originalEvent == nil {
@@ -428,8 +432,8 @@ struct EventFormView: View {
                         id: UUID().uuidString,
                         name: name,
                         description: description.isEmpty ? nil : description,
-                        startAt: startAtLocal,
-                        endAt: computedEndAt,
+                        startAt: startForApi,
+                        endAt: endForApi,
                         durationMinutes: parsedDurationMinutes,
                         venueId: venueId,
                         roomId: roomId.isEmpty ? nil : roomId,
@@ -458,12 +462,9 @@ struct EventFormView: View {
                     if description != (originalEvent!.description ?? "") {
                         dto.description = description.isEmpty ? nil : description
                     }
-                    if startWasModified && isSignificantlyDifferent(startAtLocal, originalEvent!.startAt) {
-                        dto.starts_at = apiDateString(startAtLocal)
-                    }
-                    if (startWasModified || durationWasModified) && isSignificantlyDifferent(computedEndAt, originalEvent!.endAt) {
-                        dto.ends_at = apiDateString(computedEndAt)
-                    }
+                    // Always send bumped times so the backend sees a change even when the user keeps the same values.
+                    dto.starts_at = apiDateString(startForApi)
+                    dto.ends_at = apiDateString(endForApi)
                     if let parsedDurationMinutes, parsedDurationMinutes != originalEvent!.durationMinutes {
                         dto.duration = .some(parsedDurationMinutes / 60)
                     } else if parsedDurationMinutes == nil, originalEvent!.durationMinutes != nil {
