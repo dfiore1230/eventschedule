@@ -73,6 +73,11 @@ struct EventFormView: View {
     @State private var durationHours: String = ""
     @State private var selectedCategory: String = ""
     @State private var selectedGroupSlug: String = ""
+    @State private var onlineURL: String = ""
+    @State private var availableCategories: [String] = []
+    @State private var availableGroups: [EventGroup] = []
+    @State private var imageURLs: [String] = []
+    @State private var ticketDrafts: [TicketDraft] = []
 
     @State private var isSaving: Bool = false
     @State private var errorMessage: String?
@@ -100,6 +105,13 @@ struct EventFormView: View {
         _status = State(initialValue: event?.status ?? .scheduled)
         _capacity = State(initialValue: event?.capacity.map { String($0) } ?? "")
         _durationHours = State(initialValue: Self.durationHoursString(from: event?.durationMinutes))
+        _isOnline = State(initialValue: event?.onlineURL != nil)
+        _isInPerson = State(initialValue: event?.venueId.isEmpty == false || event == nil)
+        _onlineURL = State(initialValue: event?.onlineURL?.absoluteString ?? "")
+        _selectedCategory = State(initialValue: event?.category ?? "")
+        _selectedGroupSlug = State(initialValue: event?.groupSlug ?? "")
+        _imageURLs = State(initialValue: event?.images.map { $0.absoluteString } ?? [])
+        _ticketDrafts = State(initialValue: event?.ticketTypes.map { TicketDraft(from: $0) } ?? [])
 
         if let evt = event {
             // If Event exposes a timezone string from primary schedule, set it here
@@ -124,6 +136,36 @@ struct EventFormView: View {
             formatted.removeLast()
         }
         return formatted
+    }
+
+    private var trimmedOnlineURL: String {
+        onlineURL.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var onlineURLMissing: Bool {
+        isOnline && trimmedOnlineURL.isEmpty
+    }
+
+    private var onlineURLInvalid: Bool {
+        isOnline && !trimmedOnlineURL.isEmpty && URL(string: trimmedOnlineURL) == nil
+    }
+
+    private var requiresVenueSelection: Bool {
+        isInPerson && venueMode == .existing && venueId.isEmpty
+    }
+
+    private var requiresNewVenueDetails: Bool {
+        isInPerson && venueMode == .newVenue && venueId.isEmpty && newVenueName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var saveDisabled: Bool {
+        isSaving
+            || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || (!isInPerson && !isOnline)
+            || requiresVenueSelection
+            || requiresNewVenueDetails
+            || onlineURLMissing
+            || onlineURLInvalid
     }
 
     var body: some View {
@@ -170,6 +212,21 @@ struct EventFormView: View {
             Section(header: Text("Type")) {
                 Toggle("In-person", isOn: $isInPerson)
                 Toggle("Online", isOn: $isOnline)
+                if isOnline {
+                    TextField("Online URL", text: $onlineURL)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+                    if onlineURLMissing {
+                        Text("Online events require a URL.")
+                            .font(.footnote)
+                            .foregroundColor(.red)
+                    }
+                    if !onlineURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, URL(string: onlineURL) == nil {
+                        Text("Enter a valid URL for online events.")
+                            .font(.footnote)
+                            .foregroundColor(.red)
+                    }
+                }
                 if !isInPerson && !isOnline {
                     Text("At least one type must be selected.")
                         .font(.footnote)
@@ -244,6 +301,26 @@ struct EventFormView: View {
                 }
             }
 
+            Section(header: Text("Organization")) {
+                if !availableGroups.isEmpty {
+                    Picker("Pick list", selection: $selectedGroupSlug) {
+                        Text("None").tag("")
+                        ForEach(availableGroups) { group in
+                            Text(group.name).tag(group.slug)
+                        }
+                    }
+                }
+
+                if !availableCategories.isEmpty {
+                    Picker("Category", selection: $selectedCategory) {
+                        Text("Uncategorized").tag("")
+                        ForEach(availableCategories, id: \.self) { category in
+                            Text(category).tag(category)
+                        }
+                    }
+                }
+            }
+
             Section(header: Text("Participants")) {
                 Picker("Mode", selection: $participantMode) {
                     Text(ParticipantMode.existing.rawValue).tag(ParticipantMode.existing)
@@ -306,6 +383,63 @@ struct EventFormView: View {
                 }
             }
 
+            Section(header: Text("Fliers")) {
+                if imageURLs.isEmpty {
+                    Text("Add URLs for promotional fliers.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+                ForEach(Array(imageURLs.enumerated()), id: \.offset) { index, url in
+                    HStack {
+                        TextField("https://example.com/flier.jpg", text: Binding(
+                            get: { imageURLs[index] },
+                            set: { imageURLs[index] = $0 }
+                        ))
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+                        Button(role: .destructive) {
+                            imageURLs.remove(at: index)
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+                Button(action: { imageURLs.append("") }) {
+                    Label("Add flier", systemImage: "plus")
+                }
+            }
+
+            Section(header: Text("Tickets")) {
+                if ticketDrafts.isEmpty {
+                    Text("Define ticket types, prices, and currency.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+
+                ForEach(ticketDrafts) { draft in
+                    VStack(alignment: .leading) {
+                        TextField("Ticket name", text: binding(for: draft).name)
+                        HStack {
+                            TextField("Price", text: binding(for: draft).price)
+                                .keyboardType(.decimalPad)
+                            TextField("Currency (e.g., USD)", text: binding(for: draft).currency)
+                                .textInputAutocapitalization(.never)
+                        }
+                        Button(role: .destructive) {
+                            removeTicket(draft)
+                        } label: {
+                            Label("Remove", systemImage: "trash")
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+
+                Button(action: { ticketDrafts.append(TicketDraft()) }) {
+                    Label("Add ticket", systemImage: "plus")
+                }
+            }
+
             Section(header: Text("Status")) {
                 Picker("Event Status", selection: $status) {
                     Text("Scheduled").tag(EventStatus.scheduled)
@@ -337,7 +471,7 @@ struct EventFormView: View {
                         Text("Save")
                     }
                 }
-                .disabled(isSaving || name.isEmpty || venueId.isEmpty || (availableVenues.isEmpty && venueMode == .existing) || (!isInPerson && !isOnline))
+                .disabled(saveDisabled)
             }
         }
         .task { await loadResources() }
@@ -381,6 +515,11 @@ struct EventFormView: View {
         var venue_country: String?
         var members: [MemberPatch]?
         var curators: [CuratorPatch]?
+        var category: String??
+        var group_slug: String??
+        var url: String??
+        var images: [URL]?
+        var ticket_types: [TicketType]?
 
         struct MemberPatch: Encodable {
             var id: String?
@@ -414,6 +553,14 @@ struct EventFormView: View {
             computedEndAt = endAtLocal
         }
 
+        let cleanedImages: [URL] = imageURLs
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .compactMap { URL(string: $0) }
+
+        let ticketTypes: [TicketType] = ticketDrafts.compactMap { $0.toTicketType() }
+
+        let onlineLink = parsedOnlineURL()
+
         // Temporary workaround: bump timestamps by one second on every save to dodge the timezone bug.
         let startForApi = startAtLocal.addingTimeInterval(1)
         let endForApi = computedEndAt.addingTimeInterval(1)
@@ -433,14 +580,17 @@ struct EventFormView: View {
                         startAt: startForApi,
                         endAt: endForApi,
                         durationMinutes: parsedDurationMinutes,
-                        venueId: venueId,
+                        venueId: isInPerson ? venueId : "",
                         roomId: roomId.isEmpty ? nil : roomId,
                         status: status,
-                        images: [],
+                        images: cleanedImages,
                         capacity: Int(capacity),
-                        ticketTypes: [],
+                        ticketTypes: ticketTypes,
                         curatorId: curatorSelections.first,
-                        talentIds: validTalentIds
+                        talentIds: validTalentIds,
+                        category: selectedCategory.isEmpty ? nil : selectedCategory,
+                        groupSlug: selectedGroupSlug.isEmpty ? nil : selectedGroupSlug,
+                        onlineURL: onlineLink
                     )
 
                     DebugLogger.log("EventFormView: attempting to create event id=\(payload.id)")
@@ -477,6 +627,27 @@ struct EventFormView: View {
                     let originalCapacityStr = originalEvent!.capacity.map { String($0) } ?? ""
                     if capacity != originalCapacityStr {
                         if let capInt = Int(capacity) { dto.capacity = .some(capInt) } else { dto.capacity = .some(nil) }
+                    }
+                    if selectedCategory != (originalEvent!.category ?? "") {
+                        dto.category = selectedCategory.isEmpty ? .some(nil) : .some(selectedCategory)
+                    }
+                    if selectedGroupSlug != (originalEvent!.groupSlug ?? "") {
+                        dto.group_slug = selectedGroupSlug.isEmpty ? .some(nil) : .some(selectedGroupSlug)
+                    }
+                    let currentOnlineString = onlineLink?.absoluteString ?? ""
+                    let originalOnline = originalEvent!.onlineURL?.absoluteString ?? ""
+                    if currentOnlineString != originalOnline {
+                        if let link = onlineLink {
+                            dto.url = .some(link.absoluteString)
+                        } else if trimmedOnlineURL.isEmpty {
+                            dto.url = .some(nil)
+                        }
+                    }
+                    if cleanedImages != originalEvent!.images {
+                        dto.images = cleanedImages
+                    }
+                    if ticketTypes != originalEvent!.ticketTypes {
+                        dto.ticket_types = ticketTypes
                     }
                     if venueMode == .existing {
                         if venueId != originalEvent!.venueId && !venueId.isEmpty { dto.venue_id = venueId }
@@ -547,6 +718,8 @@ struct EventFormView: View {
 
                 availableCurators = resources.curators
                 availableTalent = resources.talent
+                availableCategories = resources.categories
+                availableGroups = resources.groups
 
                 if let existingCurator = originalEvent?.curatorId, resources.curators.contains(where: { $0.id == existingCurator }) {
                     curatorSelections = [existingCurator]
@@ -601,6 +774,42 @@ struct EventFormView: View {
         }
     }
 
+    private func parsedOnlineURL() -> URL? {
+        guard isOnline else { return nil }
+        let trimmed = trimmedOnlineURL
+        guard !trimmed.isEmpty else { return nil }
+        return URL(string: trimmed)
+    }
+
+    private func binding(for draft: TicketDraft) -> TicketDraft.BindingProxy {
+        guard let index = ticketDrafts.firstIndex(where: { $0.id == draft.id }) else {
+            return TicketDraft.BindingProxy(
+                name: .constant(draft.name),
+                price: .constant(draft.price),
+                currency: .constant(draft.currency)
+            )
+        }
+
+        return TicketDraft.BindingProxy(
+            name: Binding(
+                get: { ticketDrafts[index].name },
+                set: { ticketDrafts[index].name = $0 }
+            ),
+            price: Binding(
+                get: { ticketDrafts[index].price },
+                set: { ticketDrafts[index].price = $0 }
+            ),
+            currency: Binding(
+                get: { ticketDrafts[index].currency },
+                set: { ticketDrafts[index].currency = $0 }
+            )
+        )
+    }
+
+    private func removeTicket(_ draft: TicketDraft) {
+        ticketDrafts.removeAll { $0.id == draft.id }
+    }
+
     private func addNewParticipant() {
         let temp = EventRole(id: UUID().uuidString, name: newParticipantName, type: "talent")
         addedParticipants.append(temp)
@@ -652,5 +861,50 @@ struct EventFormView: View {
             }
         }
         await MainActor.run { self.isSearchingVenues = false }
+    }
+}
+
+private struct TicketDraft: Identifiable, Equatable {
+    let id: UUID
+    var name: String
+    var price: String
+    var currency: String
+
+    init(id: UUID = UUID(), name: String = "", price: String = "", currency: String = "") {
+        self.id = id
+        self.name = name
+        self.price = price
+        self.currency = currency
+    }
+
+    init(from ticket: TicketType) {
+        self.id = UUID()
+        self.name = ticket.name
+        if let price = ticket.price {
+            self.price = NSDecimalNumber(decimal: price).stringValue
+        } else {
+            self.price = ""
+        }
+        self.currency = ticket.currency ?? ""
+    }
+
+    func toTicketType() -> TicketType? {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return nil }
+        let trimmedPrice = price.trimmingCharacters(in: .whitespacesAndNewlines)
+        let decimalPrice = Decimal(string: trimmedPrice)
+        let trimmedCurrency = currency.trimmingCharacters(in: .whitespacesAndNewlines)
+        return TicketType(
+            id: id.uuidString,
+            name: trimmedName,
+            price: decimalPrice,
+            currency: trimmedCurrency.isEmpty ? nil : trimmedCurrency
+        )
+    }
+
+    struct BindingProxy {
+        let name: Binding<String>
+        let price: Binding<String>
+        let currency: Binding<String>
     }
 }

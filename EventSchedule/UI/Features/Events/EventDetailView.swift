@@ -2,6 +2,7 @@ import SwiftUI
 
 struct EventDetailView: View {
     @Environment(\.theme) private var theme
+    @Environment(\.dismiss) private var dismiss
 
     @State private var event: Event
     @State private var isEditing: Bool = false
@@ -12,11 +13,13 @@ struct EventDetailView: View {
     private let repository: EventRepository
     private let instance: InstanceProfile
     private let onSave: ((Event) -> Void)?
+    private let onDelete: ((Event) -> Void)?
 
-    init(event: Event, repository: EventRepository, instance: InstanceProfile, onSave: ((Event) -> Void)? = nil) {
+    init(event: Event, repository: EventRepository, instance: InstanceProfile, onSave: ((Event) -> Void)? = nil, onDelete: ((Event) -> Void)? = nil) {
         self.repository = repository
         self.instance = instance
         self.onSave = onSave
+        self.onDelete = onDelete
         _event = State(initialValue: event)
     }
 
@@ -28,6 +31,14 @@ struct EventDetailView: View {
                     .bold()
                 if let description = event.description, !description.isEmpty {
                     Text(description)
+                }
+                if let category = event.category, !category.isEmpty {
+                    Label(category, systemImage: "tag")
+                        .foregroundColor(.secondary)
+                }
+                if let group = event.groupSlug, !group.isEmpty {
+                    Label("Pick list: \(group)", systemImage: "list.bullet")
+                        .foregroundColor(.secondary)
                 }
             }
 
@@ -51,6 +62,16 @@ struct EventDetailView: View {
                         Spacer()
                         Text("\(minutes) minutes")
                             .foregroundColor(.secondary)
+                    }
+                }
+            }
+
+            if let onlineURL = event.onlineURL {
+                Section(header: Text("Online")) {
+                    Link(destination: onlineURL) {
+                        Label(onlineURL.absoluteString, systemImage: "link")
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                     }
                 }
             }
@@ -215,7 +236,8 @@ struct EventDetailView: View {
         do {
             try await repository.deleteEvent(id: event.id, instance: instance)
             await MainActor.run {
-                onSave?(event)
+                onDelete?(event)
+                dismiss()
                 isPerformingAction = false
             }
             DebugLogger.log("EventDetailView: delete succeeded for event id=\(event.id)")

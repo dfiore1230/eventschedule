@@ -300,9 +300,11 @@ struct EventsListView: View {
 
             ForEach(viewModel.events) { event in
                 NavigationLink {
-                    EventDetailView(event: event, repository: repository, instance: instance) { updated in
+                    EventDetailView(event: event, repository: repository, instance: instance, onSave: { updated in
                         viewModel.apply(event: updated)
-                    }
+                    }, onDelete: { deleted in
+                        viewModel.remove(id: deleted.id)
+                    })
                 } label: {
                     EventRow(event: event)
                 }
