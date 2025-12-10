@@ -93,6 +93,18 @@ final class HTTPClient: HTTPClientProtocol {
                         return decoded
                     }
                 }
+                // 3) Last-resort normalization using JSONSerialization for loosely typed payloads
+                if
+                    let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                    let array = json["data"] as? [Any]
+                {
+                    let normalized: [String: Any] = ["events": array]
+                    if JSONSerialization.isValidJSONObject(normalized),
+                       let wrapped = try? JSONSerialization.data(withJSONObject: normalized),
+                       let decoded = try? jsonDecoder.decode(T.self, from: wrapped) {
+                        return decoded
+                    }
+                }
             }
             let bodyPreview = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
             DebugLogger.error("Decoding failed for \(T.self). Status OK, body:\n\(bodyPreview)")
