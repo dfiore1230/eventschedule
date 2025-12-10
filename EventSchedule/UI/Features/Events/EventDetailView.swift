@@ -46,13 +46,13 @@ struct EventDetailView: View {
                 HStack {
                     Label("Starts", systemImage: "clock")
                     Spacer()
-                    Text(event.startAt.formatted(date: .abbreviated, time: .shortened))
+                    Text(event.formattedDateTime(event.startAt))
                         .foregroundColor(.secondary)
                 }
                 HStack {
                     Label("Ends", systemImage: "clock.fill")
                     Spacer()
-                    Text(event.endAt.formatted(date: .abbreviated, time: .shortened))
+                    Text(event.formattedDateTime(event.endAt))
                         .foregroundColor(.secondary)
                 }
                 if event.endAt > event.startAt {
