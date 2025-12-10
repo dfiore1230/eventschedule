@@ -113,12 +113,8 @@ struct EventFormView: View {
         _imageURLs = State(initialValue: event?.images.map { $0.absoluteString } ?? [])
         _ticketDrafts = State(initialValue: event?.ticketTypes.map { TicketDraft(from: $0) } ?? [])
 
-        if let evt = event {
-            // If Event exposes a timezone string from primary schedule, set it here
-            let mirror = Mirror(reflecting: evt)
-            if let tz = mirror.children.first(where: { $0.label == "timezone" })?.value as? String, !tz.isEmpty {
-                _eventTimeZoneIdentifier = State(initialValue: tz)
-            }
+        if let evt = event, let tz = evt.timezone, !tz.isEmpty {
+            _eventTimeZoneIdentifier = State(initialValue: tz)
         }
     }
 
@@ -476,6 +472,7 @@ struct EventFormView: View {
         }
         .task { await loadResources() }
         .task { userTimeZoneIdentifier = appSettings.timeZoneIdentifier }
+        .environment(\.timeZone, currentEditingTimeZone)
         .accentColor(theme.accent)
     }
 

@@ -382,7 +382,7 @@ private struct EventRow: View {
 
             HStack(spacing: 12) {
                 Label(
-                    event.formattedDateTime(event.startAt),
+                    event.formattedDateTime(event.startAt, fallbackTimeZone: appSettings.timeZone),
                     systemImage: "clock"
                 )
                     .font(.subheadline)
