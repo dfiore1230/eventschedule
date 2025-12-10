@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct EventDetailView: View {
-    @Environment(\.theme) private var theme
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var appSettings: AppSettings
 
@@ -47,14 +46,12 @@ struct EventDetailView: View {
                 HStack {
                     Label("Starts", systemImage: "clock")
                     Spacer()
-                    Text(event.formattedDateTime(event.startAt, fallbackTimeZone: appSettings.timeZone))
-                        .foregroundColor(.secondary)
+                    Text(event.formattedDateTime(event.startAt))
                 }
                 HStack {
                     Label("Ends", systemImage: "clock.fill")
                     Spacer()
-                    Text(event.formattedDateTime(event.endAt, fallbackTimeZone: appSettings.timeZone))
-                        .foregroundColor(.secondary)
+                    Text(event.formattedDateTime(event.endAt))
                 }
                 if event.endAt > event.startAt {
                     let minutes = Int(event.endAt.timeIntervalSince(event.startAt) / 60)
@@ -170,7 +167,7 @@ struct EventDetailView: View {
                 }
             }
         }
-        .accentColor(theme.accent)
+        .tint(.accentColor)
     }
 
     private struct ActionPatchDTO: Encodable {
@@ -263,4 +260,3 @@ struct EventDetailView: View {
         }
     }
 }
-
