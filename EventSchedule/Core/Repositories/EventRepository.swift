@@ -18,7 +18,7 @@ private func apiDateString(_ date: Date) -> String {
         static let shared: DateFormatter = {
             let formatter = DateFormatter()
             formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-            formatter.timeZone = .current
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
             formatter.locale = Locale(identifier: "en_US_POSIX")
             return formatter
         }()
