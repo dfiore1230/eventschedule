@@ -475,11 +475,12 @@ struct EventFormView: View {
             }
         }
         .task { await loadResources() }
+        .task { userTimeZoneIdentifier = appSettings.timeZoneIdentifier }
         .accentColor(theme.accent)
     }
 
     private func apiDateString(_ date: Date) -> String {
-        let formatter = Event.payloadDateFormatter(timeZone: appSettings.timeZone)
+        let formatter = Event.payloadDateFormatter(timeZone: currentEditingTimeZone)
         return formatter.string(from: date)
     }
     
@@ -561,10 +562,6 @@ struct EventFormView: View {
 
         let onlineLink = parsedOnlineURL()
 
-        // Temporary workaround: bump timestamps by one second on every save to dodge the timezone bug.
-        let startForApi = startAtLocal.addingTimeInterval(1)
-        let endForApi = computedEndAt.addingTimeInterval(1)
-
         Task {
             do {
                 if originalEvent == nil {
@@ -577,8 +574,8 @@ struct EventFormView: View {
                         id: UUID().uuidString,
                         name: name,
                         description: description.isEmpty ? nil : description,
-                        startAt: startForApi,
-                        endAt: endForApi,
+                        startAt: startAtLocal,
+                        endAt: computedEndAt,
                         durationMinutes: parsedDurationMinutes,
                         venueId: isInPerson ? venueId : "",
                         roomId: roomId.isEmpty ? nil : roomId,
@@ -595,7 +592,11 @@ struct EventFormView: View {
 
                     DebugLogger.log("EventFormView: attempting to create event id=\(payload.id)")
 
-                    let savedEvent = try await repository.createEvent(payload, instance: instance)
+                    let savedEvent = try await repository.createEvent(
+                        payload,
+                        instance: instance,
+                        timeZoneOverride: currentEditingTimeZone
+                    )
 
                     await MainActor.run {
                         onSave?(savedEvent)
@@ -610,9 +611,8 @@ struct EventFormView: View {
                     if description != (originalEvent!.description ?? "") {
                         dto.description = description.isEmpty ? nil : description
                     }
-                    // Always send bumped times so the backend sees a change even when the user keeps the same values.
-                    dto.starts_at = apiDateString(startForApi)
-                    dto.ends_at = apiDateString(endForApi)
+                    dto.starts_at = apiDateString(startAtLocal)
+                    dto.ends_at = apiDateString(computedEndAt)
                     if let parsedDurationMinutes, parsedDurationMinutes != originalEvent!.durationMinutes {
                         dto.duration = .some(parsedDurationMinutes / 60)
                     } else if parsedDurationMinutes == nil, originalEvent!.durationMinutes != nil {
