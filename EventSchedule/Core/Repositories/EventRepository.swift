@@ -398,6 +398,7 @@ final class RemoteEventRepository: EventRepository {
             startsAt: apiDateString(event.startAt, timeZone: payloadTimeZone),
             endAt: apiDateString(event.endAt, timeZone: payloadTimeZone),
             durationMinutes: event.durationMinutes,
+            timezone: payloadTimeZone.identifier,
             venueId: includeVenueId ? (event.venueId.isEmpty ? nil : event.venueId) : nil,
             roomId: event.roomId,
             status: event.status,
@@ -496,6 +497,7 @@ final class RemoteEventRepository: EventRepository {
                 startsAt: apiDateString(event.startAt, timeZone: payloadTimeZone),
                 endAt: apiDateString(event.endAt, timeZone: payloadTimeZone),
                 durationMinutes: event.durationMinutes,
+                timezone: payloadTimeZone.identifier,
                 venueId: safeVenueId,
                 roomId: event.roomId,
                 status: event.status,
@@ -660,18 +662,19 @@ final class RemoteEventRepository: EventRepository {
         return (chosen.subdomain, chosen.type)
     }
 
-    private struct CreateEventDTO: Encodable {
-        let id: String
-        let name: String
-        let description: String?
-        let startsAt: String
-        let endAt: String
-        let durationMinutes: Int?
-        let venueId: String?
-        let roomId: String?
-        let status: EventStatus
-        let images: [URL]
-        let capacity: Int?
+private struct CreateEventDTO: Encodable {
+    let id: String
+    let name: String
+    let description: String?
+    let startsAt: String
+    let endAt: String
+    let durationMinutes: Int?
+    let timezone: String
+    let venueId: String?
+    let roomId: String?
+    let status: EventStatus
+    let images: [URL]
+    let capacity: Int?
         let ticketTypes: [TicketType]
         let publishState: PublishState
         let curatorId: String?
@@ -681,17 +684,18 @@ final class RemoteEventRepository: EventRepository {
         let url: URL?
 
         enum CodingKeys: String, CodingKey {
-            case id
-            case name
-            case description
-            case startsAt = "starts_at"
-            case endAt = "ends_at"
-            case duration
-            case venueId = "venue_id"
-            case roomId = "room_id"
-            case status
-            case images
-            case capacity
+        case id
+        case name
+        case description
+        case startsAt = "starts_at"
+        case endAt = "ends_at"
+        case duration
+        case timezone
+        case venueId = "venue_id"
+        case roomId = "room_id"
+        case status
+        case images
+        case capacity
             case ticketTypes = "ticket_types"
             case publishState = "publish_state"
             case curatorId = "curator_role_id"
@@ -711,6 +715,7 @@ final class RemoteEventRepository: EventRepository {
             if let durationMinutes, durationMinutes > 0 {
                 try container.encode(durationMinutes / 60, forKey: .duration)
             }
+            try container.encode(timezone, forKey: .timezone)
             if let venueId { try container.encode(venueId, forKey: .venueId) }
             try container.encodeIfPresent(roomId, forKey: .roomId)
             try container.encode(status, forKey: .status)
@@ -733,6 +738,7 @@ final class RemoteEventRepository: EventRepository {
         let startsAt: String?
         let endAt: String?
         let durationMinutes: Int?
+        let timezone: String
         let venueId: String?
         let roomId: String?
         let status: EventStatus
@@ -747,17 +753,18 @@ final class RemoteEventRepository: EventRepository {
         let url: URL?
 
         enum CodingKeys: String, CodingKey {
-            case id
-            case name
-            case description
-            case startsAt = "starts_at"
-            case endAt = "ends_at"
-            case duration
-            case venueId = "venue_id"
-            case roomId = "room_id"
-            case status
-            case images
-            case capacity
+        case id
+        case name
+        case description
+        case startsAt = "starts_at"
+        case endAt = "ends_at"
+        case duration
+        case timezone
+        case venueId = "venue_id"
+        case roomId = "room_id"
+        case status
+        case images
+        case capacity
             case ticketTypes = "ticket_types"
             case publishState = "publish_state"
             case curatorId = "curator_role_id"
@@ -777,6 +784,7 @@ final class RemoteEventRepository: EventRepository {
             if let durationMinutes, durationMinutes > 0 {
                 try container.encode(durationMinutes / 60, forKey: .duration)
             }
+            try container.encode(timezone, forKey: .timezone)
             if let venueId { try container.encode(venueId, forKey: .venueId) }
             try container.encodeIfPresent(roomId, forKey: .roomId)
             try container.encode(status, forKey: .status)
