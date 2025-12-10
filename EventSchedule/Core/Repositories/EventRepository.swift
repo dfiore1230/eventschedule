@@ -13,18 +13,18 @@ private func consoleError(_ message: String) {
 }
 
 @inline(__always)
-private func apiDateString(_ date: Date) -> String {
-    struct Formatter {
-        static let shared: DateFormatter = {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-            formatter.timeZone = TimeZone(secondsFromGMT: 0)
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            return formatter
-        }()
+private func apiDateString(_ date: Date, timeZone: TimeZone) -> String {
+    struct FormatterCache {
+        static var cache: [String: DateFormatter] = [:]
     }
 
-    return Formatter.shared.string(from: date)
+    if let cached = FormatterCache.cache[timeZone.identifier] {
+        return cached.string(from: date)
+    }
+
+    let formatter = Event.payloadDateFormatter(timeZone: timeZone)
+    FormatterCache.cache[timeZone.identifier] = formatter
+    return formatter.string(from: date)
 }
 
 protocol EventRepository {
@@ -158,13 +158,15 @@ private struct EventDetailResponse: Decodable {
 
 final class RemoteEventRepository: EventRepository {
     private let httpClient: HTTPClientProtocol
+    private let payloadTimeZoneProvider: () -> TimeZone
     private var cache: [UUID: [Event]] = [:]
     private var venueCache: [UUID: [Venue]] = [:]
     private var resourcesCache: [UUID: EventResources] = [:]
     private var subdomainCache: [UUID: (subdomain: String, type: String?)] = [:]
 
-    init(httpClient: HTTPClientProtocol = HTTPClient()) {
+    init(httpClient: HTTPClientProtocol = HTTPClient(), payloadTimeZoneProvider: @escaping () -> TimeZone = { .current }) {
         self.httpClient = httpClient
+        self.payloadTimeZoneProvider = payloadTimeZoneProvider
     }
 
     private func enrichVenueNames(_ events: [Event], for instance: InstanceProfile) async -> [Event] {
@@ -337,8 +339,8 @@ final class RemoteEventRepository: EventRepository {
             id: event.id,
             name: event.name,
             description: event.description,
-            startsAt: apiDateString(event.startAt),
-            endAt: apiDateString(event.endAt),
+            startsAt: apiDateString(event.startAt, timeZone: payloadTimeZoneProvider()),
+            endAt: apiDateString(event.endAt, timeZone: payloadTimeZoneProvider()),
             durationMinutes: event.durationMinutes,
             venueId: includeVenueId ? (event.venueId.isEmpty ? nil : event.venueId) : nil,
             roomId: event.roomId,
@@ -407,8 +409,8 @@ final class RemoteEventRepository: EventRepository {
                 id: event.id,
                 name: event.name,
                 description: event.description,
-                startsAt: apiDateString(event.startAt),
-                endAt: apiDateString(event.endAt),
+                startsAt: apiDateString(event.startAt, timeZone: payloadTimeZoneProvider()),
+                endAt: apiDateString(event.endAt, timeZone: payloadTimeZoneProvider()),
                 durationMinutes: event.durationMinutes,
                 venueId: safeVenueId,
                 roomId: event.roomId,

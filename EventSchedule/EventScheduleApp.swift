@@ -4,6 +4,7 @@ import SwiftUI
 struct EventScheduleApp: App {
     @StateObject private var instanceStore = InstanceStore()
     @StateObject private var authStore = AuthTokenStore.shared
+    @StateObject private var appSettings = AppSettings.shared
     @State private var httpClient: HTTPClient
 
     init() {
@@ -18,6 +19,7 @@ struct EventScheduleApp: App {
                 RootView()
                     .environmentObject(instanceStore)
                     .environmentObject(authStore)
+                    .environmentObject(appSettings)
                     .environment(\.httpClient, httpClient)
             }
         }
