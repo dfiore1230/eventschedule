@@ -68,15 +68,32 @@ final class HTTPClient: HTTPClientProtocol {
             throw APIError.serverError(statusCode: response.statusCode, message: "Empty response body")
         }
 
-        let contentType = response.value(forHTTPHeaderField: "Content-Type")?.lowercased()
-        if contentType?.contains("json") == false {
-            let bodyPreview = String(data: data, encoding: .utf8)
-            throw APIError.serverError(statusCode: response.statusCode, message: bodyPreview)
+        let contentType = response.value(forHTTPHeaderField: "Content-Type")?.lowercased() ?? ""
+        if !contentType.contains("json") {
+            DebugLogger.network("Warning: response content-type is not JSON: \(contentType). Proceeding to attempt JSON decode.")
         }
 
         do {
             return try jsonDecoder.decode(T.self, from: data)
         } catch {
+            // Fallback: attempt to normalize common list shapes for events
+            do {
+                // 1) Try top-level array of Event
+                if let events = try? jsonDecoder.decode([Event].self, from: data) {
+                    // Try to wrap into a common envelope and decode as T
+                    let normalized = NormalizedEventsEnvelope(events: events)
+                    if let wrapped = try? jsonEncoder.encode(normalized), let decoded = try? jsonDecoder.decode(T.self, from: wrapped) {
+                        return decoded
+                    }
+                }
+                // 2) Try { data: [Event] }
+                if let envelope = try? jsonDecoder.decode(EventsDataEnvelope.self, from: data) {
+                    let normalized = NormalizedEventsEnvelope(events: envelope.data)
+                    if let wrapped = try? jsonEncoder.encode(normalized), let decoded = try? jsonDecoder.decode(T.self, from: wrapped) {
+                        return decoded
+                    }
+                }
+            }
             let bodyPreview = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
             DebugLogger.error("Decoding failed for \(T.self). Status OK, body:\n\(bodyPreview)")
             throw APIError.decodingError(error, bodyPreview: bodyPreview)
@@ -225,6 +242,14 @@ final class HTTPClient: HTTPClientProtocol {
     }
 }
 
+private struct NormalizedEventsEnvelope: Encodable {
+    let events: [Event]
+}
+
+private struct EventsDataEnvelope: Decodable {
+    let data: [Event]
+}
+
 private struct AnyEncodable: Encodable {
     private let _encode: (Encoder) throws -> Void
 
@@ -236,3 +261,4 @@ private struct AnyEncodable: Encodable {
         try _encode(encoder)
     }
 }
+

@@ -15,6 +15,7 @@ struct Event: Codable, Identifiable, Equatable {
     var capacity: Int?
     var ticketTypes: [TicketType]
     var publishState: PublishState
+    var timezone: String?
     var curatorId: String?
     var talentIds: [String]
     var category: String?
@@ -42,6 +43,7 @@ struct Event: Codable, Identifiable, Equatable {
         case capacity
         case ticketTypes
         case publishState
+        case timezone
         case tickets
         case venue
         case curatorId
@@ -106,9 +108,14 @@ struct Event: Codable, Identifiable, Equatable {
         description = try container.decodeIfPresent(String.self, forKey: .description)
         venueName = nil
 
+        let decodedTimezone = try container.decodeIfPresent(String.self, forKey: .timezone)
+        self.timezone = decodedTimezone
+        let tzForParsing = decodedTimezone.flatMap { TimeZone(identifier: $0) }
+
         if let decodedStart = try Self.decodeDate(
             from: container,
-            keys: [.startAt, .startsAt, .startTime, .start]
+            keys: [.startAt, .startsAt, .startTime, .start],
+            timeZone: tzForParsing
         ) {
             startAt = decodedStart
         } else {
@@ -128,7 +135,8 @@ struct Event: Codable, Identifiable, Equatable {
 
         if let explicitEnd = try Self.decodeDate(
             from: container,
-            keys: [.endAt, .endsAt, .endTime, .end]
+            keys: [.endAt, .endsAt, .endTime, .end],
+            timeZone: tzForParsing
         ) {
             endAt = explicitEnd
         } else if let durationMinutes, durationMinutes > 0 {
@@ -233,6 +241,7 @@ struct Event: Codable, Identifiable, Equatable {
         self.capacity = capacity
         self.ticketTypes = ticketTypes
         self.publishState = publishState
+        self.timezone = nil
         self.curatorId = curatorId
         self.talentIds = talentIds
         self.category = category
@@ -320,7 +329,8 @@ struct Event: Codable, Identifiable, Equatable {
 
     private static func decodeDate(
         from container: KeyedDecodingContainer<CodingKeys>,
-        keys: [CodingKeys]
+        keys: [CodingKeys],
+        timeZone: TimeZone?
     ) throws -> Date? {
         for key in keys {
             if let decodedDate = try? container.decodeIfPresent(Date.self, forKey: key) {
@@ -350,7 +360,12 @@ struct Event: Codable, Identifiable, Equatable {
                 if let parsed = fallbackDateFormatter.date(from: dateString) {
                     return parsed
                 }
-                if let parsed = fallbackDateFormatterWithSpace.date(from: dateString) {
+                let spaceFormatter = DateFormatter()
+                spaceFormatter.locale = Locale(identifier: "en_US_POSIX")
+                spaceFormatter.calendar = Calendar(identifier: .gregorian)
+                spaceFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                spaceFormatter.timeZone = timeZone ?? TimeZone(secondsFromGMT: 0)
+                if let parsed = spaceFormatter.date(from: dateString) {
                     return parsed
                 }
             }

@@ -83,6 +83,25 @@ private struct EventListResponse: Decodable {
             }
         }
 
+        // Final fallback: explicit envelope { data: [Event], meta: {...} }
+        struct Envelope: Decodable {
+            let data: [Event]
+            let meta: Meta?
+        }
+        struct Meta: Decodable {
+            let current_page: Int?
+            let from: Int?
+            let last_page: Int?
+            let per_page: Int?
+            let to: Int?
+            let total: Int?
+            let path: String?
+        }
+        if let envelope = try? Envelope(from: decoder) {
+            events = envelope.data
+            return
+        }
+
         consoleError("EventListResponse: Unable to locate events array. CodingPath=\(decoder.codingPath.map { $0.stringValue }.joined(separator: ".")) attempted keys: data, events, items; nested data.events, data.items, data.data.items")
         throw DecodingError.dataCorruptedError(
             forKey: .data,
@@ -135,6 +154,13 @@ private struct EventDetailResponse: Decodable {
                 event = deeperEvent
                 return
             }
+        }
+
+        // Final fallback: explicit envelope { data: Event }
+        struct Envelope: Decodable { let data: Event }
+        if let envelope = try? Envelope(from: decoder) {
+            event = envelope.data
+            return
         }
 
         consoleError("EventDetailResponse: Unable to locate event object. CodingPath=\(decoder.codingPath.map { $0.stringValue }.joined(separator: ".")) attempted keys: data, event; nested data.event, data.data")

@@ -560,7 +560,7 @@ struct SettingsView: View {
             .onAppear {
                 selectedTimeZone = appSettings.timeZoneIdentifier
             }
-            .onChange(of: selectedTimeZone) { newValue in
+            .onChange(of: selectedTimeZone) { _, newValue in
                 appSettings.timeZoneIdentifier = newValue
             }
             .alert("Authentication", isPresented: $showingAlert) {

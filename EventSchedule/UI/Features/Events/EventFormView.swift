@@ -192,14 +192,14 @@ struct EventFormView: View {
                     Text("Category: \(selectedCategory)")
                 }
                 DatePicker("Start", selection: $startAtLocal)
-                    .onChange(of: startAtLocal) { newValue in
+                    .onChange(of: startAtLocal) { _, newValue in
                         if originalEvent == nil || isSignificantlyDifferent(newValue, originalEvent!.startAt) {
                             startWasModified = true
                         }
                     }
                 TextField("Duration (hours)", text: $durationHours)
                     .keyboardType(.decimalPad)
-                    .onChange(of: durationHours) { newValue in
+                    .onChange(of: durationHours) { _, newValue in
                         let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
                         if trimmed != initialDurationHours {
                             durationWasModified = true
@@ -251,7 +251,7 @@ struct EventFormView: View {
                                 Text(venue.name).tag(venue.id)
                             }
                         }
-                        .onChange(of: venueId) { _ in
+                        .onChange(of: venueId) { _, _ in
                             venueTimeZoneIdentifier = nil
                         }
                     } else {
