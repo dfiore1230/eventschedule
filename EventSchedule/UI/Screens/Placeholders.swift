@@ -244,7 +244,15 @@ struct EventsListView: View {
                     if viewModel.isLoading {
                         ProgressView()
                     } else {
-                        Button(action: { showingNewEvent = true }) {
+                        Button(action: {
+                            showingNewEvent = true
+                            if let instance = instanceStore.activeInstance {
+                                EventInstrumentation.log(
+                                    action: "events_list_tap_create",
+                                    instance: instance
+                                )
+                            }
+                        }) {
                             Image(systemName: "plus")
                         }
                         .disabled(instanceStore.activeInstance == nil)
@@ -307,13 +315,32 @@ struct EventsListView: View {
                     })
                 } label: {
                     EventRow(event: event)
+                        .onAppear {
+                            EventInstrumentation.log(
+                                action: "events_list_row_displayed",
+                                eventId: event.id,
+                                eventName: event.name,
+                                instance: instance
+                            )
+                        }
                 }
+                .simultaneousGesture(TapGesture().onEnded {
+                    EventInstrumentation.log(
+                        action: "events_list_row_selected",
+                        eventId: event.id,
+                        eventName: event.name,
+                        instance: instance
+                    )
+                })
             }
             .onDelete { offsets in
                 Task { await viewModel.remove(at: offsets) }
             }
         }
-        .refreshable { await viewModel.refresh() }
+        .refreshable {
+            EventInstrumentation.log(action: "events_list_pull_to_refresh", instance: instance)
+            await viewModel.refresh()
+        }
     }
 
     private var loadingRow: some View {
@@ -330,7 +357,10 @@ struct EventsListView: View {
                 .font(.headline)
             Text("Create your first event to start scheduling for \(instance.displayName).")
                 .foregroundColor(.secondary)
-            Button(action: { showingNewEvent = true }) {
+            Button(action: {
+                showingNewEvent = true
+                EventInstrumentation.log(action: "events_list_empty_create", instance: instance)
+            }) {
                 Label("Create event", systemImage: "plus")
             }
             .buttonStyle(.borderedProminent)
