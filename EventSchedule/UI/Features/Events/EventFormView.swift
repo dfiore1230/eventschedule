@@ -535,7 +535,6 @@ struct EventFormView: View {
                         durationMinutes: parsedDurationMinutes,
                         venueId: isInPerson ? venueId : "",
                         roomId: roomId.isEmpty ? nil : roomId,
-                        status: .scheduled,
                         images: cleanedImages,
                         capacity: Int(capacity),
                         ticketTypes: ticketTypes,

@@ -392,7 +392,6 @@ final class RemoteEventRepository: EventRepository {
             timezone: payloadTimeZone.identifier,
             venueId: includeVenueId ? (event.venueId.isEmpty ? nil : event.venueId) : nil,
             roomId: event.roomId,
-            status: event.status,
             images: event.images,
             capacity: event.capacity,
             ticketTypes: event.ticketTypes,
@@ -422,8 +421,7 @@ final class RemoteEventRepository: EventRepository {
                 eventName: enriched.name,
                 instance: instance,
                 metadata: [
-                    "venueId": enriched.venueId,
-                    "status": enriched.status.rawValue
+                    "venueId": enriched.venueId
                 ]
             )
             return enriched
@@ -498,7 +496,6 @@ final class RemoteEventRepository: EventRepository {
                 timezone: payloadTimeZone.identifier,
                 venueId: safeVenueId,
                 roomId: event.roomId,
-                status: event.status,
                 images: event.images,
                 capacity: event.capacity,
                 ticketTypes: event.ticketTypes,
@@ -538,7 +535,6 @@ final class RemoteEventRepository: EventRepository {
                 eventName: enriched.name,
                 instance: instance,
                 metadata: [
-                    "status": enriched.status.rawValue,
                     "publishState": enriched.publishState.rawValue
                 ]
             )
@@ -604,7 +600,7 @@ final class RemoteEventRepository: EventRepository {
                 eventId: response.data.id,
                 eventName: response.data.name,
                 instance: instance,
-                metadata: ["status": response.data.status.rawValue]
+                metadata: [:]
             )
             return response.data
         } catch {
@@ -671,10 +667,9 @@ final class RemoteEventRepository: EventRepository {
     let durationMinutes: Int?
     let timezone: String
     let venueId: String?
-    let roomId: String?
-    let status: EventStatus
-    let images: [URL]
-    let capacity: Int?
+        let roomId: String?
+        let images: [URL]
+        let capacity: Int?
         let ticketTypes: [TicketType]
         let publishState: PublishState
         let curatorId: String?
@@ -695,7 +690,6 @@ final class RemoteEventRepository: EventRepository {
         case timezone
         case venueId = "venue_id"
         case roomId = "room_id"
-        case status
         case images
         case capacity
             case ticketTypes = "ticket_types"
@@ -723,7 +717,6 @@ final class RemoteEventRepository: EventRepository {
             try container.encode(timezone, forKey: .timezone)
             if let venueId { try container.encode(venueId, forKey: .venueId) }
             try container.encodeIfPresent(roomId, forKey: .roomId)
-            try container.encode(status, forKey: .status)
             try container.encode(images, forKey: .images)
             try container.encodeIfPresent(capacity, forKey: .capacity)
             try container.encode(ticketTypes, forKey: .ticketTypes)
@@ -749,7 +742,6 @@ final class RemoteEventRepository: EventRepository {
         let timezone: String
         let venueId: String?
         let roomId: String?
-        let status: EventStatus
         let images: [URL]
         let capacity: Int?
         let ticketTypes: [TicketType]
@@ -772,7 +764,6 @@ final class RemoteEventRepository: EventRepository {
         case timezone
         case venueId = "venue_id"
         case roomId = "room_id"
-        case status
         case images
         case capacity
             case ticketTypes = "ticket_types"
@@ -800,7 +791,6 @@ final class RemoteEventRepository: EventRepository {
             try container.encode(timezone, forKey: .timezone)
             if let venueId { try container.encode(venueId, forKey: .venueId) }
             try container.encodeIfPresent(roomId, forKey: .roomId)
-            try container.encode(status, forKey: .status)
             try container.encode(images, forKey: .images)
             try container.encodeIfPresent(capacity, forKey: .capacity)
             try container.encode(ticketTypes, forKey: .ticketTypes)

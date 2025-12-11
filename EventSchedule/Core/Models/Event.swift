@@ -10,7 +10,6 @@ struct Event: Codable, Identifiable, Equatable {
     var venueId: String
     var venueName: String?
     var roomId: String?
-    var status: EventStatus
     var images: [URL]
     var capacity: Int?
     var ticketTypes: [TicketType]
@@ -40,7 +39,6 @@ struct Event: Codable, Identifiable, Equatable {
         case durationMinutes
         case venueId
         case roomId
-        case status
         case images
         case capacity
         case ticketTypes
@@ -154,7 +152,6 @@ struct Event: Codable, Identifiable, Equatable {
             endAt = startAt.addingTimeInterval(3600)
         }
         roomId = try container.decodeIfPresent(String.self, forKey: .roomId)
-        status = try container.decodeIfPresent(EventStatus.self, forKey: .status) ?? .scheduled
         images = try container.decodeIfPresent([URL].self, forKey: .images) ?? []
         capacity = try container.decodeIfPresent(Int.self, forKey: .capacity)
         publishState = try container.decodeIfPresent(PublishState.self, forKey: .publishState) ?? .draft
@@ -236,7 +233,6 @@ struct Event: Codable, Identifiable, Equatable {
         venueId: String,
         venueName: String? = nil,
         roomId: String? = nil,
-        status: EventStatus = .scheduled,
         images: [URL] = [],
         capacity: Int? = nil,
         ticketTypes: [TicketType] = [],
@@ -259,7 +255,6 @@ struct Event: Codable, Identifiable, Equatable {
         self.venueId = venueId
         self.venueName = venueName
         self.roomId = roomId
-        self.status = status
         self.images = images
         self.capacity = capacity
         self.ticketTypes = ticketTypes
@@ -290,7 +285,6 @@ struct Event: Codable, Identifiable, Equatable {
         }
         try container.encode(venueId, forKey: .venueId)
         try container.encodeIfPresent(roomId, forKey: .roomId)
-        try container.encode(status, forKey: .status)
         try container.encode(images, forKey: .images)
         try container.encodeIfPresent(capacity, forKey: .capacity)
         try container.encode(ticketTypes, forKey: .ticketTypes)
@@ -414,19 +408,6 @@ struct Event: Codable, Identifiable, Equatable {
         }
 
         return nil
-    }
-}
-
-enum EventStatus: String, Codable {
-    case scheduled
-    case ongoing
-    case completed
-    case cancelled
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let rawValue = try container.decode(String.self)
-        self = EventStatus(rawValue: rawValue) ?? .scheduled
     }
 }
 

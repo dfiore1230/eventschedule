@@ -393,9 +393,6 @@ private struct EventRow: View {
                 )
                     .font(.subheadline)
                     .foregroundColor(.secondary)
-                Label(event.status.rawValue.capitalized, systemImage: "bolt.horizontal")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
             }
 
             HStack(spacing: 12) {
@@ -413,48 +410,6 @@ private struct EventRow: View {
     }
 }
 
-struct StatusBadge: View {
-    enum Style {
-        case status(EventStatus)
-    }
-
-    let title: String
-    let style: Style
-
-    var body: some View {
-        Text(title)
-            .font(.caption)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(backgroundColor)
-            .foregroundColor(foregroundColor)
-            .clipShape(Capsule())
-    }
-
-    private var backgroundColor: Color {
-        switch style {
-        case .status(let status):
-            switch status {
-            case .scheduled: return Color.blue.opacity(0.15)
-            case .ongoing: return Color.green.opacity(0.15)
-            case .completed: return Color.purple.opacity(0.15)
-            case .cancelled: return Color.red.opacity(0.15)
-            }
-        }
-    }
-
-    private var foregroundColor: Color {
-        switch style {
-        case .status(let status):
-            switch status {
-            case .scheduled: return .blue
-            case .ongoing: return .green
-            case .completed: return .purple
-            case .cancelled: return .red
-            }
-        }
-    }
-}
 struct SettingsView: View {
     @EnvironmentObject var instanceStore: InstanceStore
     @EnvironmentObject var appSettings: AppSettings
