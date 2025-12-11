@@ -481,12 +481,17 @@ final class RemoteEventRepository: EventRepository {
                 return !trimmed.isEmpty && validTalentIds.contains(trimmed)
             }
             let payloadTimeZone = timeZoneOverride ?? payloadTimeZoneProvider()
+            // API accepts seconds precision; adding a single second prevents the service
+            // from applying the 5-hour drift observed when an update payload uses the
+            // exact start/end values returned by previous reads.
+            let adjustedStart = event.startAt.addingTimeInterval(1)
+            let adjustedEnd = event.endAt.addingTimeInterval(1)
             let dto = UpdateEventDTO(
                 id: event.id,
                 name: event.name,
                 description: event.description,
-                startsAt: apiDateString(event.startAt, timeZone: payloadTimeZone),
-                endAt: apiDateString(event.endAt, timeZone: payloadTimeZone),
+                startsAt: apiDateString(adjustedStart, timeZone: payloadTimeZone),
+                endAt: apiDateString(adjustedEnd, timeZone: payloadTimeZone),
                 durationMinutes: event.durationMinutes,
                 timezone: payloadTimeZone.identifier,
                 venueId: safeVenueId,
