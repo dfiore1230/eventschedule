@@ -78,6 +78,7 @@ struct Event: Codable, Identifiable, Equatable {
         let name: String
         let price: Decimal?
         let currency: String?
+        let quantity: Int?
 
         private enum CodingKeys: String, CodingKey {
             case id
@@ -85,6 +86,7 @@ struct Event: Codable, Identifiable, Equatable {
             case price
             case currency
             case type
+            case quantity
         }
 
         init(from decoder: Decoder) throws {
@@ -106,6 +108,8 @@ struct Event: Codable, Identifiable, Equatable {
             } else {
                 price = nil
             }
+
+            quantity = try container.decodeIfPresent(Int.self, forKey: .quantity)
         }
     }
 
@@ -192,7 +196,7 @@ struct Event: Codable, Identifiable, Equatable {
         if let decodedTicketTypes = try container.decodeIfPresent([TicketType].self, forKey: .ticketTypes) {
             ticketTypes = decodedTicketTypes
         } else if let ticketPayloads = try container.decodeIfPresent([TicketPayload].self, forKey: .tickets) {
-            ticketTypes = ticketPayloads.map { TicketType(id: $0.id, name: $0.name, price: $0.price, currency: $0.currency) }
+            ticketTypes = ticketPayloads.map { TicketType(id: $0.id, name: $0.name, price: $0.price, currency: $0.currency, quantity: $0.quantity) }
         } else {
             ticketTypes = []
         }
@@ -446,12 +450,18 @@ struct TicketType: Codable, Identifiable, Equatable {
     var name: String
     var price: Decimal?
     var currency: String?
+    var quantity: Int?
 
-    init(id: String, name: String, price: Decimal? = nil, currency: String? = nil) {
+    init(id: String, name: String, price: Decimal? = nil, currency: String? = nil, quantity: Int? = nil) {
         self.id = id
         self.name = name
         self.price = price
         self.currency = currency
+        self.quantity = quantity
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, price, currency, quantity
     }
 }
 

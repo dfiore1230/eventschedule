@@ -3,13 +3,11 @@ import Foundation
 @inline(__always)
 private func consoleLog(_ message: String) {
     DebugLogger.log(message)
-    print(message)
 }
 
 @inline(__always)
 private func consoleError(_ message: String) {
     DebugLogger.error(message)
-    fputs(message + "\n", stderr)
 }
 
 @inline(__always)
