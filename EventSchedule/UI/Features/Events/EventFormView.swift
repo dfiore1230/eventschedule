@@ -94,10 +94,37 @@ struct EventFormView: View {
         self.originalEvent = event
         self.initialDurationHours = Self.durationHoursString(from: event?.durationMinutes)
 
+        // Convert server UTC dates into the event's local wall time for editing
+        func convertUTCDate(_ date: Date, to timeZone: TimeZone) -> Date {
+            // Interpret the given UTC date as absolute and produce a date that shows the same clock components in the provided time zone.
+            // We do this by extracting components in the target time zone and rebuilding a Date from those components.
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = timeZone
+            let comps = calendar.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
+            return calendar.date(from: comps) ?? date
+        }
+
+        // Determine the initial editing zone preference: event -> current
+        // Note: Avoid referencing @State or other instance properties before initialization.
+        let initialTZ: TimeZone = {
+            if let evt = event, let tzId = evt.timezone, let tz = TimeZone(identifier: tzId) {
+                return tz
+            }
+            return .current
+        }()
+
         _name = State(initialValue: event?.name ?? "")
         _description = State(initialValue: event?.description ?? "")
-        _startAtLocal = State(initialValue: event?.startAt ?? Date())
-        _endAtLocal = State(initialValue: event?.endAt ?? Date().addingTimeInterval(3600))
+        if let evt = event {
+            _startAtLocal = State(initialValue: convertUTCDate(evt.startAt, to: initialTZ))
+        } else {
+            _startAtLocal = State(initialValue: Date())
+        }
+        if let evt = event {
+            _endAtLocal = State(initialValue: convertUTCDate(evt.endAt, to: initialTZ))
+        } else {
+            _endAtLocal = State(initialValue: Date().addingTimeInterval(3600))
+        }
         _venueId = State(initialValue: event?.venueId ?? "")
         _venueName = State(initialValue: nil)
         _talentSelections = State(initialValue: [])
@@ -584,8 +611,7 @@ struct EventFormView: View {
                         talentIds: validTalentIds,
                         category: selectedCategory.isEmpty ? nil : selectedCategory,
                         groupSlug: selectedGroupSlug.isEmpty ? nil : selectedGroupSlug,
-                        onlineURL: onlineLink,
-                        timezone: currentEditingTimeZone.identifier
+                        onlineURL: onlineLink
                     )
 
                     let savedEvent = try await repository.createEvent(
@@ -610,13 +636,16 @@ struct EventFormView: View {
 
                     if startChanged { dto.starts_at = apiDateString(startAtLocal) }
                     if endChanged { dto.ends_at = apiDateString(computedEndAt) }
-                    let newTimeZoneIdentifier = currentEditingTimeZone.identifier
-                    if startChanged || endChanged || originalEvent?.timezone != newTimeZoneIdentifier {
-                        dto.timezone = .some(newTimeZoneIdentifier)
+
+                    // Per server contract: whenever starts_at is sent, include timezone. If time isn't changing, omit timezone.
+                    if startChanged {
+                        dto.timezone = .some(currentEditingTimeZone.identifier)
                     }
-                    if let parsedDurationMinutes, parsedDurationMinutes != originalEvent!.durationMinutes {
-                        dto.duration = .some(parsedDurationMinutes / 60)
-                    } else if parsedDurationMinutes == nil, originalEvent!.durationMinutes != nil {
+
+                    let parsedDurationValue = parsedDurationMinutes
+                    if let parsedDurationValue, parsedDurationValue != originalEvent!.durationMinutes {
+                        dto.duration = .some(parsedDurationValue / 60)
+                    } else if parsedDurationValue == nil, originalEvent!.durationMinutes != nil {
                         dto.duration = .some(nil)
                     }
                     let trimmedRoom = roomId.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -905,3 +934,4 @@ private struct TicketDraft: Identifiable, Equatable {
         let currency: Binding<String>
     }
 }
+
