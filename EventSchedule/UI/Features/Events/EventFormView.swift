@@ -59,8 +59,6 @@ struct EventFormView: View {
     private var initialStartComponents: DateComponents?
     private let editingTimeZone: TimeZone
 
-    private var currentEditingTimeZone: TimeZone { editingTimeZone }
-
     init(event: Event? = nil, repository: EventRepository, instance: InstanceProfile, onSave: ((Event) -> Void)? = nil) {
         self.repository = repository
         self.instance = instance
@@ -170,295 +168,245 @@ struct EventFormView: View {
         isInPerson && venueId.isEmpty
     }
 
-    // Break complex disabled logic into smaller pieces to help the type-checker
-    private var nameMissing: Bool {
-        name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    private var eventTypeInvalid: Bool {
-        !isInPerson && !isOnline
-    }
-
-    private var venueInvalid: Bool {
-        requiresVenueSelection
-    }
-
-    private var onlineInvalid: Bool {
-        onlineURLMissing || onlineURLInvalid
-    }
-
     private var saveDisabled: Bool {
-        if isSaving { return true }
-        if nameMissing { return true }
-        if eventTypeInvalid { return true }
-        if venueInvalid { return true }
-        if onlineInvalid { return true }
-        return false
-    }
-
-    @ViewBuilder
-    private var detailsSection: some View {
-        Section(header: Text("Details")) {
-            TextField("Name", text: $name)
-            if originalEvent != nil {
-                HStack {
-                    Text("Link")
-                    Spacer()
-                    let base = webBaseURL(for: instance)
-                    let linkString = base.appendingPathComponent("events").appendingPathComponent(originalEvent?.id ?? "").absoluteString
-                    Text(linkString)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Button("Copy Link") { copyEventLink() }
-                }
-            }
-            if !selectedGroupSlug.isEmpty {
-                Text("Group: \(selectedGroupSlug)")
-            }
-            if !selectedCategory.isEmpty {
-                Text("Category: \(selectedCategory)")
-            }
-            DatePicker("Start", selection: $startAtLocal, displayedComponents: [.date, .hourAndMinute])
-                .onChange(of: startAtLocal) { _, newValue in
-                    let rounded = roundedToMinute(newValue, in: editingTimeZone)
-                    if rounded != startAtLocal { startAtLocal = rounded }
-                    if originalEvent == nil {
-                        startWasModified = true
-                    } else if let comps = initialStartComponents {
-                        let nowComps = wallTimeComponents(from: rounded, in: editingTimeZone)
-                        let changed = (comps.year != nowComps.year) ||
-                                      (comps.month != nowComps.month) ||
-                                      (comps.day != nowComps.day) ||
-                                      (comps.hour != nowComps.hour) ||
-                                      (comps.minute != nowComps.minute)
-                        if changed { startWasModified = true }
-                    }
-                }
-            Text("Editing TZ: \(editingTimeZone.identifier)")
-                .font(.footnote)
-                .foregroundColor(.secondary)
-            Text("Picker wall: \(apiWallTimeStringWithSeconds(startAtLocal, in: editingTimeZone))")
-                .font(.footnote)
-                .foregroundColor(.secondary)
-            TextField("Duration (hours)", text: $durationHours)
-                .keyboardType(.decimalPad)
-                .onChange(of: durationHours) { _, newValue in
-                    let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if trimmed != initialDurationHours {
-                        durationWasModified = true
-                    }
-                }
-            TextField("Description", text: $description, axis: .vertical)
-                .lineLimit(3...5)
-        }
-    }
-
-    @ViewBuilder
-    private var typeSection: some View {
-        Section(header: Text("Type")) {
-            Toggle("In-person", isOn: $isInPerson)
-            Toggle("Online", isOn: $isOnline)
-            if isOnline {
-                TextField("Online URL", text: $onlineURL)
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.URL)
-                if onlineURLMissing {
-                    Text("Online events require a URL.")
-                        .font(.footnote)
-                        .foregroundColor(.red)
-                }
-                if !onlineURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, URL(string: onlineURL) == nil {
-                    Text("Enter a valid URL for online events.")
-                        .font(.footnote)
-                        .foregroundColor(.red)
-                }
-            }
-            if !isInPerson && !isOnline {
-                Text("At least one type must be selected.")
-                    .font(.footnote)
-                    .foregroundColor(.red)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var locationSection: some View {
-        Section(header: Text("Location")) {
-            if isLoadingVenues {
-                ProgressView("Loading venues…")
-            }
-            if !availableVenues.isEmpty {
-                Picker("Venue", selection: $venueId) {
-                    ForEach(availableVenues) { venue in
-                        Text(venue.name).tag(venue.id)
-                    }
-                }
-                .onChange(of: venueId) { _, _ in
-                    venueTimeZoneIdentifier = nil
-                }
-            } else {
-                Text("No venues available. Add a venue in the web app, then refresh.")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-            TextField("Room ID", text: $roomId)
-
-            if let venueErrorMessage {
-                Text(venueErrorMessage)
-                    .font(.footnote)
-                    .foregroundColor(.red)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var organizationSection: some View {
-        Section(header: Text("Organization")) {
-            if !availableGroups.isEmpty {
-                Picker("Pick list", selection: $selectedGroupSlug) {
-                    Text("None").tag("")
-                    ForEach(availableGroups) { group in
-                        Text(group.name).tag(group.slug)
-                    }
-                }
-            }
-
-            if !availableCategories.isEmpty {
-                Picker("Category", selection: $selectedCategory) {
-                    Text("Uncategorized").tag("")
-                    ForEach(availableCategories, id: \.self) { category in
-                        Text(category).tag(category)
-                    }
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var participantsSection: some View {
-        Section(header: Text("Participants")) {
-            if !availableTalent.isEmpty {
-                ForEach(availableTalent) { talent in
-                    Toggle(isOn: Binding(
-                        get: { talentSelections.contains(talent.id) },
-                        set: { isOn in
-                            if isOn { talentSelections.insert(talent.id) } else { talentSelections.remove(talent.id) }
-                            participantsModified = true
-                        }
-                    )) { Text(talent.name) }
-                }
-            } else {
-                Text("No known participants.")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var curatorsSection: some View {
-        Section(header: Text("Curators")) {
-            if !availableCurators.isEmpty {
-                ForEach(availableCurators) { curator in
-                    Toggle(isOn: Binding(
-                        get: { curatorSelections.contains(curator.id) },
-                        set: { isOn in
-                            if isOn { curatorSelections.insert(curator.id) } else { curatorSelections.remove(curator.id) }
-                            curatorsModified = true
-                        }
-                    )) { Text(curator.name) }
-                }
-            } else {
-                Text("No curators available.")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var fliersSection: some View {
-        Section(header: Text("Fliers")) {
-            if imageURLs.isEmpty {
-                Text("Attach image files to use as fliers.")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-            ForEach(Array(imageURLs.enumerated()), id: \.offset) { index, url in
-                HStack {
-                    Label(url.lastPathComponent, systemImage: "photo")
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                    Spacer()
-                    Button(role: .destructive) {
-                        imageURLs.remove(at: index)
-                    } label: {
-                        Image(systemName: "trash")
-                    }
-                    .buttonStyle(.borderless)
-                }
-            }
-            PhotosPicker(selection: $flierSelection, matching: .images) {
-                Label("Add flier", systemImage: "plus")
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var ticketsSection: some View {
-        Section(header: Text("Tickets")) {
-            if ticketDrafts.isEmpty {
-                Text("Define ticket types, prices, and currency.")
-                    .font(.footnote)
-                    .foregroundColor(.secondary)
-            }
-
-            ForEach(ticketDrafts) { draft in
-                VStack(alignment: .leading) {
-                    TextField("Ticket name", text: binding(for: draft).name)
-                    HStack {
-                        TextField("Price", text: binding(for: draft).price)
-                            .keyboardType(.decimalPad)
-                        TextField("Currency (e.g., USD)", text: binding(for: draft).currency)
-                            .textInputAutocapitalization(.never)
-                    }
-                    Button(role: .destructive) {
-                        removeTicket(draft)
-                    } label: {
-                        Label("Remove", systemImage: "trash")
-                    }
-                    .buttonStyle(.borderless)
-                }
-            }
-
-            Button(action: { ticketDrafts.append(TicketDraft()) }) {
-                Label("Add ticket", systemImage: "plus")
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var attendanceSection: some View {
-        Section(header: Text("Attendance")) {
-            Toggle("Attendee list visible", isOn: $attendeesVisible)
-            Toggle("Recurring event", isOn: $isRecurring)
-            TextField("Capacity", text: $capacity)
-                .keyboardType(.numberPad)
-        }
+        isSaving
+            || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || (!isInPerson && !isOnline)
+            || requiresVenueSelection
+            || onlineURLMissing
+            || onlineURLInvalid
     }
 
     var body: some View {
         Form {
-            detailsSection
-            typeSection
-            locationSection
-            organizationSection
-            participantsSection
-            curatorsSection
-            fliersSection
-            ticketsSection
-            attendanceSection
+            Section(header: Text("Details")) {
+                TextField("Name", text: $name)
+                if originalEvent != nil {
+                    HStack {
+                        Text("Link")
+                        Spacer()
+                        let base = webBaseURL(for: instance)
+                        let linkString = base.appendingPathComponent("events").appendingPathComponent(originalEvent?.id ?? "").absoluteString
+                        Text(linkString)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Button("Copy Link") { copyEventLink() }
+                    }
+                }
+                if !selectedGroupSlug.isEmpty {
+                    Text("Group: \(selectedGroupSlug)")
+                }
+                if !selectedCategory.isEmpty {
+                    Text("Category: \(selectedCategory)")
+                }
+                DatePicker("Start", selection: $startAtLocal, displayedComponents: [.date, .hourAndMinute])
+                    .onChange(of: startAtLocal) { _, newValue in
+                        let rounded = roundedToMinute(newValue, in: editingTimeZone)
+                        if rounded != startAtLocal { startAtLocal = rounded }
+                        if originalEvent == nil {
+                            startWasModified = true
+                        } else if let comps = initialStartComponents {
+                            let nowComps = wallTimeComponents(from: rounded, in: editingTimeZone)
+                            // Compare year, month, day, hour, minute
+                            let changed = (comps.year != nowComps.year) ||
+                                          (comps.month != nowComps.month) ||
+                                          (comps.day != nowComps.day) ||
+                                          (comps.hour != nowComps.hour) ||
+                                          (comps.minute != nowComps.minute)
+                            if changed { startWasModified = true }
+                        }
+                    }
+                // DEBUG: Effective timezone and picker wall time
+                Text("Editing TZ: \(editingTimeZone.identifier)")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                Text("Picker wall: \(apiWallTimeStringWithSeconds(startAtLocal, in: editingTimeZone))")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                TextField("Duration (hours)", text: $durationHours)
+                    .keyboardType(.decimalPad)
+                    .onChange(of: durationHours) { _, newValue in
+                        let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if trimmed != initialDurationHours {
+                            durationWasModified = true
+                        }
+                    }
+                TextField("Description", text: $description, axis: .vertical)
+                    .lineLimit(3...5)
+            }
+
+            Section(header: Text("Type")) {
+                Toggle("In-person", isOn: $isInPerson)
+                Toggle("Online", isOn: $isOnline)
+                if isOnline {
+                    TextField("Online URL", text: $onlineURL)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+                    if onlineURLMissing {
+                        Text("Online events require a URL.")
+                            .font(.footnote)
+                            .foregroundColor(.red)
+                    }
+                    if !onlineURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, URL(string: onlineURL) == nil {
+                        Text("Enter a valid URL for online events.")
+                            .font(.footnote)
+                            .foregroundColor(.red)
+                    }
+                }
+                if !isInPerson && !isOnline {
+                    Text("At least one type must be selected.")
+                        .font(.footnote)
+                        .foregroundColor(.red)
+                }
+            }
+
+            Section(header: Text("Location")) {
+                if isLoadingVenues {
+                    ProgressView("Loading venues…")
+                }
+                if !availableVenues.isEmpty {
+                    Picker("Venue", selection: $venueId) {
+                        ForEach(availableVenues) { venue in
+                            Text(venue.name).tag(venue.id)
+                        }
+                    }
+                    .onChange(of: venueId) { _, _ in
+                        venueTimeZoneIdentifier = nil
+                    }
+                } else {
+                    Text("No venues available. Add a venue in the web app, then refresh.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+                TextField("Room ID", text: $roomId)
+
+                if let venueErrorMessage {
+                    Text(venueErrorMessage)
+                        .font(.footnote)
+                        .foregroundColor(.red)
+                }
+            }
+
+            Section(header: Text("Organization")) {
+                if !availableGroups.isEmpty {
+                    Picker("Pick list", selection: $selectedGroupSlug) {
+                        Text("None").tag("")
+                        ForEach(availableGroups) { group in
+                            Text(group.name).tag(group.slug)
+                        }
+                    }
+                }
+
+                if !availableCategories.isEmpty {
+                    Picker("Category", selection: $selectedCategory) {
+                        Text("Uncategorized").tag("")
+                        ForEach(availableCategories, id: \.self) { category in
+                            Text(category).tag(category)
+                        }
+                    }
+                }
+            }
+
+            Section(header: Text("Participants")) {
+                if !availableTalent.isEmpty {
+                    ForEach(availableTalent) { talent in
+                        Toggle(isOn: Binding(
+                            get: { talentSelections.contains(talent.id) },
+                            set: { isOn in
+                                if isOn { talentSelections.insert(talent.id) } else { talentSelections.remove(talent.id) }
+                                participantsModified = true
+                            }
+                        )) { Text(talent.name) }
+                    }
+                } else {
+                    Text("No known participants.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            Section(header: Text("Curators")) {
+                if !availableCurators.isEmpty {
+                    ForEach(availableCurators) { curator in
+                        Toggle(isOn: Binding(
+                            get: { curatorSelections.contains(curator.id) },
+                            set: { isOn in
+                                if isOn { curatorSelections.insert(curator.id) } else { curatorSelections.remove(curator.id) }
+                                curatorsModified = true
+                            }
+                        )) { Text(curator.name) }
+                    }
+                } else {
+                    Text("No curators available.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Section(header: Text("Fliers")) {
+                if imageURLs.isEmpty {
+                    Text("Attach image files to use as fliers.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+                ForEach(Array(imageURLs.enumerated()), id: \.offset) { index, url in
+                    HStack {
+                        Label(url.lastPathComponent, systemImage: "photo")
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                        Button(role: .destructive) {
+                            imageURLs.remove(at: index)
+                        } label: {
+                            Image(systemName: "trash")
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+                PhotosPicker(selection: $flierSelection, matching: .images) {
+                    Label("Add flier", systemImage: "plus")
+                }
+            }
+
+            Section(header: Text("Tickets")) {
+                if ticketDrafts.isEmpty {
+                    Text("Define ticket types, prices, and currency.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
+                }
+
+                ForEach(ticketDrafts) { draft in
+                    VStack(alignment: .leading) {
+                        TextField("Ticket name", text: binding(for: draft).name)
+                        HStack {
+                            TextField("Price", text: binding(for: draft).price)
+                                .keyboardType(.decimalPad)
+                            TextField("Currency (e.g., USD)", text: binding(for: draft).currency)
+                                .textInputAutocapitalization(.never)
+                        }
+                        TextField("Quantity available", text: binding(for: draft).quantity)
+                            .keyboardType(.numberPad)
+                        Button(role: .destructive) {
+                            removeTicket(draft)
+                        } label: {
+                            Label("Remove", systemImage: "trash")
+                        }
+                        .buttonStyle(.borderless)
+                    }
+                }
+
+                Button(action: { ticketDrafts.append(TicketDraft()) }) {
+                    Label("Add ticket", systemImage: "plus")
+                }
+            }
+
+            Section(header: Text("Attendance")) {
+                Toggle("Attendee list visible", isOn: $attendeesVisible)
+                Toggle("Recurring event", isOn: $isRecurring)
+                TextField("Capacity", text: $capacity)
+                    .keyboardType(.numberPad)
+            }
 
             if let errorMessage {
                 Section {
@@ -487,16 +435,20 @@ struct EventFormView: View {
             Task { await importFliers(from: newItems) }
         }
         .task { await loadResources() }
-        .environment(\.timeZone, editingTimeZone)
+        .task { userTimeZoneIdentifier = appSettings.timeZoneIdentifier }
+        .environment(\.timeZone, currentEditingTimeZone)
         .task {
             await loadResources()
+            // After loading, for existing events, verify that the picker's wall time matches the original event's server wall time.
             if let evt = originalEvent {
+                // Prefer raw server fields when available to avoid interpretation drift
                 let serverTZ: TimeZone = {
                     if let tzId = evt.rawTimezoneIdentifier ?? evt.timezone, let tz = TimeZone(identifier: tzId) { return tz }
                     return editingTimeZone
                 }()
 
                 if let raw = evt.rawStartsAtString {
+                    // Parse raw server wall-time string in server TZ using strict format
                     let f = DateFormatter()
                     f.calendar = Calendar(identifier: .gregorian)
                     f.timeZone = serverTZ
@@ -506,11 +458,13 @@ struct EventFormView: View {
                         let serverWallRounded = roundedToMinute(serverWallDate, in: serverTZ)
                         let serverWallString = apiWallTimeStringWithSeconds(serverWallRounded, in: serverTZ)
 
+                        // Picker wall time as interpreted in server TZ
                         let pickerInServerTZRounded = roundedToMinute(startAtLocal, in: serverTZ)
                         let pickerWallStringInServerTZ = apiWallTimeStringWithSeconds(pickerInServerTZRounded, in: serverTZ)
 
                         if pickerWallStringInServerTZ != serverWallString {
                             startWasModified = true
+                            // Normalize the picker to reflect the server wall time but displayed in the editing timezone
                             let serverWallComponents = wallTimeComponents(from: serverWallRounded, in: serverTZ)
                             if let normalizedInEditingTZ = date(from: serverWallComponents, in: editingTimeZone) {
                                 startAtLocal = roundedToMinute(normalizedInEditingTZ, in: editingTimeZone)
@@ -518,6 +472,7 @@ struct EventFormView: View {
                         }
                     }
                 } else {
+                    // Fallback to previous comparison using evt.startAt in server TZ
                     let serverWallRounded = roundedToMinute(evt.startAt, in: serverTZ)
                     let serverWallString = apiWallTimeStringWithSeconds(serverWallRounded, in: serverTZ)
 
@@ -534,6 +489,7 @@ struct EventFormView: View {
                 }
             }
         }
+        .environment(\.timeZone, editingTimeZone)
         .accentColor(theme.accent)
     }
 
@@ -592,44 +548,6 @@ struct EventFormView: View {
         return abs(a.timeIntervalSince1970 - b.timeIntervalSince1970) > toleranceSeconds
     }
 
-    private struct EventPatchDTO: Encodable {
-        var name: String?
-        var description: String?
-        var starts_at: String?
-        var ends_at: String?
-        var duration: Int??
-        var room_id: String??
-        var capacity: Int??
-        var venue_id: String?
-        var venue_name: String?
-        var venue_address1: String?
-        var venue_address2: String?
-        var venue_city: String?
-        var venue_state: String?
-        var venue_postal: String?
-        var venue_country: String?
-        var members: [MemberPatch]?
-        var curators: [CuratorPatch]?
-        var category: String??
-        var group_slug: String??
-        var online_url: String??
-        var images: [URL]?
-        var ticket_types: [TicketType]?
-        var timezone: String??
-        var attendees_visible: Bool??
-        var is_recurring: Bool??
-
-        struct MemberPatch: Encodable {
-            var id: String?
-            var name: String?
-            var email: String?
-            var youtube_url: String?
-        }
-        struct CuratorPatch: Encodable {
-            var id: String
-        }
-    }
-
     private func save() {
         guard !isSaving else { return }
         isSaving = true
@@ -654,9 +572,6 @@ struct EventFormView: View {
             }
 
             let cleanedImages: [URL] = imageURLs
-                .map { $0.absoluteString }
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .compactMap { URL(string: $0) }
 
             let ticketTypes: [TicketType] = ticketDrafts.compactMap { $0.toTicketType() }
 
@@ -664,10 +579,6 @@ struct EventFormView: View {
 
             Task {
                 do {
-                    print("[DEBUG] Create: editingTZ=", editingTimeZone.identifier)
-                    print("[DEBUG] Create: startAtLocal=", apiWallTimeStringWithSeconds(roundedStartCreate, in: editingTimeZone))
-                    print("[DEBUG] Create: computedEndAt=", apiDateString(computedEndAt))
-
                     let validTalentIds: [String] = availableTalent
                         .map { $0.id }
                         .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -726,85 +637,43 @@ struct EventFormView: View {
 
             Task {
                 do {
-                    print("[DEBUG] Edit: editingTZ=", editingTimeZone.identifier)
-                    // Send local wall time strings in the supplied timezone per server contract
-                    print("[DEBUG] Edit: reconstructedStart(WALL)=", apiWallTimeStringWithSeconds(reconstructedStart, in: editingTimeZone))
-                    print("[DEBUG] Edit: reconstructedStart(UTC)=", apiUTCStringWithSeconds(reconstructedStart))
+                    let validTalentIds: [String] = availableTalent
+                        .map { $0.id }
+                        .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                        .filter { talentSelections.contains($0) }
+                    let selectedCuratorId = availableCurators
+                        .map { $0.id }
+                        .first(where: { curatorSelections.contains($0) })
 
-                    var dto = EventPatchDTO()
-                    // Always send time fields on edit
-//                    dto.starts_at = apiUTCStringWithSeconds(reconstructedStart)
-//                    dto.ends_at = apiUTCStringWithSeconds(computedEndAt)
-//                    dto.timezone = .some(editingTimeZone.identifier)
-                    // Send local wall time strings in the supplied timezone per server contract
-                    dto.starts_at = apiWallTimeStringWithSeconds(reconstructedStart, in: editingTimeZone)
-                    dto.ends_at = apiWallTimeStringWithSeconds(computedEndAt, in: editingTimeZone)
-                    dto.timezone = .some(editingTimeZone.identifier)
+                    let updatedEvent = Event(
+                        id: originalEvent!.id,
+                        name: name,
+                        description: description.isEmpty ? nil : description,
+                        startAt: reconstructedStart,
+                        endAt: computedEndAt,
+                        durationMinutes: parsedDurationMinutes,
+                        venueId: isInPerson ? venueId : "",
+                        venueName: originalEvent?.venueName,
+                        roomId: roomId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : roomId,
+                        images: imageURLs,
+                        capacity: Int(capacity),
+                        ticketTypes: ticketDrafts.compactMap { $0.toTicketType() },
+                        publishState: originalEvent?.publishState ?? .draft,
+                        curatorId: selectedCuratorId,
+                        talentIds: validTalentIds,
+                        category: selectedCategory.isEmpty ? nil : selectedCategory,
+                        groupSlug: selectedGroupSlug.isEmpty ? nil : selectedGroupSlug,
+                        onlineURL: parsedOnlineURL(),
+                        timezone: editingTimeZone.identifier,
+                        isRecurring: isRecurring,
+                        attendeesVisible: attendeesVisible
+                    )
 
-                    let parsedDurationValue = parsedDurationMinutes
-                    if let parsedDurationValue, parsedDurationValue != originalEvent!.durationMinutes {
-                        dto.duration = .some(parsedDurationValue / 60)
-                    } else if parsedDurationValue == nil, originalEvent!.durationMinutes != nil {
-                        dto.duration = .some(nil)
-                    }
-                    let trimmedRoom = roomId.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let originalRoomTrimmed = originalEvent!.roomId?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-                    if trimmedRoom != originalRoomTrimmed {
-                        dto.room_id = trimmedRoom.isEmpty ? .some(nil) : .some(trimmedRoom)
-                    }
-                    let originalCapacityStr = originalEvent!.capacity.map { String($0) } ?? ""
-                    if capacity != originalCapacityStr {
-                        if let capInt = Int(capacity) { dto.capacity = .some(capInt) } else { dto.capacity = .some(nil) }
-                    }
-                    if selectedCategory != (originalEvent!.category ?? "") {
-                        dto.category = selectedCategory.isEmpty ? .some(nil) : .some(selectedCategory)
-                    }
-                    if selectedGroupSlug != (originalEvent!.groupSlug ?? "") {
-                        dto.group_slug = selectedGroupSlug.isEmpty ? .some(nil) : .some(selectedGroupSlug)
-                    }
-                    let currentOnlineString = parsedOnlineURL()?.absoluteString ?? ""
-                    let originalOnline = originalEvent!.onlineURL?.absoluteString ?? ""
-                    if currentOnlineString != originalOnline {
-                        if let link = parsedOnlineURL() {
-                            dto.online_url = .some(link.absoluteString)
-                        } else if trimmedOnlineURL.isEmpty {
-                            dto.online_url = .some(nil)
-                        }
-                    }
-                    let cleanedImages: [URL] = imageURLs
-                        .map { $0.absoluteString }
-                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                        .compactMap { URL(string: $0) }
-                    if cleanedImages != originalEvent!.images {
-                        dto.images = cleanedImages
-                    }
-                    let ticketTypes: [TicketType] = ticketDrafts.compactMap { $0.toTicketType() }
-                    dto.ticket_types = ticketTypes
-                    if venueId != originalEvent!.venueId && !venueId.isEmpty { dto.venue_id = venueId }
-                    if participantsModified {
-                        var members: [EventPatchDTO.MemberPatch] = []
-                        let validTalentIds: [String] = availableTalent
-                            .map { $0.id }
-                            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-                            .filter { talentSelections.contains($0) }
-                        members.append(contentsOf: validTalentIds.map { .init(id: $0, name: nil, email: nil, youtube_url: nil) })
-                        if !members.isEmpty { dto.members = members }
-                    }
-                    if curatorsModified {
-                        let selectedCuratorIds = availableCurators
-                            .map { $0.id }
-                            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-                            .filter { curatorSelections.contains($0) }
-                        dto.curators = selectedCuratorIds.map { EventPatchDTO.CuratorPatch(id: $0) }
-                    }
-                    if attendeesVisible != (originalEvent!.attendeesVisible ?? true) {
-                        dto.attendees_visible = .some(attendeesVisible)
-                    }
-                    if isRecurring != (originalEvent!.isRecurring ?? false) {
-                        dto.is_recurring = .some(isRecurring)
-                    }
-
-                    let savedEvent = try await repository.patchEvent(id: originalEvent!.id, body: dto, instance: instance)
+                    let savedEvent = try await repository.updateEvent(
+                        updatedEvent,
+                        instance: instance,
+                        timeZoneOverride: editingTimeZone
+                    )
 
                     await MainActor.run {
                         onSave?(savedEvent)
@@ -903,7 +772,8 @@ struct EventFormView: View {
             return TicketDraft.BindingProxy(
                 name: .constant(draft.name),
                 price: .constant(draft.price),
-                currency: .constant(draft.currency)
+                currency: .constant(draft.currency),
+                quantity: .constant(draft.quantity)
             )
         }
 
@@ -919,6 +789,10 @@ struct EventFormView: View {
             currency: Binding(
                 get: { ticketDrafts[index].currency },
                 set: { ticketDrafts[index].currency = $0 }
+            ),
+            quantity: Binding(
+                get: { ticketDrafts[index].quantity },
+                set: { ticketDrafts[index].quantity = $0 }
             )
         )
     }
@@ -957,12 +831,14 @@ private struct TicketDraft: Identifiable, Equatable {
     var name: String
     var price: String
     var currency: String
+    var quantity: String
 
-    init(id: UUID = UUID(), name: String = "", price: String = "", currency: String = "") {
+    init(id: UUID = UUID(), name: String = "", price: String = "", currency: String = "", quantity: String = "") {
         self.id = id
         self.name = name
         self.price = price
         self.currency = currency
+        self.quantity = quantity
     }
 
     init(from ticket: TicketType) {
@@ -974,6 +850,7 @@ private struct TicketDraft: Identifiable, Equatable {
             self.price = ""
         }
         self.currency = ticket.currency ?? ""
+        self.quantity = ticket.quantity.map(String.init) ?? ""
     }
 
     func toTicketType() -> TicketType? {
@@ -982,11 +859,14 @@ private struct TicketDraft: Identifiable, Equatable {
         let trimmedPrice = price.trimmingCharacters(in: .whitespacesAndNewlines)
         let decimalPrice = Decimal(string: trimmedPrice)
         let trimmedCurrency = currency.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedQuantity = quantity.trimmingCharacters(in: .whitespacesAndNewlines)
+        let parsedQuantity = Int(trimmedQuantity)
         return TicketType(
             id: id.uuidString,
             name: trimmedName,
             price: decimalPrice,
-            currency: trimmedCurrency.isEmpty ? nil : trimmedCurrency
+            currency: trimmedCurrency.isEmpty ? nil : trimmedCurrency,
+            quantity: parsedQuantity
         )
     }
 
@@ -994,5 +874,7 @@ private struct TicketDraft: Identifiable, Equatable {
         let name: Binding<String>
         let price: Binding<String>
         let currency: Binding<String>
+        let quantity: Binding<String>
     }
 }
+
