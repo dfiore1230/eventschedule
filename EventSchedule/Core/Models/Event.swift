@@ -21,6 +21,8 @@ struct Event: Codable, Identifiable, Equatable {
     var category: String?
     var groupSlug: String?
     var onlineURL: URL?
+    var isRecurring: Bool?
+    var attendeesVisible: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -57,6 +59,8 @@ struct Event: Codable, Identifiable, Equatable {
         case url
         case onlineUrl = "online_url"
         case eventUrl = "event_url"
+        case isRecurring = "is_recurring"
+        case attendeesVisible = "attendees_visible"
     }
 
     struct VenueReference: Decodable {
@@ -195,6 +199,9 @@ struct Event: Codable, Identifiable, Equatable {
             onlineURL = nil
         }
 
+        isRecurring = try container.decodeIfPresent(Bool.self, forKey: .isRecurring)
+        attendeesVisible = try container.decodeIfPresent(Bool.self, forKey: .attendeesVisible)
+
         // Curator
         if let explicitCuratorId = try container.decodeIfPresent(String.self, forKey: .curatorId) ??
             container.decodeIfPresent(String.self, forKey: .curatorRoleId) {
@@ -239,7 +246,9 @@ struct Event: Codable, Identifiable, Equatable {
         category: String? = nil,
         groupSlug: String? = nil,
         onlineURL: URL? = nil,
-        timezone: String? = nil
+        timezone: String? = nil,
+        isRecurring: Bool? = nil,
+        attendeesVisible: Bool? = nil
     ) {
         self.id = id
         self.name = name
@@ -261,6 +270,8 @@ struct Event: Codable, Identifiable, Equatable {
         self.category = category
         self.groupSlug = groupSlug
         self.onlineURL = onlineURL
+        self.isRecurring = isRecurring
+        self.attendeesVisible = attendeesVisible
     }
 
     func encode(to encoder: Encoder) throws {
@@ -287,7 +298,10 @@ struct Event: Codable, Identifiable, Equatable {
         try container.encodeIfPresent(curatorId, forKey: .curatorRoleId)
         try container.encodeIfPresent(category, forKey: .category)
         try container.encodeIfPresent(groupSlug, forKey: .groupSlug)
+        try container.encodeIfPresent(onlineURL, forKey: .onlineUrl)
         try container.encodeIfPresent(onlineURL, forKey: .url)
+        try container.encodeIfPresent(isRecurring, forKey: .isRecurring)
+        try container.encodeIfPresent(attendeesVisible, forKey: .attendeesVisible)
         if !talentIds.isEmpty {
             try container.encode(talentIds, forKey: .members)
         }

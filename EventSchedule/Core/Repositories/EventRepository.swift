@@ -401,7 +401,9 @@ final class RemoteEventRepository: EventRepository {
             members: event.talentIds.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
             category: event.category,
             groupSlug: event.groupSlug,
-            url: event.onlineURL
+            onlineUrl: event.onlineURL,
+            attendeesVisible: event.attendeesVisible,
+            isRecurring: event.isRecurring
         )
         do {
             let response: EventDetailResponse = try await httpClient.request(
@@ -502,11 +504,13 @@ final class RemoteEventRepository: EventRepository {
                 ticketTypes: event.ticketTypes,
                 publishState: event.publishState,
                 curatorId: event.curatorId,
-                members: safeMembers,
-                category: event.category,
-                groupSlug: event.groupSlug,
-                url: event.onlineURL
-            )
+            members: safeMembers,
+            category: event.category,
+            groupSlug: event.groupSlug,
+            onlineUrl: event.onlineURL,
+            attendeesVisible: event.attendeesVisible,
+            isRecurring: event.isRecurring
+        )
             EventInstrumentation.log(
                 action: "event_update_request",
                 eventId: event.id,
@@ -658,12 +662,12 @@ final class RemoteEventRepository: EventRepository {
         return (chosen.subdomain, chosen.type)
     }
 
-private struct CreateEventDTO: Encodable {
-    let id: String
-    let name: String
-    let description: String?
-    let startsAt: String
-    let endAt: String
+    private struct CreateEventDTO: Encodable {
+        let id: String
+        let name: String
+        let description: String?
+        let startsAt: String
+        let endAt: String
     let durationMinutes: Int?
     let timezone: String
     let venueId: String?
@@ -677,7 +681,9 @@ private struct CreateEventDTO: Encodable {
         let members: [String]
         let category: String?
         let groupSlug: String?
-        let url: URL?
+        let onlineUrl: URL?
+        let attendeesVisible: Bool?
+        let isRecurring: Bool?
 
         enum CodingKeys: String, CodingKey {
         case id
@@ -698,7 +704,10 @@ private struct CreateEventDTO: Encodable {
             case members
             case category
             case groupSlug = "group_slug"
-            case url
+            case onlineUrl = "online_url"
+            case attendeesVisible = "attendees_visible"
+            case isRecurring = "is_recurring"
+            case legacyUrl = "url"
         }
 
         func encode(to encoder: Encoder) throws {
@@ -722,7 +731,10 @@ private struct CreateEventDTO: Encodable {
             try container.encodeIfPresent(curatorId, forKey: .curatorId)
             try container.encodeIfPresent(category, forKey: .category)
             try container.encodeIfPresent(groupSlug, forKey: .groupSlug)
-            try container.encodeIfPresent(url, forKey: .url)
+            try container.encodeIfPresent(onlineUrl, forKey: .onlineUrl)
+            try container.encodeIfPresent(onlineUrl, forKey: .legacyUrl)
+            try container.encodeIfPresent(attendeesVisible, forKey: .attendeesVisible)
+            try container.encodeIfPresent(isRecurring, forKey: .isRecurring)
             if !members.isEmpty { try container.encode(members, forKey: .members) }
         }
     }
@@ -746,7 +758,9 @@ private struct CreateEventDTO: Encodable {
         let members: [String]
         let category: String?
         let groupSlug: String?
-        let url: URL?
+        let onlineUrl: URL?
+        let attendeesVisible: Bool?
+        let isRecurring: Bool?
 
         enum CodingKeys: String, CodingKey {
         case id
@@ -767,7 +781,10 @@ private struct CreateEventDTO: Encodable {
             case members
             case category
             case groupSlug = "group_slug"
-            case url
+            case onlineUrl = "online_url"
+            case attendeesVisible = "attendees_visible"
+            case isRecurring = "is_recurring"
+            case legacyUrl = "url"
         }
 
         func encode(to encoder: Encoder) throws {
@@ -791,7 +808,10 @@ private struct CreateEventDTO: Encodable {
             try container.encodeIfPresent(curatorId, forKey: .curatorId)
             try container.encodeIfPresent(category, forKey: .category)
             try container.encodeIfPresent(groupSlug, forKey: .groupSlug)
-            try container.encodeIfPresent(url, forKey: .url)
+            try container.encodeIfPresent(onlineUrl, forKey: .onlineUrl)
+            try container.encodeIfPresent(onlineUrl, forKey: .legacyUrl)
+            try container.encodeIfPresent(attendeesVisible, forKey: .attendeesVisible)
+            try container.encodeIfPresent(isRecurring, forKey: .isRecurring)
             if !members.isEmpty { try container.encode(members, forKey: .members) }
         }
     }

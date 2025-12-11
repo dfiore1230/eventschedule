@@ -64,16 +64,6 @@ struct EventDetailView: View {
                 }
             }
 
-            if let onlineURL = event.onlineURL {
-                Section(header: Text("Online")) {
-                    Link(destination: onlineURL) {
-                        Label(onlineURL.absoluteString, systemImage: "link")
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                    }
-                }
-            }
-
             Section(header: Text("Location")) {
                 HStack {
                     Label("Venue", systemImage: "building.2")
@@ -91,12 +81,14 @@ struct EventDetailView: View {
                 }
             }
 
-            Section(header: Text("Status")) {
-                HStack {
-                    Label("Event", systemImage: "bolt.horizontal.fill")
-                    Spacer()
-                    StatusBadge(title: event.status.rawValue.capitalized, style: .status(event.status))
+            if event.isRecurring == true {
+                Section(header: Text("Recurrence")) {
+                    Label("Repeats", systemImage: "arrow.triangle.2.circlepath")
+                        .foregroundColor(.secondary)
                 }
+            }
+
+            Section(header: Text("Attendance")) {
                 if let capacity = event.capacity {
                     HStack {
                         Label("Capacity", systemImage: "person.3")
@@ -105,6 +97,11 @@ struct EventDetailView: View {
                             .foregroundColor(.secondary)
                     }
                 }
+                Label(
+                    (event.attendeesVisible ?? true) ? "Attendee list visible" : "Attendee list hidden",
+                    systemImage: (event.attendeesVisible ?? true) ? "eye" : "eye.slash"
+                )
+                .foregroundColor(.secondary)
             }
 
             if !event.ticketTypes.isEmpty {
@@ -154,6 +151,13 @@ struct EventDetailView: View {
                     isEditing = true
                 }
             }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if let shareURL = event.onlineURL {
+                    ShareLink(item: shareURL, subject: Text(event.name), message: Text(event.description ?? "")) {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+            }
         }
         .sheet(isPresented: $isEditing) {
             NavigationStack {
@@ -167,58 +171,8 @@ struct EventDetailView: View {
                 }
             }
         }
+        .task { await refreshEventDetails() }
         .tint(.accentColor)
-    }
-
-    private struct ActionPatchDTO: Encodable {
-        var status: String?
-    }
-
-    private func apiString(for status: EventStatus) -> String {
-        switch status {
-        case .scheduled: return "scheduled"
-        case .ongoing: return "ongoing"
-        case .completed: return "completed"
-        case .cancelled: return "cancelled"
-        }
-    }
-
-    private func updateStatus(target: EventStatus) async {
-        await updateEvent { current in
-            var updated = current
-            updated.status = target
-            return updated
-        }
-    }
-
-    private func updateEvent(transform: (Event) -> Event) async {
-        guard !isPerformingAction else { return }
-        isPerformingAction = true
-        actionError = nil
-
-        do {
-            let updated = transform(event)
-            var dto = ActionPatchDTO()
-            if updated.status != event.status {
-                dto.status = apiString(for: updated.status)
-            }
-            // If nothing changed, bail out
-            if dto.status == nil {
-                await MainActor.run { isPerformingAction = false }
-                return
-            }
-            let saved = try await repository.patchEvent(id: event.id, body: dto, instance: instance)
-            await MainActor.run {
-                event = saved
-                onSave?(saved)
-                isPerformingAction = false
-            }
-        } catch {
-            await MainActor.run {
-                actionError = error.localizedDescription
-                isPerformingAction = false
-            }
-        }
     }
 
     private func deleteEvent() async {
@@ -257,6 +211,17 @@ struct EventDetailView: View {
                 actionError = error.localizedDescription
                 isPerformingAction = false
             }
+        }
+    }
+
+    private func refreshEventDetails() async {
+        do {
+            let latest = try await repository.getEvent(id: event.id, instance: instance)
+            await MainActor.run {
+                event = latest
+            }
+        } catch {
+            // Keep showing the existing event; avoid surfacing error inline
         }
     }
 }
