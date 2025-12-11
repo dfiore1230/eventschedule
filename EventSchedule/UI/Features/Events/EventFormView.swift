@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 import UIKit
 
 struct EventFormView: View {
@@ -24,7 +25,6 @@ struct EventFormView: View {
     @State private var isLoadingVenues: Bool = false
     @State private var venueErrorMessage: String?
     @State private var roomId: String
-    @State private var status: EventStatus
     @State private var capacity: String
     @State private var talentSelections: Set<String> = []
     @State private var curatorSelections: Set<String> = []
@@ -34,31 +34,6 @@ struct EventFormView: View {
     @State private var isInPerson: Bool = true
     @State private var isOnline: Bool = false
 
-    // Batch 1: Venue mode (existing vs new)
-    private enum VenueMode: String, CaseIterable { case existing = "Existing", newVenue = "New" }
-    @State private var venueMode: VenueMode = .existing
-
-    // New venue fields
-    @State private var newVenueName: String = ""
-    @State private var newVenueEmail: String = ""
-    @State private var newVenueAddress1: String = ""
-    @State private var newVenueAddress2: String = ""
-    @State private var newVenueCity: String = ""
-    @State private var newVenueState: String = ""
-    @State private var newVenuePostal: String = ""
-    @State private var newVenueCountry: String = ""
-
-    // Venue search
-    @State private var isSearchingVenues: Bool = false
-    @State private var venueSearchResults: [Venue] = []
-
-    // Participants sourcing
-    private enum ParticipantMode: String, CaseIterable { case existing = "Existing", newMember = "New" }
-    @State private var participantMode: ParticipantMode = .existing
-    @State private var newParticipantName: String = ""
-    @State private var newParticipantEmail: String = ""
-    @State private var newParticipantYouTube: String = ""
-    @State private var addedParticipants: [EventRole] = []
     @State private var participantsModified: Bool = false
 
     // Details
@@ -66,9 +41,12 @@ struct EventFormView: View {
     @State private var selectedCategory: String = ""
     @State private var selectedGroupSlug: String = ""
     @State private var onlineURL: String = ""
+    @State private var isRecurring: Bool = false
+    @State private var attendeesVisible: Bool = true
     @State private var availableCategories: [String] = []
     @State private var availableGroups: [EventGroup] = []
-    @State private var imageURLs: [String] = []
+    @State private var imageURLs: [URL] = []
+    @State private var flierSelection: [PhotosPickerItem] = []
     @State private var ticketDrafts: [TicketDraft] = []
 
     @State private var isSaving: Bool = false
@@ -139,7 +117,6 @@ struct EventFormView: View {
         _venueName = State(initialValue: nil)
         _talentSelections = State(initialValue: [])
         _roomId = State(initialValue: event?.roomId ?? "")
-        _status = State(initialValue: event?.status ?? .scheduled)
         _capacity = State(initialValue: event?.capacity.map { String($0) } ?? "")
         _durationHours = State(initialValue: Self.durationHoursString(from: event?.durationMinutes))
         _isOnline = State(initialValue: event?.onlineURL != nil)
@@ -147,8 +124,10 @@ struct EventFormView: View {
         _onlineURL = State(initialValue: event?.onlineURL?.absoluteString ?? "")
         _selectedCategory = State(initialValue: event?.category ?? "")
         _selectedGroupSlug = State(initialValue: event?.groupSlug ?? "")
-        _imageURLs = State(initialValue: event?.images.map { $0.absoluteString } ?? [])
+        _imageURLs = State(initialValue: event?.images ?? [])
         _ticketDrafts = State(initialValue: event?.ticketTypes.map { TicketDraft(from: $0) } ?? [])
+        _isRecurring = State(initialValue: event?.isRecurring ?? false)
+        _attendeesVisible = State(initialValue: event?.attendeesVisible ?? true)
 
         // Capture initial wall-time components for the original event in the initial editing timezone
         if let evt = event {
@@ -186,11 +165,7 @@ struct EventFormView: View {
     }
 
     private var requiresVenueSelection: Bool {
-        isInPerson && venueMode == .existing && venueId.isEmpty
-    }
-
-    private var requiresNewVenueDetails: Bool {
-        isInPerson && venueMode == .newVenue && venueId.isEmpty && newVenueName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        isInPerson && venueId.isEmpty
     }
 
     private var saveDisabled: Bool {
@@ -198,7 +173,6 @@ struct EventFormView: View {
             || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || (!isInPerson && !isOnline)
             || requiresVenueSelection
-            || requiresNewVenueDetails
             || onlineURLMissing
             || onlineURLInvalid
     }
@@ -288,64 +262,24 @@ struct EventFormView: View {
             }
 
             Section(header: Text("Location")) {
-                Picker("Venue Mode", selection: $venueMode) {
-                    Text(VenueMode.existing.rawValue).tag(VenueMode.existing)
-                    Text("New").tag(VenueMode.newVenue)
+                if isLoadingVenues {
+                    ProgressView("Loading venues…")
                 }
-                .pickerStyle(.segmented)
-
-                if venueMode == .existing {
-                    if isLoadingVenues {
-                        ProgressView("Loading venues…")
-                    }
-                    if !availableVenues.isEmpty {
-                        Picker("Venue", selection: $venueId) {
-                            ForEach(availableVenues) { venue in
-                                Text(venue.name).tag(venue.id)
-                            }
+                if !availableVenues.isEmpty {
+                    Picker("Venue", selection: $venueId) {
+                        ForEach(availableVenues) { venue in
+                            Text(venue.name).tag(venue.id)
                         }
-                        .onChange(of: venueId) { _, _ in
-                            venueTimeZoneIdentifier = nil
-                        }
-                    } else {
-                        Text("No venues available. Add a venue in the web app, then refresh.")
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
                     }
-                    TextField("Room ID", text: $roomId)
+                    .onChange(of: venueId) { _, _ in
+                        venueTimeZoneIdentifier = nil
+                    }
                 } else {
-                    Group {
-                        TextField("Venue Name", text: $newVenueName)
-                        HStack {
-                            TextField("Venue Email", text: $newVenueEmail)
-                                .textInputAutocapitalization(.never)
-                                .keyboardType(.emailAddress)
-                            Button("Search") { Task { await searchVenuesByEmail() } }
-                                .disabled(newVenueEmail.isEmpty || isSearchingVenues)
-                        }
-                        if isSearchingVenues { ProgressView() }
-                        if !venueSearchResults.isEmpty {
-                            Picker("Search Results", selection: $venueId) {
-                                ForEach(venueSearchResults) { v in
-                                    Text(v.name).tag(v.id)
-                                }
-                            }
-                        }
-                        TextField("Address 1", text: $newVenueAddress1)
-                        TextField("Address 2", text: $newVenueAddress2)
-                        TextField("City", text: $newVenueCity)
-                        TextField("State/Province", text: $newVenueState)
-                        TextField("Postal Code", text: $newVenuePostal)
-                        TextField("Country Code (e.g., US)", text: $newVenueCountry)
-                        HStack {
-                            Button("View map") { openInMaps() }
-                            Spacer()
-                            Button("Validate address") { /* placeholder */ }
-                            Button("Done") { applyNewVenueSelection() }
-                                .disabled(newVenueName.isEmpty && venueId.isEmpty)
-                        }
-                    }
+                    Text("No venues available. Add a venue in the web app, then refresh.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
                 }
+                TextField("Room ID", text: $roomId)
 
                 if let venueErrorMessage {
                     Text(venueErrorMessage)
@@ -375,46 +309,20 @@ struct EventFormView: View {
             }
 
             Section(header: Text("Participants")) {
-                Picker("Mode", selection: $participantMode) {
-                    Text(ParticipantMode.existing.rawValue).tag(ParticipantMode.existing)
-                    Text("New").tag(ParticipantMode.newMember)
-                }
-                .pickerStyle(.segmented)
-
-                if participantMode == .existing {
-                    if !availableTalent.isEmpty {
-                        ForEach(availableTalent) { talent in
-                            Toggle(isOn: Binding(
-                                get: { talentSelections.contains(talent.id) },
-                                set: { isOn in
-                                    if isOn { talentSelections.insert(talent.id) } else { talentSelections.remove(talent.id) }
-                                    participantsModified = true
-                                }
-                            )) { Text(talent.name) }
-                        }
-                    } else {
-                        Text("No known participants.")
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
+                if !availableTalent.isEmpty {
+                    ForEach(availableTalent) { talent in
+                        Toggle(isOn: Binding(
+                            get: { talentSelections.contains(talent.id) },
+                            set: { isOn in
+                                if isOn { talentSelections.insert(talent.id) } else { talentSelections.remove(talent.id) }
+                                participantsModified = true
+                            }
+                        )) { Text(talent.name) }
                     }
                 } else {
-                    TextField("Name", text: $newParticipantName)
-                    TextField("Email (optional)", text: $newParticipantEmail)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.emailAddress)
-                    TextField("YouTube URL (optional)", text: $newParticipantYouTube)
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.URL)
-                    Button("Add") { addNewParticipant() }
-                        .disabled(newParticipantName.isEmpty)
-                    if !addedParticipants.isEmpty {
-                        VStack(alignment: .leading) {
-                            Text("To add:").font(.subheadline)
-                            ForEach(addedParticipants) { p in
-                                Text("• \(p.name)")
-                            }
-                        }
-                    }
+                    Text("No known participants.")
+                        .font(.footnote)
+                        .foregroundColor(.secondary)
                 }
             }
             
@@ -438,18 +346,16 @@ struct EventFormView: View {
 
             Section(header: Text("Fliers")) {
                 if imageURLs.isEmpty {
-                    Text("Add URLs for promotional fliers.")
+                    Text("Attach image files to use as fliers.")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 }
                 ForEach(Array(imageURLs.enumerated()), id: \.offset) { index, url in
                     HStack {
-                        TextField("https://example.com/flier.jpg", text: Binding(
-                            get: { imageURLs[index] },
-                            set: { imageURLs[index] = $0 }
-                        ))
-                        .textInputAutocapitalization(.never)
-                        .keyboardType(.URL)
+                        Label(url.lastPathComponent, systemImage: "photo")
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
                         Button(role: .destructive) {
                             imageURLs.remove(at: index)
                         } label: {
@@ -458,7 +364,7 @@ struct EventFormView: View {
                         .buttonStyle(.borderless)
                     }
                 }
-                Button(action: { imageURLs.append("") }) {
+                PhotosPicker(selection: $flierSelection, matching: .images) {
                     Label("Add flier", systemImage: "plus")
                 }
             }
@@ -493,13 +399,9 @@ struct EventFormView: View {
                 }
             }
 
-            Section(header: Text("Status")) {
-                Picker("Event Status", selection: $status) {
-                    Text("Scheduled").tag(EventStatus.scheduled)
-                    Text("Ongoing").tag(EventStatus.ongoing)
-                    Text("Completed").tag(EventStatus.completed)
-                    Text("Cancelled").tag(EventStatus.cancelled)
-                }
+            Section(header: Text("Attendance")) {
+                Toggle("Attendee list visible", isOn: $attendeesVisible)
+                Toggle("Recurring event", isOn: $isRecurring)
                 TextField("Capacity", text: $capacity)
                     .keyboardType(.numberPad)
             }
@@ -527,6 +429,12 @@ struct EventFormView: View {
                 .disabled(saveDisabled)
             }
         }
+        .onChange(of: flierSelection) { _, newItems in
+            Task { await importFliers(from: newItems) }
+        }
+        .task { await loadResources() }
+        .task { userTimeZoneIdentifier = appSettings.timeZoneIdentifier }
+        .environment(\.timeZone, currentEditingTimeZone)
         .task {
             await loadResources()
             // After loading, for existing events, verify that the picker's wall time matches the original event's server wall time.
@@ -638,15 +546,6 @@ struct EventFormView: View {
         return abs(a.timeIntervalSince1970 - b.timeIntervalSince1970) > toleranceSeconds
     }
 
-    private func apiString(for status: EventStatus) -> String {
-        switch status {
-        case .scheduled: return "scheduled"
-        case .ongoing: return "ongoing"
-        case .completed: return "completed"
-        case .cancelled: return "cancelled"
-        }
-    }
-    
     private struct EventPatchDTO: Encodable {
         var name: String?
         var description: String?
@@ -654,7 +553,6 @@ struct EventFormView: View {
         var ends_at: String?
         var duration: Int??
         var room_id: String??
-        var status: String?
         var capacity: Int??
         var venue_id: String?
         var venue_name: String?
@@ -668,10 +566,12 @@ struct EventFormView: View {
         var curators: [CuratorPatch]?
         var category: String??
         var group_slug: String??
-        var url: String??
+        var online_url: String??
         var images: [URL]?
         var ticket_types: [TicketType]?
         var timezone: String??
+        var attendees_visible: Bool??
+        var is_recurring: Bool??
 
         struct MemberPatch: Encodable {
             var id: String?
@@ -708,6 +608,7 @@ struct EventFormView: View {
             }
 
             let cleanedImages: [URL] = imageURLs
+                
                 .map { $0.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) }
                 .compactMap { URL(string: $0) }
 
@@ -735,7 +636,6 @@ struct EventFormView: View {
                         durationMinutes: parsedDurationMinutes,
                         venueId: isInPerson ? venueId : "",
                         roomId: roomId.isEmpty ? nil : roomId,
-                        status: status,
                         images: cleanedImages,
                         capacity: Int(capacity),
                         ticketTypes: ticketTypes,
@@ -743,7 +643,9 @@ struct EventFormView: View {
                         talentIds: validTalentIds,
                         category: selectedCategory.isEmpty ? nil : selectedCategory,
                         groupSlug: selectedGroupSlug.isEmpty ? nil : selectedGroupSlug,
-                        onlineURL: onlineLink
+                        onlineURL: onlineLink,
+                        isRecurring: isRecurring,
+                        attendeesVisible: attendeesVisible
                     )
 
                     let savedEvent = try await repository.createEvent(
@@ -804,7 +706,6 @@ struct EventFormView: View {
                     if trimmedRoom != originalRoomTrimmed {
                         dto.room_id = trimmedRoom.isEmpty ? .some(nil) : .some(trimmedRoom)
                     }
-                    if status != originalEvent!.status { dto.status = apiString(for: status) }
                     let originalCapacityStr = originalEvent!.capacity.map { String($0) } ?? ""
                     if capacity != originalCapacityStr {
                         if let capInt = Int(capacity) { dto.capacity = .some(capInt) } else { dto.capacity = .some(nil) }
@@ -819,9 +720,9 @@ struct EventFormView: View {
                     let originalOnline = originalEvent!.onlineURL?.absoluteString ?? ""
                     if currentOnlineString != originalOnline {
                         if let link = parsedOnlineURL() {
-                            dto.url = .some(link.absoluteString)
+                            dto.online_url = .some(link.absoluteString)
                         } else if trimmedOnlineURL.isEmpty {
-                            dto.url = .some(nil)
+                            dto.online_url = .some(nil)
                         }
                     }
                     let cleanedImages: [URL] = imageURLs
@@ -831,24 +732,8 @@ struct EventFormView: View {
                         dto.images = cleanedImages
                     }
                     let ticketTypes: [TicketType] = ticketDrafts.compactMap { $0.toTicketType() }
-                    if ticketTypes != originalEvent!.ticketTypes {
-                        dto.ticket_types = ticketTypes
-                    }
-                    if venueMode == .existing {
-                        if venueId != originalEvent!.venueId && !venueId.isEmpty { dto.venue_id = venueId }
-                    } else {
-                        if let _ = venueSearchResults.first(where: { $0.id == venueId }) {
-                            dto.venue_id = venueId
-                        } else {
-                            if !newVenueName.isEmpty { dto.venue_name = newVenueName }
-                            if !newVenueAddress1.isEmpty { dto.venue_address1 = newVenueAddress1 }
-                            if !newVenueAddress2.isEmpty { dto.venue_address2 = newVenueAddress2 }
-                            if !newVenueCity.isEmpty { dto.venue_city = newVenueCity }
-                            if !newVenueState.isEmpty { dto.venue_state = newVenueState }
-                            if !newVenuePostal.isEmpty { dto.venue_postal = newVenuePostal }
-                            if !newVenueCountry.isEmpty { dto.venue_country = newVenueCountry }
-                        }
-                    }
+                    dto.ticket_types = ticketTypes
+                    if venueId != originalEvent!.venueId && !venueId.isEmpty { dto.venue_id = venueId }
                     if participantsModified {
                         var members: [EventPatchDTO.MemberPatch] = []
                         let validTalentIds: [String] = availableTalent
@@ -856,9 +741,6 @@ struct EventFormView: View {
                             .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
                             .filter { talentSelections.contains($0) }
                         members.append(contentsOf: validTalentIds.map { .init(id: $0, name: nil, email: nil, youtube_url: nil) })
-                        for p in addedParticipants {
-                            members.append(.init(id: nil, name: p.name, email: nil, youtube_url: nil))
-                        }
                         if !members.isEmpty { dto.members = members }
                     }
                     if curatorsModified {
@@ -867,6 +749,12 @@ struct EventFormView: View {
                             .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
                             .filter { curatorSelections.contains($0) }
                         dto.curators = selectedCuratorIds.map { EventPatchDTO.CuratorPatch(id: $0) }
+                    }
+                    if attendeesVisible != (originalEvent!.attendeesVisible ?? true) {
+                        dto.attendees_visible = .some(attendeesVisible)
+                    }
+                    if isRecurring != (originalEvent!.isRecurring ?? false) {
+                        dto.is_recurring = .some(isRecurring)
                     }
 
                     let savedEvent = try await repository.patchEvent(id: originalEvent!.id, body: dto, instance: instance)
@@ -902,6 +790,10 @@ struct EventFormView: View {
                 availableCategories = resources.categories
                 availableGroups = resources.groups
 
+                if talentSelections.isEmpty, let existingTalent = originalEvent?.talentIds {
+                    talentSelections = Set(existingTalent)
+                }
+
                 if let existingCurator = originalEvent?.curatorId, resources.curators.contains(where: { $0.id == existingCurator }) {
                     curatorSelections = [existingCurator]
                 }
@@ -933,33 +825,30 @@ struct EventFormView: View {
         }
     }
 
-    private func openInMaps() {
-        let address = [newVenueAddress1, newVenueAddress2, newVenueCity, newVenueState, newVenuePostal, newVenueCountry]
-            .filter { !$0.isEmpty }
-            .joined(separator: ", ")
-        guard !address.isEmpty, let encoded = address.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed), let url = URL(string: "http://maps.apple.com/?q=\(encoded)") else { return }
-        UIApplication.shared.open(url)
-    }
-
-    private func applyNewVenueSelection() {
-        // Prefer selected search result if present, else synthesize a local venue id/name pair
-        if let selected = venueSearchResults.first(where: { $0.id == venueId }) {
-            venueName = selected.name
-            venueMode = .existing
-            return
-        }
-        if !newVenueName.isEmpty {
-            venueName = newVenueName
-            // Keep venueId empty when creating under a venue subdomain; repository omits venue_id accordingly
-            venueMode = .existing
-        }
-    }
-
     private func parsedOnlineURL() -> URL? {
         guard isOnline else { return nil }
         let trimmed = trimmedOnlineURL
         guard !trimmed.isEmpty else { return nil }
         return URL(string: trimmed)
+    }
+
+    private func importFliers(from items: [PhotosPickerItem]) async {
+        guard !items.isEmpty else { return }
+        for item in items {
+            guard let data = try? await item.loadTransferable(type: Data.self), !data.isEmpty else { continue }
+            let destination = FileManager.default.temporaryDirectory.appendingPathComponent("flier-\(UUID().uuidString).jpg")
+            do {
+                try data.write(to: destination)
+                await MainActor.run {
+                    if !imageURLs.contains(destination) {
+                        imageURLs.append(destination)
+                    }
+                }
+            } catch {
+                continue
+            }
+        }
+        await MainActor.run { flierSelection = [] }
     }
 
     private func binding(for draft: TicketDraft) -> TicketDraft.BindingProxy {
@@ -991,15 +880,6 @@ struct EventFormView: View {
         ticketDrafts.removeAll { $0.id == draft.id }
     }
 
-    private func addNewParticipant() {
-        let temp = EventRole(id: UUID().uuidString, name: newParticipantName, type: "talent")
-        addedParticipants.append(temp)
-        participantsModified = true
-        newParticipantName = ""
-        newParticipantEmail = ""
-        newParticipantYouTube = ""
-    }
-
     private func copyEventLink() {
         let pasteboard = UIPasteboard.general
         if let id = originalEvent?.id {
@@ -1023,26 +903,6 @@ struct EventFormView: View {
         return components.url ?? instance.baseURL.deletingLastPathComponent()
     }
 
-    private func searchVenuesByEmail() async {
-        guard !newVenueEmail.isEmpty else { return }
-        isSearchingVenues = true
-        do {
-            // Reuse existing repository listVenues with name filter if available via resources; otherwise, call roles endpoint via HTTPClient
-            let query = ["type": "venue", "name": newVenueEmail, "per_page": "10"]
-            let path = "roles"
-            struct RolesResponse: Decodable { let data: [RoleDTO] }
-            struct RoleDTO: Decodable { let id: String; let name: String }
-            let response: RolesResponse = try await httpClient.request(path, method: .get, query: query, body: (nil as (any Encodable)?), instance: self.instance)
-            await MainActor.run {
-                self.venueSearchResults = response.data.map { Venue(id: $0.id, name: $0.name) }
-            }
-        } catch {
-            await MainActor.run {
-                self.venueSearchResults = []
-            }
-        }
-        await MainActor.run { self.isSearchingVenues = false }
-    }
 }
 
 private struct TicketDraft: Identifiable, Equatable {
