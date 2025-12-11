@@ -22,6 +22,11 @@ struct Event: Codable, Identifiable, Equatable {
     var groupSlug: String?
     var onlineURL: URL?
 
+    // Raw fields captured from server payload for precise wall-time comparison
+    var rawStartsAtString: String?
+    var rawEndsAtString: String?
+    var rawTimezoneIdentifier: String?
+
     enum CodingKeys: String, CodingKey {
         case id
         case name
@@ -57,6 +62,8 @@ struct Event: Codable, Identifiable, Equatable {
         case url
         case onlineUrl = "online_url"
         case eventUrl = "event_url"
+        case rawStartsAtString = "starts_at"
+        case rawEndsAtString = "ends_at"
     }
 
     struct VenueReference: Decodable {
@@ -113,8 +120,15 @@ struct Event: Codable, Identifiable, Equatable {
         description = try container.decodeIfPresent(String.self, forKey: .description)
         venueName = nil
 
+        // Capture raw server fields for wall-time comparison
+        let rawStarts = try container.decodeIfPresent(String.self, forKey: .rawStartsAtString)
+        let rawEnds = try container.decodeIfPresent(String.self, forKey: .rawEndsAtString)
+        self.rawStartsAtString = rawStarts
+        self.rawEndsAtString = rawEnds
+
         let decodedTimezone = try container.decodeIfPresent(String.self, forKey: .timezone)
         self.timezone = decodedTimezone
+        self.rawTimezoneIdentifier = decodedTimezone
         let tzForParsing = decodedTimezone.flatMap { TimeZone(identifier: $0) }
 
         if let decodedStart = try Self.decodeDate(
@@ -261,6 +275,10 @@ struct Event: Codable, Identifiable, Equatable {
         self.category = category
         self.groupSlug = groupSlug
         self.onlineURL = onlineURL
+
+        self.rawStartsAtString = nil
+        self.rawEndsAtString = nil
+        self.rawTimezoneIdentifier = timezone
     }
 
     func encode(to encoder: Encoder) throws {
