@@ -19,14 +19,6 @@ struct EventFormView: View {
     @State private var venueId: String
     @State private var venueName: String?
     @State private var venueTimeZoneIdentifier: String? = nil
-    @State private var userTimeZoneIdentifier: String? = nil
-    @State private var eventTimeZoneIdentifier: String? = nil
-    private var currentEditingTimeZone: TimeZone {
-        if let id = eventTimeZoneIdentifier, let tz = TimeZone(identifier: id) { return tz }
-        if let id = venueTimeZoneIdentifier, let tz = TimeZone(identifier: id) { return tz }
-        if let id = userTimeZoneIdentifier, let tz = TimeZone(identifier: id) { return tz }
-        return .current
-    }
     @State private var availableVenues: [Venue] = []
     @State private var availableCurators: [EventRole] = []
     @State private var availableTalent: [EventRole] = []
@@ -65,6 +57,7 @@ struct EventFormView: View {
     private let originalEvent: Event?
     private let initialDurationHours: String
     private var initialStartComponents: DateComponents?
+    private let editingTimeZone: TimeZone
 
     init(event: Event? = nil, repository: EventRepository, instance: InstanceProfile, onSave: ((Event) -> Void)? = nil) {
         self.repository = repository
@@ -89,21 +82,37 @@ struct EventFormView: View {
             if let evt = event, let tzId = evt.timezone, let tz = TimeZone(identifier: tzId) {
                 return tz
             }
+            // Fallback to a stable instance default to avoid shifts when device is in UTC
+            if let tz = TimeZone(identifier: "America/New_York") { // TODO: Replace with your instance default if different
+                return tz
+            }
             return .current
         }()
+        self.editingTimeZone = initialTZ
 
+        // Round to minute helper
+        func roundedToMinute(_ date: Date, in timeZone: TimeZone) -> Date {
+            var cal = Calendar(identifier: .gregorian)
+            cal.timeZone = timeZone
+            let comps = cal.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+            return cal.date(from: comps) ?? date
+        }
+
+        if let evt = event {
+            let local = convertUTCDate(evt.startAt, to: initialTZ)
+            _startAtLocal = State(initialValue: roundedToMinute(local, in: initialTZ))
+        } else {
+            _startAtLocal = State(initialValue: roundedToMinute(Date(), in: initialTZ))
+        }
+        if let evt = event {
+            let localEnd = convertUTCDate(evt.endAt, to: initialTZ)
+            _endAtLocal = State(initialValue: roundedToMinute(localEnd, in: initialTZ))
+        } else {
+            let defaultEnd = Date().addingTimeInterval(3600)
+            _endAtLocal = State(initialValue: roundedToMinute(defaultEnd, in: initialTZ))
+        }
         _name = State(initialValue: event?.name ?? "")
         _description = State(initialValue: event?.description ?? "")
-        if let evt = event {
-            _startAtLocal = State(initialValue: convertUTCDate(evt.startAt, to: initialTZ))
-        } else {
-            _startAtLocal = State(initialValue: Date())
-        }
-        if let evt = event {
-            _endAtLocal = State(initialValue: convertUTCDate(evt.endAt, to: initialTZ))
-        } else {
-            _endAtLocal = State(initialValue: Date().addingTimeInterval(3600))
-        }
         _venueId = State(initialValue: event?.venueId ?? "")
         _venueName = State(initialValue: nil)
         _talentSelections = State(initialValue: [])
@@ -120,13 +129,9 @@ struct EventFormView: View {
         _isRecurring = State(initialValue: event?.isRecurring ?? false)
         _attendeesVisible = State(initialValue: event?.attendeesVisible ?? true)
 
-        if let evt = event, let tz = evt.timezone, !tz.isEmpty {
-            _eventTimeZoneIdentifier = State(initialValue: tz)
-        }
-
         // Capture initial wall-time components for the original event in the initial editing timezone
         if let evt = event {
-            let comps = wallTimeComponents(from: convertUTCDate(evt.startAt, to: initialTZ), in: initialTZ)
+            let comps = wallTimeComponents(from: roundedToMinute(convertUTCDate(evt.startAt, to: initialTZ), in: initialTZ), in: initialTZ)
             self.initialStartComponents = comps
         }
     }
@@ -195,12 +200,14 @@ struct EventFormView: View {
                 if !selectedCategory.isEmpty {
                     Text("Category: \(selectedCategory)")
                 }
-                DatePicker("Start", selection: $startAtLocal)
+                DatePicker("Start", selection: $startAtLocal, displayedComponents: [.date, .hourAndMinute])
                     .onChange(of: startAtLocal) { _, newValue in
+                        let rounded = roundedToMinute(newValue, in: editingTimeZone)
+                        if rounded != startAtLocal { startAtLocal = rounded }
                         if originalEvent == nil {
                             startWasModified = true
                         } else if let comps = initialStartComponents {
-                            let nowComps = wallTimeComponents(from: newValue, in: currentEditingTimeZone)
+                            let nowComps = wallTimeComponents(from: rounded, in: editingTimeZone)
                             // Compare year, month, day, hour, minute
                             let changed = (comps.year != nowComps.year) ||
                                           (comps.month != nowComps.month) ||
@@ -210,6 +217,13 @@ struct EventFormView: View {
                             if changed { startWasModified = true }
                         }
                     }
+                // DEBUG: Effective timezone and picker wall time
+                Text("Editing TZ: \(editingTimeZone.identifier)")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
+                Text("Picker wall: \(apiWallTimeStringWithSeconds(startAtLocal, in: editingTimeZone))")
+                    .font(.footnote)
+                    .foregroundColor(.secondary)
                 TextField("Duration (hours)", text: $durationHours)
                     .keyboardType(.decimalPad)
                     .onChange(of: durationHours) { _, newValue in
@@ -421,11 +435,64 @@ struct EventFormView: View {
         .task { await loadResources() }
         .task { userTimeZoneIdentifier = appSettings.timeZoneIdentifier }
         .environment(\.timeZone, currentEditingTimeZone)
+        .task {
+            await loadResources()
+            // After loading, for existing events, verify that the picker's wall time matches the original event's server wall time.
+            if let evt = originalEvent {
+                // Prefer raw server fields when available to avoid interpretation drift
+                let serverTZ: TimeZone = {
+                    if let tzId = evt.rawTimezoneIdentifier ?? evt.timezone, let tz = TimeZone(identifier: tzId) { return tz }
+                    return editingTimeZone
+                }()
+
+                if let raw = evt.rawStartsAtString {
+                    // Parse raw server wall-time string in server TZ using strict format
+                    let f = DateFormatter()
+                    f.calendar = Calendar(identifier: .gregorian)
+                    f.timeZone = serverTZ
+                    f.locale = Locale(identifier: "en_US_POSIX")
+                    f.dateFormat = "yyyy-MM-dd HH:mm:ss"
+                    if let serverWallDate = f.date(from: raw) {
+                        let serverWallRounded = roundedToMinute(serverWallDate, in: serverTZ)
+                        let serverWallString = apiWallTimeStringWithSeconds(serverWallRounded, in: serverTZ)
+
+                        // Picker wall time as interpreted in server TZ
+                        let pickerInServerTZRounded = roundedToMinute(startAtLocal, in: serverTZ)
+                        let pickerWallStringInServerTZ = apiWallTimeStringWithSeconds(pickerInServerTZRounded, in: serverTZ)
+
+                        if pickerWallStringInServerTZ != serverWallString {
+                            startWasModified = true
+                            // Normalize the picker to reflect the server wall time but displayed in the editing timezone
+                            let serverWallComponents = wallTimeComponents(from: serverWallRounded, in: serverTZ)
+                            if let normalizedInEditingTZ = date(from: serverWallComponents, in: editingTimeZone) {
+                                startAtLocal = roundedToMinute(normalizedInEditingTZ, in: editingTimeZone)
+                            }
+                        }
+                    }
+                } else {
+                    // Fallback to previous comparison using evt.startAt in server TZ
+                    let serverWallRounded = roundedToMinute(evt.startAt, in: serverTZ)
+                    let serverWallString = apiWallTimeStringWithSeconds(serverWallRounded, in: serverTZ)
+
+                    let pickerInServerTZRounded = roundedToMinute(startAtLocal, in: serverTZ)
+                    let pickerWallStringInServerTZ = apiWallTimeStringWithSeconds(pickerInServerTZRounded, in: serverTZ)
+
+                    if pickerWallStringInServerTZ != serverWallString {
+                        startWasModified = true
+                        let serverWallComponents = wallTimeComponents(from: serverWallRounded, in: serverTZ)
+                        if let normalizedInEditingTZ = date(from: serverWallComponents, in: editingTimeZone) {
+                            startAtLocal = roundedToMinute(normalizedInEditingTZ, in: editingTimeZone)
+                        }
+                    }
+                }
+            }
+        }
+        .environment(\.timeZone, editingTimeZone)
         .accentColor(theme.accent)
     }
 
     private func apiDateString(_ date: Date) -> String {
-        let formatter = Event.payloadDateFormatter(timeZone: currentEditingTimeZone)
+        let formatter = Event.payloadDateFormatter(timeZone: editingTimeZone)
         return formatter.string(from: date)
     }
     
@@ -435,6 +502,24 @@ struct EventFormView: View {
         f.timeZone = timeZone
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd'T'HH:mm"
+        return f.string(from: date)
+    }
+
+    private func apiWallTimeStringWithSeconds(_ date: Date, in timeZone: TimeZone) -> String {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.timeZone = timeZone
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss" // Backend-required format (Y-m-d H:i:s)
+        return f.string(from: date)
+    }
+
+    private func apiUTCStringWithSeconds(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss"
         return f.string(from: date)
     }
 
@@ -448,6 +533,13 @@ struct EventFormView: View {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = timeZone
         return cal.date(from: components)
+    }
+    
+    private func roundedToMinute(_ date: Date, in timeZone: TimeZone) -> Date {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = timeZone
+        let comps = cal.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        return cal.date(from: comps) ?? date
     }
     
     private func isSignificantlyDifferent(_ a: Date, _ b: Date, toleranceSeconds: TimeInterval = 1) -> Bool {
@@ -506,21 +598,30 @@ struct EventFormView: View {
         }
 
         if originalEvent == nil {
+            // Use a rounded start to avoid seconds variance
+            let roundedStartCreate = roundedToMinute(startAtLocal, in: editingTimeZone)
             let computedEndAt: Date
             if let parsedDurationMinutes, parsedDurationMinutes > 0 {
-                computedEndAt = startAtLocal.addingTimeInterval(TimeInterval(parsedDurationMinutes * 60))
+                computedEndAt = roundedStartCreate.addingTimeInterval(TimeInterval(parsedDurationMinutes * 60))
             } else {
                 computedEndAt = endAtLocal
             }
 
             let cleanedImages: [URL] = imageURLs
                 
+                .map { $0.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) }
+                .compactMap { URL(string: $0) }
+
             let ticketTypes: [TicketType] = ticketDrafts.compactMap { $0.toTicketType() }
 
             let onlineLink = parsedOnlineURL()
 
             Task {
                 do {
+                    print("[DEBUG] Create: editingTZ=", editingTimeZone.identifier)
+                    print("[DEBUG] Create: startAtLocal=", apiWallTimeStringWithSeconds(roundedStartCreate, in: editingTimeZone))
+                    print("[DEBUG] Create: computedEndAt=", apiDateString(computedEndAt))
+
                     let validTalentIds: [String] = availableTalent
                         .map { $0.id }
                         .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -530,7 +631,7 @@ struct EventFormView: View {
                         id: UUID().uuidString,
                         name: name,
                         description: description.isEmpty ? nil : description,
-                        startAt: startAtLocal,
+                        startAt: roundedStartCreate,
                         endAt: computedEndAt,
                         durationMinutes: parsedDurationMinutes,
                         venueId: isInPerson ? venueId : "",
@@ -550,7 +651,7 @@ struct EventFormView: View {
                     let savedEvent = try await repository.createEvent(
                         payload,
                         instance: instance,
-                        timeZoneOverride: currentEditingTimeZone
+                        timeZoneOverride: editingTimeZone
                     )
 
                     await MainActor.run {
@@ -566,8 +667,9 @@ struct EventFormView: View {
             }
         } else {
             // Reconstruct the absolute start date from current wall-time components in the editing timezone
-            let currentStartComponents = wallTimeComponents(from: startAtLocal, in: currentEditingTimeZone)
-            let reconstructedStart = date(from: currentStartComponents, in: currentEditingTimeZone) ?? startAtLocal
+            let currentStartComponents = wallTimeComponents(from: startAtLocal, in: editingTimeZone)
+            let reconstructedStartRaw = date(from: currentStartComponents, in: editingTimeZone) ?? startAtLocal
+            let reconstructedStart = roundedToMinute(reconstructedStartRaw, in: editingTimeZone)
 
             let computedEndAt: Date
             if let parsedDurationMinutes, parsedDurationMinutes > 0 {
@@ -578,22 +680,20 @@ struct EventFormView: View {
 
             Task {
                 do {
+                    print("[DEBUG] Edit: editingTZ=", editingTimeZone.identifier)
+                    // Send local wall time strings in the supplied timezone per server contract
+                    print("[DEBUG] Edit: reconstructedStart(WALL)=", apiWallTimeStringWithSeconds(reconstructedStart, in: editingTimeZone))
+                    print("[DEBUG] Edit: reconstructedStart(UTC)=", apiUTCStringWithSeconds(reconstructedStart))
+
                     var dto = EventPatchDTO()
-
-                    if name != originalEvent!.name { dto.name = name }
-                    if description != (originalEvent!.description ?? "") {
-                        dto.description = description.isEmpty ? nil : description
-                    }
-                    let startChanged = startWasModified
-                    let endChanged = durationWasModified || startWasModified
-
-                    if startChanged { dto.starts_at = apiWallTimeString(reconstructedStart, in: currentEditingTimeZone) }
-                    if endChanged { dto.ends_at = apiDateString(computedEndAt) }
-
-                    // Per server contract: whenever starts_at is sent, include timezone. If time isn't changing, omit timezone.
-                    if startChanged {
-                        dto.timezone = .some(currentEditingTimeZone.identifier)
-                    }
+                    // Always send time fields on edit
+//                    dto.starts_at = apiUTCStringWithSeconds(reconstructedStart)
+//                    dto.ends_at = apiUTCStringWithSeconds(computedEndAt)
+//                    dto.timezone = .some(editingTimeZone.identifier)
+                    // Send local wall time strings in the supplied timezone per server contract
+                    dto.starts_at = apiWallTimeStringWithSeconds(reconstructedStart, in: editingTimeZone)
+                    dto.ends_at = apiWallTimeStringWithSeconds(computedEndAt, in: editingTimeZone)
+                    dto.timezone = .some(editingTimeZone.identifier)
 
                     let parsedDurationValue = parsedDurationMinutes
                     if let parsedDurationValue, parsedDurationValue != originalEvent!.durationMinutes {
@@ -626,6 +726,8 @@ struct EventFormView: View {
                         }
                     }
                     let cleanedImages: [URL] = imageURLs
+                        .map { $0.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines) }
+                        .compactMap { URL(string: $0) }
                     if cleanedImages != originalEvent!.images {
                         dto.images = cleanedImages
                     }
