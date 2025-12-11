@@ -86,6 +86,7 @@ struct EventFormView: View {
 
     private let originalEvent: Event?
     private let initialDurationHours: String
+    private var initialStartComponents: DateComponents?
 
     init(event: Event? = nil, repository: EventRepository, instance: InstanceProfile, onSave: ((Event) -> Void)? = nil) {
         self.repository = repository
@@ -142,6 +143,12 @@ struct EventFormView: View {
 
         if let evt = event, let tz = evt.timezone, !tz.isEmpty {
             _eventTimeZoneIdentifier = State(initialValue: tz)
+        }
+
+        // Capture initial wall-time components for the original event in the initial editing timezone
+        if let evt = event {
+            let comps = wallTimeComponents(from: convertUTCDate(evt.startAt, to: initialTZ), in: initialTZ)
+            self.initialStartComponents = comps
         }
     }
 
@@ -216,8 +223,17 @@ struct EventFormView: View {
                 }
                 DatePicker("Start", selection: $startAtLocal)
                     .onChange(of: startAtLocal) { _, newValue in
-                        if originalEvent == nil || isSignificantlyDifferent(newValue, originalEvent!.startAt) {
+                        if originalEvent == nil {
                             startWasModified = true
+                        } else if let comps = initialStartComponents {
+                            let nowComps = wallTimeComponents(from: newValue, in: currentEditingTimeZone)
+                            // Compare year, month, day, hour, minute
+                            let changed = (comps.year != nowComps.year) ||
+                                          (comps.month != nowComps.month) ||
+                                          (comps.day != nowComps.day) ||
+                                          (comps.hour != nowComps.hour) ||
+                                          (comps.minute != nowComps.minute)
+                            if changed { startWasModified = true }
                         }
                     }
                 TextField("Duration (hours)", text: $durationHours)
@@ -508,6 +524,27 @@ struct EventFormView: View {
         return formatter.string(from: date)
     }
     
+    private func apiWallTimeString(_ date: Date, in timeZone: TimeZone) -> String {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.timeZone = timeZone
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm"
+        return f.string(from: date)
+    }
+
+    private func wallTimeComponents(from date: Date, in timeZone: TimeZone) -> DateComponents {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = timeZone
+        return cal.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+    }
+
+    private func date(from components: DateComponents, in timeZone: TimeZone) -> Date? {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = timeZone
+        return cal.date(from: components)
+    }
+    
     private func isSignificantlyDifferent(_ a: Date, _ b: Date, toleranceSeconds: TimeInterval = 1) -> Bool {
         return abs(a.timeIntervalSince1970 - b.timeIntervalSince1970) > toleranceSeconds
     }
@@ -571,24 +608,24 @@ struct EventFormView: View {
             parsedDurationMinutes = nil
         }
 
-        let computedEndAt: Date
-        if let parsedDurationMinutes, parsedDurationMinutes > 0 {
-            computedEndAt = startAtLocal.addingTimeInterval(TimeInterval(parsedDurationMinutes * 60))
-        } else {
-            computedEndAt = endAtLocal
-        }
+        if originalEvent == nil {
+            let computedEndAt: Date
+            if let parsedDurationMinutes, parsedDurationMinutes > 0 {
+                computedEndAt = startAtLocal.addingTimeInterval(TimeInterval(parsedDurationMinutes * 60))
+            } else {
+                computedEndAt = endAtLocal
+            }
 
-        let cleanedImages: [URL] = imageURLs
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .compactMap { URL(string: $0) }
+            let cleanedImages: [URL] = imageURLs
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                .compactMap { URL(string: $0) }
 
-        let ticketTypes: [TicketType] = ticketDrafts.compactMap { $0.toTicketType() }
+            let ticketTypes: [TicketType] = ticketDrafts.compactMap { $0.toTicketType() }
 
-        let onlineLink = parsedOnlineURL()
+            let onlineLink = parsedOnlineURL()
 
-        Task {
-            do {
-                if originalEvent == nil {
+            Task {
+                do {
                     let validTalentIds: [String] = availableTalent
                         .map { $0.id }
                         .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -624,17 +661,37 @@ struct EventFormView: View {
                         onSave?(savedEvent)
                         dismiss()
                     }
-                } else {
+                } catch {
+                    await MainActor.run {
+                        errorMessage = error.localizedDescription
+                        isSaving = false
+                    }
+                }
+            }
+        } else {
+            // Reconstruct the absolute start date from current wall-time components in the editing timezone
+            let currentStartComponents = wallTimeComponents(from: startAtLocal, in: currentEditingTimeZone)
+            let reconstructedStart = date(from: currentStartComponents, in: currentEditingTimeZone) ?? startAtLocal
+
+            let computedEndAt: Date
+            if let parsedDurationMinutes, parsedDurationMinutes > 0 {
+                computedEndAt = reconstructedStart.addingTimeInterval(TimeInterval(parsedDurationMinutes * 60))
+            } else {
+                computedEndAt = endAtLocal
+            }
+
+            Task {
+                do {
                     var dto = EventPatchDTO()
 
                     if name != originalEvent!.name { dto.name = name }
                     if description != (originalEvent!.description ?? "") {
                         dto.description = description.isEmpty ? nil : description
                     }
-                    let startChanged = startWasModified || isSignificantlyDifferent(startAtLocal, originalEvent!.startAt)
-                    let endChanged = durationWasModified || isSignificantlyDifferent(computedEndAt, originalEvent!.endAt)
+                    let startChanged = startWasModified
+                    let endChanged = durationWasModified || startWasModified
 
-                    if startChanged { dto.starts_at = apiDateString(startAtLocal) }
+                    if startChanged { dto.starts_at = apiWallTimeString(reconstructedStart, in: currentEditingTimeZone) }
                     if endChanged { dto.ends_at = apiDateString(computedEndAt) }
 
                     // Per server contract: whenever starts_at is sent, include timezone. If time isn't changing, omit timezone.
@@ -664,18 +721,22 @@ struct EventFormView: View {
                     if selectedGroupSlug != (originalEvent!.groupSlug ?? "") {
                         dto.group_slug = selectedGroupSlug.isEmpty ? .some(nil) : .some(selectedGroupSlug)
                     }
-                    let currentOnlineString = onlineLink?.absoluteString ?? ""
+                    let currentOnlineString = parsedOnlineURL()?.absoluteString ?? ""
                     let originalOnline = originalEvent!.onlineURL?.absoluteString ?? ""
                     if currentOnlineString != originalOnline {
-                        if let link = onlineLink {
+                        if let link = parsedOnlineURL() {
                             dto.url = .some(link.absoluteString)
                         } else if trimmedOnlineURL.isEmpty {
                             dto.url = .some(nil)
                         }
                     }
+                    let cleanedImages: [URL] = imageURLs
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                        .compactMap { URL(string: $0) }
                     if cleanedImages != originalEvent!.images {
                         dto.images = cleanedImages
                     }
+                    let ticketTypes: [TicketType] = ticketDrafts.compactMap { $0.toTicketType() }
                     if ticketTypes != originalEvent!.ticketTypes {
                         dto.ticket_types = ticketTypes
                     }
@@ -720,11 +781,11 @@ struct EventFormView: View {
                         onSave?(savedEvent)
                         dismiss()
                     }
-                }
-            } catch {
-                await MainActor.run {
-                    errorMessage = error.localizedDescription
-                    isSaving = false
+                } catch {
+                    await MainActor.run {
+                        errorMessage = error.localizedDescription
+                        isSaving = false
+                    }
                 }
             }
         }
