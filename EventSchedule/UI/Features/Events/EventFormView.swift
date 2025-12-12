@@ -43,6 +43,20 @@ struct EventFormView: View {
     @State private var onlineURL: String = ""
     @State private var isRecurring: Bool = false
     @State private var attendeesVisible: Bool = true
+    @State private var guestListVisibility: String = "attendees_only"
+    @State private var ticketsEnabled: Bool = false
+    @State private var ticketCurrencyCode: String = ""
+    @State private var totalTicketsMode: String = "individual"
+    @State private var ticketNotes: String = ""
+    @State private var paymentMethod: String = "online"
+    @State private var paymentInstructions: String = ""
+    @State private var expireUnpaidTickets: Bool = false
+    @State private var remindUnpaidTicketsEvery: String = ""
+    @State private var registrationURL: String = ""
+    @State private var eventPassword: String = ""
+    @State private var flyerImageId: String = ""
+    @State private var scheduleSlug: String = ""
+
     @State private var availableCategories: [String] = []
     @State private var availableGroups: [EventGroup] = []
     @State private var imageURLs: [URL] = []
@@ -169,12 +183,13 @@ struct EventFormView: View {
     }
 
     private var saveDisabled: Bool {
-        isSaving
-            || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || (!isInPerson && !isOnline)
-            || requiresVenueSelection
-            || onlineURLMissing
-            || onlineURLInvalid
+        let trimmedNameEmpty = name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let typeInvalid = (!isInPerson && !isOnline)
+        let venueMissing = requiresVenueSelection
+        let linkMissing = onlineURLMissing
+        let linkInvalid = onlineURLInvalid
+        let currentlySaving = isSaving
+        return currentlySaving || trimmedNameEmpty || typeInvalid || venueMissing || linkMissing || linkInvalid
     }
 
     var body: some View {
@@ -400,12 +415,57 @@ struct EventFormView: View {
                     Label("Add ticket", systemImage: "plus")
                 }
             }
+            
+            Section(header: Text("Ticketing Options")) {
+                Toggle("Enable tickets", isOn: $ticketsEnabled)
+                Picker("Quantity mode", selection: $totalTicketsMode) {
+                    Text("Individual").tag("individual")
+                    Text("Combined").tag("combined")
+                }
+                TextField("Ticket currency code (e.g., USD)", text: $ticketCurrencyCode)
+                    .textInputAutocapitalization(.never)
+                TextField("Ticket notes", text: $ticketNotes, axis: .vertical)
+                    .lineLimit(2...4)
+                Picker("Payment method", selection: $paymentMethod) {
+                    Text("Online").tag("online")
+                    Text("Cash (offline)").tag("cash")
+                }
+                if paymentMethod == "cash" {
+                    TextField("Payment instructions", text: $paymentInstructions, axis: .vertical)
+                        .lineLimit(2...4)
+                }
+                Toggle("Expire unpaid tickets", isOn: $expireUnpaidTickets)
+                TextField("Remind unpaid every (hours)", text: $remindUnpaidTicketsEvery)
+                    .keyboardType(.numberPad)
+                TextField("Registration URL", text: $registrationURL)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.URL)
+            }
+            
+            Section(header: Text("Security & Media")) {
+                SecureField("Event password", text: $eventPassword)
+                TextField("Flyer image ID", text: $flyerImageId)
+                    .keyboardType(.numberPad)
+            }
 
             Section(header: Text("Attendance")) {
-                Toggle("Attendee list visible", isOn: $attendeesVisible)
-                Toggle("Recurring event", isOn: $isRecurring)
                 TextField("Capacity", text: $capacity)
                     .keyboardType(.numberPad)
+                Toggle("Recurring event", isOn: $isRecurring)
+            }
+            
+            Section(header: Text("Guest List")) {
+                Toggle("Show guest list", isOn: $attendeesVisible)
+                Picker("Visibility", selection: $guestListVisibility) {
+                    Text("Attendees only").tag("attendees_only")
+                    Text("Paid").tag("paid")
+                    Text("Public").tag("public")
+                }
+            }
+            
+            Section(header: Text("Schedule")) {
+                TextField("Sub-schedule slug (optional)", text: $scheduleSlug)
+                    .textInputAutocapitalization(.never)
             }
 
             if let errorMessage {
@@ -434,9 +494,6 @@ struct EventFormView: View {
         .onChange(of: flierSelection) { _, newItems in
             Task { await importFliers(from: newItems) }
         }
-        .task { await loadResources() }
-        .task { userTimeZoneIdentifier = appSettings.timeZoneIdentifier }
-        .environment(\.timeZone, currentEditingTimeZone)
         .task {
             await loadResources()
             // After loading, for existing events, verify that the picker's wall time matches the original event's server wall time.
@@ -579,10 +636,38 @@ struct EventFormView: View {
 
             Task {
                 do {
-                    let validTalentIds: [String] = availableTalent
-                        .map { $0.id }
-                        .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-                        .filter { talentSelections.contains($0) }
+                    let validTalentIds: [String] = Array(Set(
+                        availableTalent
+                            .map { $0.id.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .filter { !$0.isEmpty }
+                            .filter { talentSelections.contains($0) }
+                    ))
+
+                    let selectedCuratorId: String? = {
+                        let ids = availableCurators
+                            .map { $0.id.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .filter { !$0.isEmpty }
+                            .filter { curatorSelections.contains($0) }
+                        return ids.first
+                    }()
+
+                    let options = RemoteEventRepository.ExtendedEventOptions(
+                        categoryName: selectedCategory.isEmpty ? nil : selectedCategory,
+                        ticketsEnabled: ticketsEnabled ? true : nil,
+                        ticketCurrencyCode: ticketCurrencyCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : ticketCurrencyCode.trimmingCharacters(in: .whitespacesAndNewlines),
+                        totalTicketsMode: totalTicketsMode,
+                        ticketNotes: ticketNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : ticketNotes,
+                        paymentMethod: paymentMethod,
+                        paymentInstructions: paymentMethod == "cash" ? (paymentInstructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : paymentInstructions) : nil,
+                        expireUnpaidTickets: expireUnpaidTickets ? true : nil,
+                        remindUnpaidTicketsEvery: Int(remindUnpaidTicketsEvery.trimmingCharacters(in: .whitespacesAndNewlines)),
+                        registrationUrl: URL(string: registrationURL.trimmingCharacters(in: .whitespacesAndNewlines)),
+                        eventPassword: eventPassword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : eventPassword,
+                        flyerImageId: Int(flyerImageId.trimmingCharacters(in: .whitespacesAndNewlines)),
+                        guestListVisibility: guestListVisibility,
+                        members: buildMemberDTOs(),
+                        schedule: scheduleSlug.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : scheduleSlug
+                    )
 
                     let payload = Event(
                         id: UUID().uuidString,
@@ -596,7 +681,7 @@ struct EventFormView: View {
                         images: cleanedImages,
                         capacity: Int(capacity),
                         ticketTypes: ticketTypes,
-                        curatorId: curatorSelections.first,
+                        curatorId: selectedCuratorId,
                         talentIds: validTalentIds,
                         category: selectedCategory.isEmpty ? nil : selectedCategory,
                         groupSlug: selectedGroupSlug.isEmpty ? nil : selectedGroupSlug,
@@ -608,7 +693,8 @@ struct EventFormView: View {
                     let savedEvent = try await repository.createEvent(
                         payload,
                         instance: instance,
-                        timeZoneOverride: editingTimeZone
+                        timeZoneOverride: editingTimeZone,
+                        options: options
                     )
 
                     await MainActor.run {
@@ -637,13 +723,37 @@ struct EventFormView: View {
 
             Task {
                 do {
-                    let validTalentIds: [String] = availableTalent
-                        .map { $0.id }
-                        .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-                        .filter { talentSelections.contains($0) }
-                    let selectedCuratorId = availableCurators
-                        .map { $0.id }
-                        .first(where: { curatorSelections.contains($0) })
+                    let validTalentIds: [String] = Array(Set(
+                        availableTalent
+                            .map { $0.id.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .filter { !$0.isEmpty }
+                            .filter { talentSelections.contains($0) }
+                    ))
+                    let selectedCuratorId: String? = {
+                        let ids = availableCurators
+                            .map { $0.id.trimmingCharacters(in: .whitespacesAndNewlines) }
+                            .filter { !$0.isEmpty }
+                            .filter { curatorSelections.contains($0) }
+                        return ids.first
+                    }()
+
+                    let options = RemoteEventRepository.ExtendedEventOptions(
+                        categoryName: selectedCategory.isEmpty ? nil : selectedCategory,
+                        ticketsEnabled: ticketsEnabled ? true : nil,
+                        ticketCurrencyCode: ticketCurrencyCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : ticketCurrencyCode.trimmingCharacters(in: .whitespacesAndNewlines),
+                        totalTicketsMode: totalTicketsMode,
+                        ticketNotes: ticketNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : ticketNotes,
+                        paymentMethod: paymentMethod,
+                        paymentInstructions: paymentMethod == "cash" ? (paymentInstructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : paymentInstructions) : nil,
+                        expireUnpaidTickets: expireUnpaidTickets ? true : nil,
+                        remindUnpaidTicketsEvery: Int(remindUnpaidTicketsEvery.trimmingCharacters(in: .whitespacesAndNewlines)),
+                        registrationUrl: URL(string: registrationURL.trimmingCharacters(in: .whitespacesAndNewlines)),
+                        eventPassword: eventPassword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : eventPassword,
+                        flyerImageId: Int(flyerImageId.trimmingCharacters(in: .whitespacesAndNewlines)),
+                        guestListVisibility: guestListVisibility,
+                        members: buildMemberDTOs(),
+                        schedule: scheduleSlug.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : scheduleSlug
+                    )
 
                     let updatedEvent = Event(
                         id: originalEvent!.id,
@@ -672,7 +782,8 @@ struct EventFormView: View {
                     let savedEvent = try await repository.updateEvent(
                         updatedEvent,
                         instance: instance,
-                        timeZoneOverride: editingTimeZone
+                        timeZoneOverride: editingTimeZone,
+                        options: options
                     )
 
                     await MainActor.run {
@@ -822,6 +933,17 @@ struct EventFormView: View {
         }
 
         return components.url ?? instance.baseURL.deletingLastPathComponent()
+    }
+    
+    private func buildMemberDTOs() -> [RemoteEventRepository.MemberDTO] {
+        let selected = availableTalent.filter { talentSelections.contains($0.id) }
+        return selected.map { role in
+            RemoteEventRepository.MemberDTO(
+                name: role.name,
+                email: nil,
+                youtube_url: nil
+            )
+        }
     }
 
 }

@@ -52,11 +52,14 @@ struct Event: Codable, Identifiable, Equatable {
         case tickets
         case venue
         case curatorId
+        case curatorIdAlt = "curator_id"
         case curatorRoleId
         case curator
         case curators
         case members
         case talentIds
+        case talentIdsAlt = "talent_ids"
+        case memberRoleIds = "member_role_ids"
         case category
         case groupSlug = "group_slug"
         case url
@@ -225,6 +228,8 @@ struct Event: Codable, Identifiable, Equatable {
             curatorId = curatorRole.id
         } else if let curatorRoles = try? container.decodeIfPresent([VenueReference].self, forKey: .curators) {
             curatorId = curatorRoles.first?.id
+        } else if let altCurator = try? container.decodeIfPresent(String.self, forKey: .curatorIdAlt) {
+            curatorId = altCurator
         } else {
             curatorId = nil
         }
@@ -236,6 +241,10 @@ struct Event: Codable, Identifiable, Equatable {
             talentIds = Array(memberDictionary.keys)
         } else if let memberArray = try? container.decodeIfPresent([VenueReference].self, forKey: .members) {
             talentIds = memberArray.map { $0.id }
+        } else if let altTalentInts = try? container.decodeIfPresent([Int].self, forKey: .talentIdsAlt) {
+            talentIds = altTalentInts.map(String.init)
+        } else if let memberRoleInts = try? container.decodeIfPresent([Int].self, forKey: .memberRoleIds) {
+            talentIds = memberRoleInts.map(String.init)
         } else {
             talentIds = []
         }
@@ -312,6 +321,7 @@ struct Event: Codable, Identifiable, Equatable {
         try container.encode(ticketTypes, forKey: .ticketTypes)
         try container.encode(publishState, forKey: .publishState)
         try container.encodeIfPresent(curatorId, forKey: .curatorRoleId)
+        try container.encodeIfPresent(curatorId, forKey: .curatorIdAlt)
         try container.encodeIfPresent(category, forKey: .category)
         try container.encodeIfPresent(groupSlug, forKey: .groupSlug)
         try container.encodeIfPresent(onlineURL, forKey: .onlineUrl)
@@ -320,6 +330,11 @@ struct Event: Codable, Identifiable, Equatable {
         try container.encodeIfPresent(attendeesVisible, forKey: .attendeesVisible)
         if !talentIds.isEmpty {
             try container.encode(talentIds, forKey: .members)
+            let memberInts: [Int] = talentIds.compactMap { Int($0) }
+            if !memberInts.isEmpty {
+                try container.encode(memberInts, forKey: .talentIdsAlt)
+                try container.encode(memberInts, forKey: .memberRoleIds)
+            }
         }
     }
 

@@ -21,19 +21,19 @@ protocol EventRepository {
     func getEvent(id: String, instance: InstanceProfile) async throws -> Event
     func listVenues(for instance: InstanceProfile) async throws -> [Venue]
     func listEventResources(for instance: InstanceProfile) async throws -> EventResources
-    func createEvent(_ event: Event, instance: InstanceProfile, timeZoneOverride: TimeZone?) async throws -> Event
-    func updateEvent(_ event: Event, instance: InstanceProfile, timeZoneOverride: TimeZone?) async throws -> Event
+    func createEvent(_ event: Event, instance: InstanceProfile, timeZoneOverride: TimeZone?, options: RemoteEventRepository.ExtendedEventOptions?) async throws -> Event
+    func updateEvent(_ event: Event, instance: InstanceProfile, timeZoneOverride: TimeZone?, options: RemoteEventRepository.ExtendedEventOptions?) async throws -> Event
     func deleteEvent(id: String, instance: InstanceProfile) async throws
     func patchEvent<T: Encodable>(id: String, body: T, instance: InstanceProfile) async throws -> Event
 }
 
 extension EventRepository {
     func createEvent(_ event: Event, instance: InstanceProfile) async throws -> Event {
-        try await createEvent(event, instance: instance, timeZoneOverride: nil)
+        try await createEvent(event, instance: instance, timeZoneOverride: nil, options: nil)
     }
 
     func updateEvent(_ event: Event, instance: InstanceProfile) async throws -> Event {
-        try await updateEvent(event, instance: instance, timeZoneOverride: nil)
+        try await updateEvent(event, instance: instance, timeZoneOverride: nil, options: nil)
     }
 }
 
@@ -182,6 +182,86 @@ private struct EventDetailResponse: Decodable {
 }
 
 final class RemoteEventRepository: EventRepository {
+    // Normalize/whitelist payment method values expected by the backend.
+    // If the provided value isn't recognized, return nil so we omit the field.
+    private func normalizePaymentMethod(_ value: String?) -> String? {
+        guard let raw = value?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return nil }
+        let lower = raw.lowercased()
+        // Whitelist of allowed values (adjust as backend evolves)
+        let allowed: Set<String> = [
+            "cash", "stripe", "invoiceninja"
+        ]
+        if allowed.contains(lower) { return lower }
+        // Common synonyms mapping
+        switch lower {
+        case "credit", "debit", "card", "credit_card", "debit_card":
+            // No direct support for generic card; backend expects a processor. Omit.
+            return nil
+        case "online", "online_payment", "web", "paypal", "square", "bank", "transfer", "bank_transfer", "ach":
+            return nil
+        default:
+            return nil
+        }
+    }
+
+    struct ExtendedEventOptions {
+        var categoryName: String?
+        var ticketsEnabled: Bool?
+        var ticketCurrencyCode: String?
+        var totalTicketsMode: String?
+        var ticketNotes: String?
+        var paymentMethod: String?
+        var paymentInstructions: String?
+        var expireUnpaidTickets: Bool?
+        var remindUnpaidTicketsEvery: Int?
+        var registrationUrl: URL?
+        var eventPassword: String?
+        var flyerImageId: Int?
+        var guestListVisibility: String?
+        var members: [MemberDTO]
+        var schedule: String?
+        
+        init(
+            categoryName: String? = nil,
+            ticketsEnabled: Bool? = nil,
+            ticketCurrencyCode: String? = nil,
+            totalTicketsMode: String? = nil,
+            ticketNotes: String? = nil,
+            paymentMethod: String? = nil,
+            paymentInstructions: String? = nil,
+            expireUnpaidTickets: Bool? = nil,
+            remindUnpaidTicketsEvery: Int? = nil,
+            registrationUrl: URL? = nil,
+            eventPassword: String? = nil,
+            flyerImageId: Int? = nil,
+            guestListVisibility: String? = nil,
+            members: [MemberDTO] = [],
+            schedule: String? = nil
+        ) {
+            self.categoryName = categoryName
+            self.ticketsEnabled = ticketsEnabled
+            self.ticketCurrencyCode = ticketCurrencyCode
+            self.totalTicketsMode = totalTicketsMode
+            self.ticketNotes = ticketNotes
+            self.paymentMethod = paymentMethod
+            self.paymentInstructions = paymentInstructions
+            self.expireUnpaidTickets = expireUnpaidTickets
+            self.remindUnpaidTicketsEvery = remindUnpaidTicketsEvery
+            self.registrationUrl = registrationUrl
+            self.eventPassword = eventPassword
+            self.flyerImageId = flyerImageId
+            self.guestListVisibility = guestListVisibility
+            self.members = members
+            self.schedule = schedule
+        }
+    }
+
+    struct MemberDTO: Encodable {
+        let name: String
+        let email: String?
+        let youtube_url: URL?
+    }
+
     private let httpClient: HTTPClientProtocol
     private let payloadTimeZoneProvider: () -> TimeZone
     private var cache: [UUID: [Event]] = [:]
@@ -363,12 +443,26 @@ final class RemoteEventRepository: EventRepository {
     func createEvent(
         _ event: Event,
         instance: InstanceProfile,
-        timeZoneOverride: TimeZone? = nil
+        timeZoneOverride: TimeZone? = nil,
+        options: ExtendedEventOptions? = nil
     ) async throws -> Event {
         let (subdomain, scheduleType) = try await resolveSubdomain(for: instance)
         let includeVenueId = !(scheduleType?.lowercased().contains("venue") ?? false)
         DebugLogger.log("RemoteEventRepository: creating under subdomain=\(subdomain) type=\(scheduleType ?? "<nil>") includeVenueId=\(includeVenueId)")
         let payloadTimeZone = timeZoneOverride ?? payloadTimeZoneProvider()
+        
+        let resources: EventResources
+        if let cached = resourcesCache[instance.id] {
+            resources = cached
+        } else {
+            resources = try await listEventResources(for: instance)
+        }
+        let validCuratorIds = Set(resources.curators.map { $0.id })
+        let safeRoleId: String? = {
+            guard let rid = event.curatorId?.trimmingCharacters(in: .whitespacesAndNewlines), !rid.isEmpty else { return nil }
+            return validCuratorIds.contains(rid) ? rid : nil
+        }()
+        
         EventInstrumentation.log(
             action: "event_create_request",
             eventId: event.id,
@@ -380,6 +474,7 @@ final class RemoteEventRepository: EventRepository {
                 "hasOnlineUrl": String(event.onlineURL != nil)
             ]
         )
+        let memberObjects = options?.members ?? []
         let dto = CreateEventDTO(
             id: event.id,
             name: event.name,
@@ -394,13 +489,27 @@ final class RemoteEventRepository: EventRepository {
             capacity: event.capacity,
             ticketTypes: event.ticketTypes,
             publishState: event.publishState,
-            curatorId: event.curatorId,
-            members: event.talentIds.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty },
-            category: event.category,
-            groupSlug: event.groupSlug,
-            onlineUrl: event.onlineURL,
+            roleId: safeRoleId,
+            showGuestList: event.attendeesVisible,
+            categoryId: event.category,
+            eventUrl: event.onlineURL,
             attendeesVisible: event.attendeesVisible,
-            isRecurring: event.isRecurring
+            isRecurring: event.isRecurring,
+            categoryName: options?.categoryName,
+            ticketsEnabled: options?.ticketsEnabled,
+            ticketCurrencyCode: options?.ticketCurrencyCode,
+            totalTicketsMode: options?.totalTicketsMode,
+            ticketNotes: options?.ticketNotes,
+            paymentMethod: normalizePaymentMethod(options?.paymentMethod),
+            paymentInstructions: options?.paymentInstructions,
+            expireUnpaidTickets: options?.expireUnpaidTickets,
+            remindUnpaidTicketsEvery: options?.remindUnpaidTicketsEvery,
+            registrationUrl: options?.registrationUrl,
+            eventPassword: options?.eventPassword,
+            flyerImageId: options?.flyerImageId,
+            guestListVisibility: options?.guestListVisibility,
+            members: memberObjects,
+            schedule: options?.schedule
         )
         do {
             let response: EventDetailResponse = try await httpClient.request(
@@ -451,18 +560,14 @@ final class RemoteEventRepository: EventRepository {
     func updateEvent(
         _ event: Event,
         instance: InstanceProfile,
-        timeZoneOverride: TimeZone? = nil
+        timeZoneOverride: TimeZone? = nil,
+        options: ExtendedEventOptions? = nil
     ) async throws -> Event {
         do {
+            // A: Always refresh resources to avoid stale role/venue data
+            let resources: EventResources = try await listEventResources(for: instance)
             let (_, scheduleType) = try await resolveSubdomain(for: instance)
-            let resources: EventResources
-            if let cachedResources = resourcesCache[instance.id] {
-                resources = cachedResources
-            } else {
-                resources = try await listEventResources(for: instance)
-            }
             let validVenueIds = Set(resources.venues.map { $0.id })
-            let validTalentIds = Set(resources.talent.map { $0.id })
             let includeVenueId = !(scheduleType?.lowercased().contains("venue") ?? false)
             let safeVenueId: String?
             if !includeVenueId {
@@ -474,10 +579,36 @@ final class RemoteEventRepository: EventRepository {
             } else {
                 safeVenueId = nil
             }
-            let safeMembers: [String] = event.talentIds.filter { id in
-                let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
-                return !trimmed.isEmpty && validTalentIds.contains(trimmed)
-            }
+            // members and talent filtering removed per instructions
+
+            let safeMembers: [MemberDTO] = options?.members ?? []
+
+            // Determine incoming and previous role ids
+            let previousCuratorId: String? = cache[instance.id]?.first(where: { $0.id == event.id })?.curatorId
+            let incomingCuratorId: String? = event.curatorId?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let validCuratorIds = Set(resources.curators.map { $0.id })
+
+            // Resolve which role id to send:
+            // - Prefer incoming if present and valid
+            // - Else if previous is still valid, keep sending it (even if unchanged)
+            // - Else explicitly clear by sending null
+            // We use a double-optional String?? so we can distinguish between
+            // omitting the key (.none) and encoding explicit null (.some(nil)).
+            let resolvedRoleId: String?? = {
+                if let rid = incomingCuratorId, !rid.isEmpty, validCuratorIds.contains(rid) {
+                    return .some(rid)
+                }
+                if let prev = previousCuratorId, !prev.isEmpty, validCuratorIds.contains(prev) {
+                    return .some(prev)
+                }
+                // Fallback: pick the first available curator if any
+                if let fallback = resources.curators.first?.id {
+                    return .some(fallback)
+                }
+                // Explicitly clear role if no curators exist
+                return .some(nil)
+            }()
+
             let payloadTimeZone = timeZoneOverride ?? payloadTimeZoneProvider()
             // API accepts seconds precision; adding a single second prevents the service
             // from applying the 5-hour drift observed when an update payload uses the
@@ -498,14 +629,28 @@ final class RemoteEventRepository: EventRepository {
                 capacity: event.capacity,
                 ticketTypes: event.ticketTypes,
                 publishState: event.publishState,
-                curatorId: event.curatorId,
-            members: safeMembers,
-            category: event.category,
-            groupSlug: event.groupSlug,
-            onlineUrl: event.onlineURL,
-            attendeesVisible: event.attendeesVisible,
-            isRecurring: event.isRecurring
-        )
+                roleId: resolvedRoleId,
+                showGuestList: event.attendeesVisible,
+                categoryId: event.category,
+                eventUrl: event.onlineURL,
+                attendeesVisible: event.attendeesVisible,
+                isRecurring: event.isRecurring,
+                categoryName: options?.categoryName,
+                ticketsEnabled: options?.ticketsEnabled,
+                ticketCurrencyCode: options?.ticketCurrencyCode,
+                totalTicketsMode: options?.totalTicketsMode,
+                ticketNotes: options?.ticketNotes,
+                paymentMethod: normalizePaymentMethod(options?.paymentMethod),
+                paymentInstructions: options?.paymentInstructions,
+                expireUnpaidTickets: options?.expireUnpaidTickets,
+                remindUnpaidTicketsEvery: options?.remindUnpaidTicketsEvery,
+                registrationUrl: options?.registrationUrl,
+                eventPassword: options?.eventPassword,
+                flyerImageId: options?.flyerImageId,
+                guestListVisibility: options?.guestListVisibility,
+                members: safeMembers,
+                schedule: options?.schedule
+            )
             EventInstrumentation.log(
                 action: "event_update_request",
                 eventId: event.id,
@@ -514,7 +659,16 @@ final class RemoteEventRepository: EventRepository {
                 metadata: [
                     "payloadTimeZone": payloadTimeZone.identifier,
                     "includeVenueId": String(includeVenueId),
-                    "membersCount": String(safeMembers.count)
+                    "incomingCuratorId": incomingCuratorId ?? "nil",
+                    "previousCuratorId": previousCuratorId ?? "nil",
+                    "sendingRoleKey": String(resolvedRoleId != nil),
+                    "sendingRoleValue": {
+                        switch resolvedRoleId {
+                        case .none: return "omit"
+                        case .some(.none): return "null"
+                        case .some(.some(let v)): return v
+                        }
+                    }()
                 ]
             )
             let response: EventDetailResponse = try await httpClient.request(
@@ -662,44 +816,73 @@ final class RemoteEventRepository: EventRepository {
         let description: String?
         let startsAt: String
         let endAt: String
-    let durationMinutes: Int?
-    let timezone: String
-    let venueId: String?
+        let durationMinutes: Int?
+        let timezone: String
+        let venueId: String?
         let roomId: String?
         let images: [URL]
         let capacity: Int?
         let ticketTypes: [TicketType]
         let publishState: PublishState
-        let curatorId: String?
-        let members: [String]
-        let category: String?
-        let groupSlug: String?
-        let onlineUrl: URL?
+        let roleId: String?
+        let showGuestList: Bool?
+        let categoryId: String?
+        let eventUrl: URL?
         let attendeesVisible: Bool?
         let isRecurring: Bool?
 
+        let categoryName: String?
+        let ticketsEnabled: Bool?
+        let ticketCurrencyCode: String?
+        let totalTicketsMode: String?
+        let ticketNotes: String?
+        let paymentMethod: String?
+        let paymentInstructions: String?
+        let expireUnpaidTickets: Bool?
+        let remindUnpaidTicketsEvery: Int?
+        let registrationUrl: URL?
+        let eventPassword: String?
+        let flyerImageId: Int?
+        let guestListVisibility: String?
+        let members: [MemberDTO]
+        let schedule: String?
+
         enum CodingKeys: String, CodingKey {
-        case id
-        case name
-        case description
-        case startsAt = "starts_at"
-        case endAt = "ends_at"
-        case duration
-        case timezone
-        case venueId = "venue_id"
-        case roomId = "room_id"
-        case images
-        case capacity
+            case id
+            case name
+            case description
+            case startsAt = "starts_at"
+            case endAt = "ends_at"
+            case duration
+            case timezone
+            case venueId = "venue_id"
+            case roomId = "room_id"
+            case images
+            case capacity
             case ticketTypes = "ticket_types"
             case publishState = "publish_state"
-            case curatorId = "curator_role_id"
-            case members
-            case category
-            case groupSlug = "group_slug"
-            case onlineUrl = "online_url"
+            case roleId = "role_id"
+            case showGuestList = "show_guest_list"
+            case categoryId = "category_id"
+            case eventUrl = "event_url"
             case attendeesVisible = "attendees_visible"
             case isRecurring = "is_recurring"
-            case legacyUrl = "url"
+
+            case categoryName = "category_name"
+            case ticketsEnabled = "tickets_enabled"
+            case ticketCurrencyCode = "ticket_currency_code"
+            case totalTicketsMode = "total_tickets_mode"
+            case ticketNotes = "ticket_notes"
+            case paymentMethod = "payment_method"
+            case paymentInstructions = "payment_instructions"
+            case expireUnpaidTickets = "expire_unpaid_tickets"
+            case remindUnpaidTicketsEvery = "remind_unpaid_tickets_every"
+            case registrationUrl = "registration_url"
+            case eventPassword = "event_password"
+            case flyerImageId = "flyer_image_id"
+            case guestListVisibility = "guest_list_visibility"
+            case members = "members"
+            case schedule = "schedule"
         }
 
         func encode(to encoder: Encoder) throws {
@@ -719,14 +902,28 @@ final class RemoteEventRepository: EventRepository {
             try container.encodeIfPresent(capacity, forKey: .capacity)
             try container.encode(ticketTypes, forKey: .ticketTypes)
             try container.encode(publishState, forKey: .publishState)
-            try container.encodeIfPresent(curatorId, forKey: .curatorId)
-            try container.encodeIfPresent(category, forKey: .category)
-            try container.encodeIfPresent(groupSlug, forKey: .groupSlug)
-            try container.encodeIfPresent(onlineUrl, forKey: .onlineUrl)
-            try container.encodeIfPresent(onlineUrl, forKey: .legacyUrl)
+            try container.encodeIfPresent(roleId, forKey: .roleId)
+            try container.encodeIfPresent(showGuestList, forKey: .showGuestList)
+            try container.encodeIfPresent(categoryId, forKey: .categoryId)
+            try container.encodeIfPresent(eventUrl, forKey: .eventUrl)
             try container.encodeIfPresent(attendeesVisible, forKey: .attendeesVisible)
             try container.encodeIfPresent(isRecurring, forKey: .isRecurring)
-            if !members.isEmpty { try container.encode(members, forKey: .members) }
+
+            try container.encodeIfPresent(categoryName, forKey: .categoryName)
+            try container.encodeIfPresent(ticketsEnabled, forKey: .ticketsEnabled)
+            try container.encodeIfPresent(ticketCurrencyCode, forKey: .ticketCurrencyCode)
+            try container.encodeIfPresent(totalTicketsMode, forKey: .totalTicketsMode)
+            try container.encodeIfPresent(ticketNotes, forKey: .ticketNotes)
+            try container.encodeIfPresent(paymentMethod, forKey: .paymentMethod)
+            try container.encodeIfPresent(paymentInstructions, forKey: .paymentInstructions)
+            try container.encodeIfPresent(expireUnpaidTickets, forKey: .expireUnpaidTickets)
+            try container.encodeIfPresent(remindUnpaidTicketsEvery, forKey: .remindUnpaidTicketsEvery)
+            try container.encodeIfPresent(registrationUrl, forKey: .registrationUrl)
+            try container.encodeIfPresent(eventPassword, forKey: .eventPassword)
+            try container.encodeIfPresent(flyerImageId, forKey: .flyerImageId)
+            try container.encodeIfPresent(guestListVisibility, forKey: .guestListVisibility)
+            try container.encode(members, forKey: .members)
+            try container.encodeIfPresent(schedule, forKey: .schedule)
         }
     }
 
@@ -744,36 +941,65 @@ final class RemoteEventRepository: EventRepository {
         let capacity: Int?
         let ticketTypes: [TicketType]
         let publishState: PublishState
-        let curatorId: String?
-        let members: [String]
-        let category: String?
-        let groupSlug: String?
-        let onlineUrl: URL?
+        let roleId: String?? // Double-optional to support explicit null encoding
+        let showGuestList: Bool?
+        let categoryId: String?
+        let eventUrl: URL?
         let attendeesVisible: Bool?
         let isRecurring: Bool?
 
+        let categoryName: String?
+        let ticketsEnabled: Bool?
+        let ticketCurrencyCode: String?
+        let totalTicketsMode: String?
+        let ticketNotes: String?
+        let paymentMethod: String?
+        let paymentInstructions: String?
+        let expireUnpaidTickets: Bool?
+        let remindUnpaidTicketsEvery: Int?
+        let registrationUrl: URL?
+        let eventPassword: String?
+        let flyerImageId: Int?
+        let guestListVisibility: String?
+        let members: [MemberDTO]
+        let schedule: String?
+
         enum CodingKeys: String, CodingKey {
-        case id
-        case name
-        case description
-        case startsAt = "starts_at"
-        case endAt = "ends_at"
-        case duration
-        case timezone
-        case venueId = "venue_id"
-        case roomId = "room_id"
-        case images
-        case capacity
+            case id
+            case name
+            case description
+            case startsAt = "starts_at"
+            case endAt = "ends_at"
+            case duration
+            case timezone
+            case venueId = "venue_id"
+            case roomId = "room_id"
+            case images
+            case capacity
             case ticketTypes = "ticket_types"
             case publishState = "publish_state"
-            case curatorId = "curator_role_id"
-            case members
-            case category
-            case groupSlug = "group_slug"
-            case onlineUrl = "online_url"
+            case roleId = "role_id"
+            case showGuestList = "show_guest_list"
+            case categoryId = "category_id"
+            case eventUrl = "event_url"
             case attendeesVisible = "attendees_visible"
             case isRecurring = "is_recurring"
-            case legacyUrl = "url"
+
+            case categoryName = "category_name"
+            case ticketsEnabled = "tickets_enabled"
+            case ticketCurrencyCode = "ticket_currency_code"
+            case totalTicketsMode = "total_tickets_mode"
+            case ticketNotes = "ticket_notes"
+            case paymentMethod = "payment_method"
+            case paymentInstructions = "payment_instructions"
+            case expireUnpaidTickets = "expire_unpaid_tickets"
+            case remindUnpaidTicketsEvery = "remind_unpaid_tickets_every"
+            case registrationUrl = "registration_url"
+            case eventPassword = "event_password"
+            case flyerImageId = "flyer_image_id"
+            case guestListVisibility = "guest_list_visibility"
+            case members = "members"
+            case schedule = "schedule"
         }
 
         func encode(to encoder: Encoder) throws {
@@ -793,14 +1019,34 @@ final class RemoteEventRepository: EventRepository {
             try container.encodeIfPresent(capacity, forKey: .capacity)
             try container.encode(ticketTypes, forKey: .ticketTypes)
             try container.encode(publishState, forKey: .publishState)
-            try container.encodeIfPresent(curatorId, forKey: .curatorId)
-            try container.encodeIfPresent(category, forKey: .category)
-            try container.encodeIfPresent(groupSlug, forKey: .groupSlug)
-            try container.encodeIfPresent(onlineUrl, forKey: .onlineUrl)
-            try container.encodeIfPresent(onlineUrl, forKey: .legacyUrl)
+
+            // Encode role_id with explicit null support. If roleId is .none, omit the key.
+            // If roleId is .some(nil), encode explicit null. If .some(.some(value)), encode the value.
+            if let roleId = roleId {
+                try container.encode(roleId, forKey: .roleId) // roleId is String?
+            }
+
+            try container.encodeIfPresent(showGuestList, forKey: .showGuestList)
+            try container.encodeIfPresent(categoryId, forKey: .categoryId)
+            try container.encodeIfPresent(eventUrl, forKey: .eventUrl)
             try container.encodeIfPresent(attendeesVisible, forKey: .attendeesVisible)
             try container.encodeIfPresent(isRecurring, forKey: .isRecurring)
-            if !members.isEmpty { try container.encode(members, forKey: .members) }
+
+            try container.encodeIfPresent(categoryName, forKey: .categoryName)
+            try container.encodeIfPresent(ticketsEnabled, forKey: .ticketsEnabled)
+            try container.encodeIfPresent(ticketCurrencyCode, forKey: .ticketCurrencyCode)
+            try container.encodeIfPresent(totalTicketsMode, forKey: .totalTicketsMode)
+            try container.encodeIfPresent(ticketNotes, forKey: .ticketNotes)
+            try container.encodeIfPresent(paymentMethod, forKey: .paymentMethod)
+            try container.encodeIfPresent(paymentInstructions, forKey: .paymentInstructions)
+            try container.encodeIfPresent(expireUnpaidTickets, forKey: .expireUnpaidTickets)
+            try container.encodeIfPresent(remindUnpaidTicketsEvery, forKey: .remindUnpaidTicketsEvery)
+            try container.encodeIfPresent(registrationUrl, forKey: .registrationUrl)
+            try container.encodeIfPresent(eventPassword, forKey: .eventPassword)
+            try container.encodeIfPresent(flyerImageId, forKey: .flyerImageId)
+            try container.encodeIfPresent(guestListVisibility, forKey: .guestListVisibility)
+            try container.encode(members, forKey: .members)
+            try container.encodeIfPresent(schedule, forKey: .schedule)
         }
     }
     
