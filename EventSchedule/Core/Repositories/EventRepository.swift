@@ -47,61 +47,12 @@ private struct EventListResponse: Decodable {
         }
 
         let container = try decoder.container(keyedBy: CodingKeys.self)
-
         if let dataArray = try container.decodeIfPresent([Event].self, forKey: .data) {
             events = dataArray
             return
         }
 
-        if let eventsArray = try container.decodeIfPresent([Event].self, forKey: .events) {
-            events = eventsArray
-            return
-        }
-
-        if let itemsArray = try container.decodeIfPresent([Event].self, forKey: .items) {
-            events = itemsArray
-            return
-        }
-
-        if let nestedData = try? container.nestedContainer(keyedBy: NestedCodingKeys.self, forKey: .data) {
-            if let nestedEvents = try nestedData.decodeIfPresent([Event].self, forKey: .events) {
-                events = nestedEvents
-                return
-            }
-
-            if let nestedItems = try nestedData.decodeIfPresent([Event].self, forKey: .items) {
-                events = nestedItems
-                return
-            }
-
-            if let deeperData = try? nestedData.nestedContainer(keyedBy: NestedCodingKeys.self, forKey: .data) {
-                if let deepItems = try deeperData.decodeIfPresent([Event].self, forKey: .items) {
-                    events = deepItems
-                    return
-                }
-            }
-        }
-
-        // Final fallback: explicit envelope { data: [Event], meta: {...} }
-        struct Envelope: Decodable {
-            let data: [Event]
-            let meta: Meta?
-        }
-        struct Meta: Decodable {
-            let current_page: Int?
-            let from: Int?
-            let last_page: Int?
-            let per_page: Int?
-            let to: Int?
-            let total: Int?
-            let path: String?
-        }
-        if let envelope = try? Envelope(from: decoder) {
-            events = envelope.data
-            return
-        }
-
-        consoleError("EventListResponse: Unable to locate events array. CodingPath=\(decoder.codingPath.map { $0.stringValue }.joined(separator: ".")) attempted keys: data, events, items; nested data.events, data.items, data.data.items")
+        consoleError("EventListResponse: Unable to locate events array. CodingPath=\(decoder.codingPath.map { $0.stringValue }.joined(separator: ".")) attempted key: data")
         throw DecodingError.dataCorruptedError(
             forKey: .data,
             in: container,
@@ -111,14 +62,6 @@ private struct EventListResponse: Decodable {
 
     private enum CodingKeys: String, CodingKey {
         case data
-        case events
-        case items
-    }
-
-    private enum NestedCodingKeys: String, CodingKey {
-        case data
-        case events
-        case items
     }
 }
 
@@ -132,37 +75,12 @@ private struct EventDetailResponse: Decodable {
         }
 
         let container = try decoder.container(keyedBy: CodingKeys.self)
-
         if let dataEvent = try container.decodeIfPresent(Event.self, forKey: .data) {
             event = dataEvent
             return
         }
 
-        if let wrappedEvent = try container.decodeIfPresent(Event.self, forKey: .event) {
-            event = wrappedEvent
-            return
-        }
-
-        if let nestedData = try? container.nestedContainer(keyedBy: NestedCodingKeys.self, forKey: .data) {
-            if let nestedEvent = try nestedData.decodeIfPresent(Event.self, forKey: .event) {
-                event = nestedEvent
-                return
-            }
-
-            if let deeperEvent = try nestedData.decodeIfPresent(Event.self, forKey: .data) {
-                event = deeperEvent
-                return
-            }
-        }
-
-        // Final fallback: explicit envelope { data: Event }
-        struct Envelope: Decodable { let data: Event }
-        if let envelope = try? Envelope(from: decoder) {
-            event = envelope.data
-            return
-        }
-
-        consoleError("EventDetailResponse: Unable to locate event object. CodingPath=\(decoder.codingPath.map { $0.stringValue }.joined(separator: ".")) attempted keys: data, event; nested data.event, data.data")
+        consoleError("EventDetailResponse: Unable to locate event object. CodingPath=\(decoder.codingPath.map { $0.stringValue }.joined(separator: ".")) attempted key: data")
         throw DecodingError.dataCorruptedError(
             forKey: .data,
             in: container,
@@ -172,12 +90,6 @@ private struct EventDetailResponse: Decodable {
 
     private enum CodingKeys: String, CodingKey {
         case data
-        case event
-    }
-
-    private enum NestedCodingKeys: String, CodingKey {
-        case data
-        case event
     }
 }
 
@@ -217,6 +129,7 @@ final class RemoteEventRepository: EventRepository {
         var registrationUrl: URL?
         var eventPassword: String?
         var flyerImageId: Int?
+        var flyerImageData: Data?
         var guestListVisibility: String?
         var members: [MemberDTO]
         var schedule: String?
@@ -234,6 +147,7 @@ final class RemoteEventRepository: EventRepository {
             registrationUrl: URL? = nil,
             eventPassword: String? = nil,
             flyerImageId: Int? = nil,
+            flyerImageData: Data? = nil,
             guestListVisibility: String? = nil,
             members: [MemberDTO] = [],
             schedule: String? = nil
@@ -250,6 +164,7 @@ final class RemoteEventRepository: EventRepository {
             self.registrationUrl = registrationUrl
             self.eventPassword = eventPassword
             self.flyerImageId = flyerImageId
+            self.flyerImageData = flyerImageData
             self.guestListVisibility = guestListVisibility
             self.members = members
             self.schedule = schedule
@@ -272,6 +187,21 @@ final class RemoteEventRepository: EventRepository {
     init(httpClient: HTTPClientProtocol = HTTPClient(), payloadTimeZoneProvider: @escaping () -> TimeZone = { .current }) {
         self.httpClient = httpClient
         self.payloadTimeZoneProvider = payloadTimeZoneProvider
+    }
+
+    // Upload a flyer image and return its server-assigned image id
+    private func uploadFlyer(_ data: Data, instance: InstanceProfile) async throws -> Int {
+        struct UploadResponse: Decodable { let id: Int }
+        // Assuming the backend accepts raw bytes or base64 via a dedicated endpoint.
+        // If multipart is required, HTTPClientProtocol should provide that; for now, send as octet-stream.
+        let response: UploadResponse = try await httpClient.request(
+            "events/flyers",
+            method: .post,
+            query: nil,
+            body: data,
+            instance: instance
+        )
+        return response.id
     }
 
     private func enrichVenueNames(_ events: [Event], for instance: InstanceProfile) async -> [Event] {
@@ -315,7 +245,7 @@ final class RemoteEventRepository: EventRepository {
             let response: EventListResponse = try await httpClient.request(
                 "events",
                 method: .get,
-                query: ["include": "venue,talent,tickets"],
+                query: nil,
                 body: Optional<Event>.none,
                 instance: instance
             )
@@ -347,7 +277,7 @@ final class RemoteEventRepository: EventRepository {
             let response: EventDetailResponse = try await httpClient.request(
                 "events/\(id)",
                 method: .get,
-                query: ["include": "venue,talent,tickets"],
+                query: nil,
                 body: Optional<Event>.none,
                 instance: instance
             )
@@ -475,6 +405,19 @@ final class RemoteEventRepository: EventRepository {
             ]
         )
         let memberObjects = options?.members ?? []
+        
+        // Resolve flyer image id: prefer explicit id; else upload if data provided
+        var resolvedFlyerId: Int? = options?.flyerImageId
+        if resolvedFlyerId == nil, let flyerData = options?.flyerImageData {
+            do {
+                resolvedFlyerId = try await uploadFlyer(flyerData, instance: instance)
+                DebugLogger.log("RemoteEventRepository: uploaded flyer, received id=\(resolvedFlyerId ?? -1)")
+            } catch {
+                DebugLogger.error("RemoteEventRepository: flyer upload failed: \(error.localizedDescription)")
+                // Proceed without flyer if upload fails
+            }
+        }
+        
         let dto = CreateEventDTO(
             id: event.id,
             name: event.name,
@@ -506,7 +449,7 @@ final class RemoteEventRepository: EventRepository {
             remindUnpaidTicketsEvery: options?.remindUnpaidTicketsEvery,
             registrationUrl: options?.registrationUrl,
             eventPassword: options?.eventPassword,
-            flyerImageId: options?.flyerImageId,
+            flyerImageId: resolvedFlyerId,
             guestListVisibility: options?.guestListVisibility,
             members: memberObjects,
             schedule: options?.schedule
@@ -515,7 +458,7 @@ final class RemoteEventRepository: EventRepository {
             let response: EventDetailResponse = try await httpClient.request(
                 "events/\(subdomain)",
                 method: .post,
-                query: ["include": "venue,talent,tickets"],
+                query: nil,
                 body: dto,
                 instance: instance
             )
@@ -588,26 +531,8 @@ final class RemoteEventRepository: EventRepository {
             let incomingCuratorId: String? = event.curatorId?.trimmingCharacters(in: .whitespacesAndNewlines)
             let validCuratorIds = Set(resources.curators.map { $0.id })
 
-            // Resolve which role id to send:
-            // - Prefer incoming if present and valid
-            // - Else if previous is still valid, keep sending it (even if unchanged)
-            // - Else explicitly clear by sending null
-            // We use a double-optional String?? so we can distinguish between
-            // omitting the key (.none) and encoding explicit null (.some(nil)).
-            let resolvedRoleId: String?? = {
-                if let rid = incomingCuratorId, !rid.isEmpty, validCuratorIds.contains(rid) {
-                    return .some(rid)
-                }
-                if let prev = previousCuratorId, !prev.isEmpty, validCuratorIds.contains(prev) {
-                    return .some(prev)
-                }
-                // Fallback: pick the first available curator if any
-                if let fallback = resources.curators.first?.id {
-                    return .some(fallback)
-                }
-                // Explicitly clear role if no curators exist
-                return .some(nil)
-            }()
+            // Backend does not accept role_id on update (see SQL error). Omit the key entirely.
+            let resolvedRoleId: String?? = .none
 
             let payloadTimeZone = timeZoneOverride ?? payloadTimeZoneProvider()
             // API accepts seconds precision; adding a single second prevents the service
@@ -615,6 +540,18 @@ final class RemoteEventRepository: EventRepository {
             // exact start/end values returned by previous reads.
             let adjustedStart = event.startAt.addingTimeInterval(1)
             let adjustedEnd = event.endAt.addingTimeInterval(1)
+            
+            // Resolve flyer image id for update
+            var resolvedFlyerId: Int? = options?.flyerImageId
+            if resolvedFlyerId == nil, let flyerData = options?.flyerImageData {
+                do {
+                    resolvedFlyerId = try await uploadFlyer(flyerData, instance: instance)
+                    DebugLogger.log("RemoteEventRepository: uploaded flyer, received id=\(resolvedFlyerId ?? -1)")
+                } catch {
+                    DebugLogger.error("RemoteEventRepository: flyer upload failed: \(error.localizedDescription)")
+                }
+            }
+            
             let dto = UpdateEventDTO(
                 id: event.id,
                 name: event.name,
@@ -646,7 +583,7 @@ final class RemoteEventRepository: EventRepository {
                 remindUnpaidTicketsEvery: options?.remindUnpaidTicketsEvery,
                 registrationUrl: options?.registrationUrl,
                 eventPassword: options?.eventPassword,
-                flyerImageId: options?.flyerImageId,
+                flyerImageId: resolvedFlyerId,
                 guestListVisibility: options?.guestListVisibility,
                 members: safeMembers,
                 schedule: options?.schedule
@@ -661,20 +598,14 @@ final class RemoteEventRepository: EventRepository {
                     "includeVenueId": String(includeVenueId),
                     "incomingCuratorId": incomingCuratorId ?? "nil",
                     "previousCuratorId": previousCuratorId ?? "nil",
-                    "sendingRoleKey": String(resolvedRoleId != nil),
-                    "sendingRoleValue": {
-                        switch resolvedRoleId {
-                        case .none: return "omit"
-                        case .some(.none): return "null"
-                        case .some(.some(let v)): return v
-                        }
-                    }()
+                    "sendingRoleKey": "false",
+                    "sendingRoleValue": "omit"
                 ]
             )
             let response: EventDetailResponse = try await httpClient.request(
                 "events/\(event.id)",
-                method: .post,
-                query: ["include": "venue,talent,tickets"],
+                method: .patch,
+                query: nil,
                 body: dto,
                 instance: instance
             )
@@ -741,7 +672,7 @@ final class RemoteEventRepository: EventRepository {
             let response: GenericEventResponse = try await httpClient.request(
                 "events/\(id)",
                 method: .patch,
-                query: ["include": "venue,talent,tickets"],
+                query: nil,
                 body: body,
                 instance: instance
             )
@@ -922,7 +853,9 @@ final class RemoteEventRepository: EventRepository {
             try container.encodeIfPresent(eventPassword, forKey: .eventPassword)
             try container.encodeIfPresent(flyerImageId, forKey: .flyerImageId)
             try container.encodeIfPresent(guestListVisibility, forKey: .guestListVisibility)
-            try container.encode(members, forKey: .members)
+            if !members.isEmpty {
+                try container.encode(members, forKey: .members)
+            }
             try container.encodeIfPresent(schedule, forKey: .schedule)
         }
     }
@@ -1045,7 +978,9 @@ final class RemoteEventRepository: EventRepository {
             try container.encodeIfPresent(eventPassword, forKey: .eventPassword)
             try container.encodeIfPresent(flyerImageId, forKey: .flyerImageId)
             try container.encodeIfPresent(guestListVisibility, forKey: .guestListVisibility)
-            try container.encode(members, forKey: .members)
+            if !members.isEmpty {
+                try container.encode(members, forKey: .members)
+            }
             try container.encodeIfPresent(schedule, forKey: .schedule)
         }
     }
