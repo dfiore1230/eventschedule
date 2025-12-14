@@ -10,19 +10,31 @@ A native iOS application for managing EventSchedule instances, providing full ad
 - ✅ **Instance Discovery**: Auto-discovery via `.well-known/eventschedule.json`
 - ✅ **Dynamic Branding**: Per-instance theming with colors, logos, and styling
 - ✅ **Event CRUD**: Create, read, update, and delete events with full metadata
-- ✅ **Venue Support**: Venue references and display in events
+- ✅ **Venue Support**: Venue references and display in events, extended venue details model
 - ✅ **Ticket Types**: Manage ticket types and pricing per event
 - ✅ **Timezone Handling**: Robust timezone support for event scheduling
+- ✅ **Talent Models & Repository**: Backend integration for talent management
+- ✅ **Venue Models & Repository**: Full venue details with rooms, capacity, and ingress points
+- ✅ **Ticket Models & Repository**: Complete ticket model with status, check-ins, and actions
+- ✅ **Check-In Models & Repository**: Check-in/out tracking with offline support structure
+- ✅ **Talent List View**: Browse talent with name, role, and bio
+- ✅ **Venue List View**: Browse venues with addresses and rooms
+- ✅ **Ticket List View**: Search and browse tickets with status badges
+
+### In Progress
+- 🔨 **Talent CRUD Forms**: Create and edit talent profiles
+- 🔨 **Venue CRUD Forms**: Create and edit venue details
+- 🔨 **Ticket Management**: Refund, void, reassign, and comp tickets
+- 🔨 **Detail Views**: Full detail screens for talent, venues, and tickets
 
 ### Planned Features (per requirements)
-- ⏳ **Talent Management**: Full CRUD for talent/performers
-- ⏳ **Venue Management**: Complete venue management with rooms and capacity
-- ⏳ **Ticketing Suite**: Issue, refund, void, reassign tickets
-- ⏳ **QR/Barcode Scanning**: At-door check-in/check-out with offline queue
+- ⏳ **QR/Barcode Scanning**: At-door check-in/check-out with camera integration
+- ⏳ **Offline Queue**: Local queue for check-ins when offline with sync
 - ⏳ **Dashboards**: Sales metrics, capacity, check-in throughput
 - ⏳ **Reports**: Export CSV/PDF reports from device
 - ⏳ **Notifications**: Operational alerts and push notifications
-- ⏳ **Offline Support**: Queue operations when offline, sync when online
+- ⏳ **Device/Gate Assignment**: Assign devices to specific entrance gates
+- ⏳ **Real-time Updates**: WebSocket/SSE for live check-in streams
 
 ## Requirements
 
@@ -246,7 +258,11 @@ EventSchedule/
 │   │   └── InstanceStore.swift    # Multi-instance management
 │   ├── Models/
 │   │   ├── Event.swift            # Event model with timezone support
-│   │   ├── Venue.swift            # Venue model
+│   │   ├── Venue.swift            # Simple venue reference
+│   │   ├── VenueDetail.swift      # Full venue with rooms, capacity, ingress
+│   │   ├── Talent.swift           # Talent/performer model
+│   │   ├── Ticket.swift           # Ticket model with status
+│   │   ├── CheckIn.swift          # Check-in/out model
 │   │   ├── InstanceProfile.swift  # Instance configuration
 │   │   ├── CapabilitiesDocument.swift  # Discovery document
 │   │   └── Branding.swift         # Theme/branding model
@@ -254,7 +270,11 @@ EventSchedule/
 │   │   ├── HTTPClient.swift       # HTTP client with API key injection
 │   │   └── APIError.swift         # Error handling
 │   ├── Repositories/
-│   │   └── EventRepository.swift  # Event data access
+│   │   ├── EventRepository.swift  # Event data access
+│   │   ├── TalentRepository.swift # Talent data access
+│   │   ├── VenueDetailRepository.swift  # Venue data access
+│   │   ├── TicketRepository.swift # Ticket operations
+│   │   └── CheckInRepository.swift # Check-in/out operations
 │   ├── Services/
 │   │   ├── DiscoveryService.swift # Well-known discovery
 │   │   └── BrandingService.swift  # Branding fetch
@@ -265,12 +285,18 @@ EventSchedule/
 │       ├── DebugLogger.swift      # Debug logging
 │       └── Color+Hex.swift        # Hex color parsing
 ├── UI/
-│   ├── RootView.swift             # Root navigation
+│   ├── RootView.swift             # Root navigation with tabs
 │   ├── Features/
-│   │   └── Events/
-│   │       ├── EventsListViewModel.swift
-│   │       ├── EventDetailView.swift
-│   │       └── EventFormView.swift
+│   │   ├── Events/
+│   │   │   ├── EventsListViewModel.swift
+│   │   │   ├── EventDetailView.swift
+│   │   │   └── EventFormView.swift
+│   │   ├── Talent/
+│   │   │   └── TalentListView.swift
+│   │   ├── Venues/
+│   │   │   └── VenueListView.swift
+│   │   └── Tickets/
+│   │       └── TicketListView.swift
 │   ├── Components/
 │   │   └── InstanceSwitcherToolbarItem.swift
 │   └── Screens/
