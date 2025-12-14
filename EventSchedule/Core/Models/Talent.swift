@@ -14,7 +14,7 @@ struct Talent: Identifiable, Codable, Equatable {
         var email: String?
         var phone: String?
         var website: URL?
-        var social: [String: String]
+        var social: [String: String] = [:]
     }
     
     struct AvailabilityPeriod: Codable, Equatable {

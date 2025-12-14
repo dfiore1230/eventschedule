@@ -18,7 +18,9 @@ final class RemoteTicketRepository: TicketRepositoryProtocol {
     }
     
     func search(eventId: String?, query: String?, instance: InstanceProfile) async throws -> [Ticket] {
-        var components = URLComponents(url: instance.baseURL.appendingPathComponent("/api/tickets"), resolvingAgainstBaseURL: false)!
+        guard var components = URLComponents(url: instance.baseURL.appendingPathComponent("/api/tickets"), resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
         
         var queryItems: [URLQueryItem] = []
         if let eventId = eventId {
@@ -32,7 +34,11 @@ final class RemoteTicketRepository: TicketRepositoryProtocol {
             components.queryItems = queryItems
         }
         
-        let data = try await httpClient.get(url: components.url!, instance: instance)
+        guard let url = components.url else {
+            throw APIError.invalidURL
+        }
+        
+        let data = try await httpClient.get(url: url, instance: instance)
         
         // Try to decode as array directly first
         if let tickets = try? JSONDecoder.iso8601.decode([Ticket].self, from: data) {

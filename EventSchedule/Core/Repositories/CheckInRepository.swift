@@ -55,10 +55,16 @@ final class RemoteCheckInRepository: CheckInRepositoryProtocol {
     }
     
     func fetchCheckIns(eventId: String, instance: InstanceProfile) async throws -> [CheckIn] {
-        var components = URLComponents(url: instance.baseURL.appendingPathComponent("/api/checkins"), resolvingAgainstBaseURL: false)!
+        guard var components = URLComponents(url: instance.baseURL.appendingPathComponent("/api/checkins"), resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
         components.queryItems = [URLQueryItem(name: "event_id", value: eventId)]
         
-        let data = try await httpClient.get(url: components.url!, instance: instance)
+        guard let url = components.url else {
+            throw APIError.invalidURL
+        }
+        
+        let data = try await httpClient.get(url: url, instance: instance)
         
         // Try to decode as array directly first
         if let checkIns = try? JSONDecoder.iso8601.decode([CheckIn].self, from: data) {
