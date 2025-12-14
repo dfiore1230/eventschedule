@@ -73,7 +73,14 @@ struct Talent: Identifiable, Codable, Equatable {
         if let linksDict = try? container.decodeIfPresent([String: URL].self, forKey: .links) {
             links = linksDict
         } else if let linksArray = try? container.decodeIfPresent([String].self, forKey: .links) {
-            links = Dictionary(uniqueKeysWithValues: linksArray.enumerated().map { ("link\($0)", URL(string: $1)!) }.filter { $0.1 != nil } as! [(String, URL)])
+            // Safely convert array of strings to dictionary of URLs
+            var linksDict: [String: URL] = [:]
+            for (index, urlString) in linksArray.enumerated() {
+                if let url = URL(string: urlString) {
+                    linksDict["link\(index)"] = url
+                }
+            }
+            links = linksDict
         } else {
             links = [:]
         }
