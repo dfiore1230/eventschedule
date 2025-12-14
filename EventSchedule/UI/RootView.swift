@@ -26,6 +26,21 @@ struct MainTabView: View {
                 .tabItem {
                     Label("Events", systemImage: "calendar")
                 }
+            
+            TalentListView()
+                .tabItem {
+                    Label("Talent", systemImage: "person.3")
+                }
+            
+            VenueListView()
+                .tabItem {
+                    Label("Venues", systemImage: "building.2")
+                }
+            
+            TicketListView()
+                .tabItem {
+                    Label("Tickets", systemImage: "ticket")
+                }
 
             SettingsView()
                 .tabItem {
