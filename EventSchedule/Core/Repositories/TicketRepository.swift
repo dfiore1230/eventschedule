@@ -18,70 +18,44 @@ final class RemoteTicketRepository: TicketRepositoryProtocol {
     }
     
     func search(eventId: String?, query: String?, instance: InstanceProfile) async throws -> [Ticket] {
-        guard var components = URLComponents(url: instance.baseURL.appendingPathComponent("/api/tickets"), resolvingAgainstBaseURL: false) else {
-            throw APIError.invalidURL
-        }
+        let queryItems: [String: String?] = [
+            "event_id": eventId,
+            "query": query
+        ]
         
-        var queryItems: [URLQueryItem] = []
-        if let eventId = eventId {
-            queryItems.append(URLQueryItem(name: "event_id", value: eventId))
-        }
-        if let query = query {
-            queryItems.append(URLQueryItem(name: "query", value: query))
-        }
-        
-        if !queryItems.isEmpty {
-            components.queryItems = queryItems
-        }
-        
-        guard let url = components.url else {
-            throw APIError.invalidURL
-        }
-        
-        let data = try await httpClient.get(url: url, instance: instance)
-        
-        // Try to decode as array directly first
-        if let tickets = try? JSONDecoder.iso8601.decode([Ticket].self, from: data) {
+        do {
+            let tickets: [Ticket] = try await httpClient.request("api/tickets", method: .get, query: queryItems, body: Optional<Ticket>.none, instance: instance)
             return tickets
+        } catch {
+            struct Response: Decodable {
+                let data: [Ticket]
+            }
+            let response: Response = try await httpClient.request("api/tickets", method: .get, query: queryItems, body: Optional<Ticket>.none, instance: instance)
+            return response.data
         }
-        
-        // Try to decode as wrapped response with 'data' key
-        struct Response: Decodable {
-            let data: [Ticket]
-        }
-        
-        let response = try JSONDecoder.iso8601.decode(Response.self, from: data)
-        return response.data
     }
     
     func fetch(id: String, instance: InstanceProfile) async throws -> Ticket {
-        let url = instance.baseURL.appendingPathComponent("/api/tickets/\(id)")
-        let data = try await httpClient.get(url: url, instance: instance)
-        return try JSONDecoder.iso8601.decode(Ticket.self, from: data)
+        let response: Ticket = try await httpClient.request("api/tickets/\(id)", method: .get, query: nil, body: Optional<Ticket>.none, instance: instance)
+        return response
     }
     
     func issue(_ ticket: Ticket, instance: InstanceProfile) async throws -> Ticket {
-        let url = instance.baseURL.appendingPathComponent("/api/tickets")
-        let body = try JSONEncoder.iso8601.encode(ticket)
-        let data = try await httpClient.post(url: url, body: body, instance: instance)
-        return try JSONDecoder.iso8601.decode(Ticket.self, from: data)
+        let created: Ticket = try await httpClient.request("api/tickets", method: .post, query: nil, body: ticket, instance: instance)
+        return created
     }
     
     func refund(id: String, instance: InstanceProfile) async throws -> Ticket {
-        let url = instance.baseURL.appendingPathComponent("/api/tickets/\(id)/refund")
-        let data = try await httpClient.post(url: url, body: Data(), instance: instance)
-        return try JSONDecoder.iso8601.decode(Ticket.self, from: data)
+        let ticket: Ticket = try await httpClient.request("api/tickets/\(id)/refund", method: .post, query: nil, body: Optional<Ticket>.none, instance: instance)
+        return ticket
     }
     
     func void(id: String, instance: InstanceProfile) async throws -> Ticket {
-        let url = instance.baseURL.appendingPathComponent("/api/tickets/\(id)/void")
-        let data = try await httpClient.post(url: url, body: Data(), instance: instance)
-        return try JSONDecoder.iso8601.decode(Ticket.self, from: data)
+        let ticket: Ticket = try await httpClient.request("api/tickets/\(id)/void", method: .post, query: nil, body: Optional<Ticket>.none, instance: instance)
+        return ticket
     }
     
     func reassign(id: String, newHolder: String, newEmail: String, instance: InstanceProfile) async throws -> Ticket {
-        let url = instance.baseURL.appendingPathComponent("/api/tickets/\(id)/reassign")
-        
         struct ReassignRequest: Codable {
             let holderName: String
             let holderEmail: String
@@ -93,38 +67,17 @@ final class RemoteTicketRepository: TicketRepositoryProtocol {
         }
         
         let request = ReassignRequest(holderName: newHolder, holderEmail: newEmail)
-        let body = try JSONEncoder.iso8601.encode(request)
-        let data = try await httpClient.post(url: url, body: body, instance: instance)
-        return try JSONDecoder.iso8601.decode(Ticket.self, from: data)
+        let ticket: Ticket = try await httpClient.request("api/tickets/\(id)/reassign", method: .post, query: nil, body: request, instance: instance)
+        return ticket
     }
     
     func addNote(id: String, note: String, instance: InstanceProfile) async throws -> Ticket {
-        let url = instance.baseURL.appendingPathComponent("/api/tickets/\(id)/notes")
-        
         struct NoteRequest: Codable {
             let note: String
         }
         
         let request = NoteRequest(note: note)
-        let body = try JSONEncoder.iso8601.encode(request)
-        let data = try await httpClient.post(url: url, body: body, instance: instance)
-        return try JSONDecoder.iso8601.decode(Ticket.self, from: data)
+        let ticket: Ticket = try await httpClient.request("api/tickets/\(id)/notes", method: .post, query: nil, body: request, instance: instance)
+        return ticket
     }
-}
-
-// Convenience extensions for JSONDecoder and JSONEncoder
-private extension JSONDecoder {
-    static let iso8601: JSONDecoder = {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return decoder
-    }()
-}
-
-private extension JSONEncoder {
-    static let iso8601: JSONEncoder = {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        return encoder
-    }()
 }

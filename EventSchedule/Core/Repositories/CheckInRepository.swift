@@ -14,8 +14,6 @@ final class RemoteCheckInRepository: CheckInRepositoryProtocol {
     }
     
     func performCheckIn(_ checkIn: CheckIn, instance: InstanceProfile) async throws -> ScanResult {
-        let url = instance.baseURL.appendingPathComponent("/api/checkins")
-        
         struct CheckInRequest: Codable {
             let ticketId: String
             let ticketCode: String?
@@ -49,35 +47,37 @@ final class RemoteCheckInRepository: CheckInRepositoryProtocol {
             idempotencyKey: checkIn.idempotencyKey()
         )
         
-        let body = try JSONEncoder.iso8601.encode(request)
-        let data = try await httpClient.post(url: url, body: body, instance: instance)
-        return try JSONDecoder.iso8601.decode(ScanResult.self, from: data)
+        let result: ScanResult = try await httpClient.request(
+            "api/checkins",
+            method: .post,
+            query: nil,
+            body: request,
+            instance: instance
+        )
+        return result
     }
     
     func fetchCheckIns(eventId: String, instance: InstanceProfile) async throws -> [CheckIn] {
-        guard var components = URLComponents(url: instance.baseURL.appendingPathComponent("/api/checkins"), resolvingAgainstBaseURL: false) else {
-            throw APIError.invalidURL
+        struct Response: Decodable { let data: [CheckIn] }
+        // Try direct array first using the client's decoding; if that fails upstream it will throw.
+        // We'll attempt the wrapped variant by asking for Response and returning its data.
+        if let direct: [CheckIn] = try? await httpClient.request(
+            "api/checkins",
+            method: .get,
+            query: ["event_id": eventId],
+            body: Optional<CheckIn>.none,
+            instance: instance
+        ) {
+            return direct
         }
-        components.queryItems = [URLQueryItem(name: "event_id", value: eventId)]
-        
-        guard let url = components.url else {
-            throw APIError.invalidURL
-        }
-        
-        let data = try await httpClient.get(url: url, instance: instance)
-        
-        // Try to decode as array directly first
-        if let checkIns = try? JSONDecoder.iso8601.decode([CheckIn].self, from: data) {
-            return checkIns
-        }
-        
-        // Try to decode as wrapped response with 'data' key
-        struct Response: Decodable {
-            let data: [CheckIn]
-        }
-        
-        let response = try JSONDecoder.iso8601.decode(Response.self, from: data)
-        return response.data
+        let wrapped: Response = try await httpClient.request(
+            "api/checkins",
+            method: .get,
+            query: ["event_id": eventId],
+            body: Optional<CheckIn>.none,
+            instance: instance
+        )
+        return wrapped.data
     }
     
     func scanTicket(code: String, eventId: String, gateId: String?, deviceId: String?, instance: InstanceProfile) async throws -> ScanResult {
@@ -93,21 +93,4 @@ final class RemoteCheckInRepository: CheckInRepositoryProtocol {
         
         return try await performCheckIn(checkIn, instance: instance)
     }
-}
-
-// Convenience extensions for JSONDecoder and JSONEncoder
-private extension JSONDecoder {
-    static let iso8601: JSONDecoder = {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return decoder
-    }()
-}
-
-private extension JSONEncoder {
-    static let iso8601: JSONEncoder = {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        return encoder
-    }()
 }

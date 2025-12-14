@@ -16,62 +16,32 @@ final class RemoteTalentRepository: TalentRepositoryProtocol {
     }
     
     func fetchAll(instance: InstanceProfile) async throws -> [Talent] {
-        let url = instance.baseURL.appendingPathComponent("/api/talent")
-        let data = try await httpClient.get(url: url, instance: instance)
-        
-        // Try to decode as array directly first
-        if let talent = try? JSONDecoder.iso8601.decode([Talent].self, from: data) {
-            return talent
+        do {
+            return try await httpClient.request("api/talent", method: .get, query: nil, body: Optional<Talent>.none, instance: instance)
+        } catch {
+            struct Response: Decodable {
+                let data: [Talent]
+            }
+            let response: Response = try await httpClient.request("api/talent", method: .get, query: nil, body: Optional<Talent>.none, instance: instance)
+            return response.data
         }
-        
-        // Try to decode as wrapped response with 'data' key
-        struct Response: Decodable {
-            let data: [Talent]
-        }
-        
-        let response = try JSONDecoder.iso8601.decode(Response.self, from: data)
-        return response.data
     }
     
     func fetch(id: String, instance: InstanceProfile) async throws -> Talent {
-        let url = instance.baseURL.appendingPathComponent("/api/talent/\(id)")
-        let data = try await httpClient.get(url: url, instance: instance)
-        return try JSONDecoder.iso8601.decode(Talent.self, from: data)
+        return try await httpClient.request("api/talent/\(id)", method: .get, query: nil, body: Optional<Talent>.none, instance: instance)
     }
     
     func create(_ talent: Talent, instance: InstanceProfile) async throws -> Talent {
-        let url = instance.baseURL.appendingPathComponent("/api/talent")
-        let body = try JSONEncoder.iso8601.encode(talent)
-        let data = try await httpClient.post(url: url, body: body, instance: instance)
-        return try JSONDecoder.iso8601.decode(Talent.self, from: data)
+        let created: Talent = try await httpClient.request("api/talent", method: .post, query: nil, body: talent, instance: instance)
+        return created
     }
     
     func update(_ talent: Talent, instance: InstanceProfile) async throws -> Talent {
-        let url = instance.baseURL.appendingPathComponent("/api/talent/\(talent.id)")
-        let body = try JSONEncoder.iso8601.encode(talent)
-        let data = try await httpClient.put(url: url, body: body, instance: instance)
-        return try JSONDecoder.iso8601.decode(Talent.self, from: data)
+        let updated: Talent = try await httpClient.request("api/talent/\(talent.id)", method: .put, query: nil, body: talent, instance: instance)
+        return updated
     }
     
     func delete(id: String, instance: InstanceProfile) async throws {
-        let url = instance.baseURL.appendingPathComponent("/api/talent/\(id)")
-        _ = try await httpClient.delete(url: url, instance: instance)
+        try await httpClient.requestVoid("api/talent/\(id)", method: .delete, query: nil, body: Optional<Talent>.none, instance: instance)
     }
-}
-
-// Convenience extensions for JSONDecoder and JSONEncoder
-private extension JSONDecoder {
-    static let iso8601: JSONDecoder = {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return decoder
-    }()
-}
-
-private extension JSONEncoder {
-    static let iso8601: JSONEncoder = {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        return encoder
-    }()
 }

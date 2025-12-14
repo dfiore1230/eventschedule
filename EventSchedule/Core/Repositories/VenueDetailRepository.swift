@@ -16,62 +16,68 @@ final class RemoteVenueDetailRepository: VenueDetailRepositoryProtocol {
     }
     
     func fetchAll(instance: InstanceProfile) async throws -> [VenueDetail] {
-        let url = instance.baseURL.appendingPathComponent("/api/venues")
-        let data = try await httpClient.get(url: url, instance: instance)
-        
-        // Try to decode as array directly first
-        if let venues = try? JSONDecoder.iso8601.decode([VenueDetail].self, from: data) {
-            return venues
+        // Try direct array first
+        if let direct: [VenueDetail] = try? await httpClient.request(
+            "api/venues",
+            method: .get,
+            query: nil,
+            body: Optional<VenueDetail>.none,
+            instance: instance
+        ) {
+            return direct
         }
-        
-        // Try to decode as wrapped response with 'data' key
-        struct Response: Decodable {
-            let data: [VenueDetail]
-        }
-        
-        let response = try JSONDecoder.iso8601.decode(Response.self, from: data)
-        return response.data
+        // Fallback to wrapped response { data: [VenueDetail] }
+        struct Response: Decodable { let data: [VenueDetail] }
+        let wrapped: Response = try await httpClient.request(
+            "api/venues",
+            method: .get,
+            query: nil,
+            body: Optional<VenueDetail>.none,
+            instance: instance
+        )
+        return wrapped.data
     }
     
     func fetch(id: String, instance: InstanceProfile) async throws -> VenueDetail {
-        let url = instance.baseURL.appendingPathComponent("/api/venues/\(id)")
-        let data = try await httpClient.get(url: url, instance: instance)
-        return try JSONDecoder.iso8601.decode(VenueDetail.self, from: data)
+        let venue: VenueDetail = try await httpClient.request(
+            "api/venues/\(id)",
+            method: .get,
+            query: nil,
+            body: Optional<VenueDetail>.none,
+            instance: instance
+        )
+        return venue
     }
     
     func create(_ venue: VenueDetail, instance: InstanceProfile) async throws -> VenueDetail {
-        let url = instance.baseURL.appendingPathComponent("/api/venues")
-        let body = try JSONEncoder.iso8601.encode(venue)
-        let data = try await httpClient.post(url: url, body: body, instance: instance)
-        return try JSONDecoder.iso8601.decode(VenueDetail.self, from: data)
+        let created: VenueDetail = try await httpClient.request(
+            "api/venues",
+            method: .post,
+            query: nil,
+            body: venue,
+            instance: instance
+        )
+        return created
     }
     
     func update(_ venue: VenueDetail, instance: InstanceProfile) async throws -> VenueDetail {
-        let url = instance.baseURL.appendingPathComponent("/api/venues/\(venue.id)")
-        let body = try JSONEncoder.iso8601.encode(venue)
-        let data = try await httpClient.put(url: url, body: body, instance: instance)
-        return try JSONDecoder.iso8601.decode(VenueDetail.self, from: data)
+        let updated: VenueDetail = try await httpClient.request(
+            "api/venues/\(venue.id)",
+            method: .put,
+            query: nil,
+            body: venue,
+            instance: instance
+        )
+        return updated
     }
     
     func delete(id: String, instance: InstanceProfile) async throws {
-        let url = instance.baseURL.appendingPathComponent("/api/venues/\(id)")
-        _ = try await httpClient.delete(url: url, instance: instance)
+        try await httpClient.requestVoid(
+            "api/venues/\(id)",
+            method: .delete,
+            query: nil,
+            body: Optional<VenueDetail>.none,
+            instance: instance
+        )
     }
-}
-
-// Convenience extensions for JSONDecoder and JSONEncoder
-private extension JSONDecoder {
-    static let iso8601: JSONDecoder = {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        return decoder
-    }()
-}
-
-private extension JSONEncoder {
-    static let iso8601: JSONEncoder = {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        return encoder
-    }()
 }
