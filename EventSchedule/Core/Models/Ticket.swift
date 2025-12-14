@@ -218,7 +218,7 @@ struct Ticket: Identifiable, Codable, Equatable {
     }
     
     var canCheckOut: Bool {
-        status == .valid && checkedInAt != nil && checkedOutAt == nil
+        (status == .valid || status == .used) && checkedInAt != nil && checkedOutAt == nil
     }
 }
 
