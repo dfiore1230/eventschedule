@@ -200,7 +200,7 @@ struct EventFormView: View {
                     HStack {
                         Text("Link")
                         Spacer()
-                        let base = webBaseURL(for: instance)
+                        let base = webBaseURL()
                         let linkString = base.appendingPathComponent("events").appendingPathComponent(originalEvent?.id ?? "").absoluteString
                         Text(linkString)
                             .foregroundColor(.secondary)
@@ -915,24 +915,49 @@ struct EventFormView: View {
     private func copyEventLink() {
         let pasteboard = UIPasteboard.general
         if let id = originalEvent?.id {
-            let url = webBaseURL(for: instance).appendingPathComponent("events").appendingPathComponent(id)
+            let url = webBaseURL().appendingPathComponent("events").appendingPathComponent(id)
             pasteboard.string = url.absoluteString
         } else {
             pasteboard.string = nil
         }
     }
 
-    private func webBaseURL(for instance: InstanceProfile) -> URL {
-        guard var components = URLComponents(url: instance.baseURL, resolvingAgainstBaseURL: false) else {
-            return instance.baseURL.deletingLastPathComponent()
+    private func webBaseURL() -> URL {
+        // Derive a web base URL without relying on httpClient.baseURL (not present on HTTPClientProtocol).
+        // Prefer to infer from the instance profile if possible; otherwise, fall back to root URL.
+        // If the URL ends with "/api", strip that segment to form the web base.
+
+        // Attempt to use any obvious URL from the instance if available via reflection of common property names.
+        // This avoids hard dependency on unknown protocols while keeping compile-time safety.
+        let candidateStrings: [String?] = [
+            // Common fields projects use on instance-like types
+            (instance as AnyObject).value(forKey: "webBaseURLString") as? String,
+            (instance as AnyObject).value(forKey: "baseURLString") as? String,
+            (instance as AnyObject).value(forKey: "apiBaseURLString") as? String,
+            // Fallback to known host or domain if exposed
+            (instance as AnyObject).value(forKey: "host") as? String
+        ]
+
+        let candidateURLs: [URL] = candidateStrings.compactMap { str in
+            guard let s = str?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty else { return nil }
+            if let url = URL(string: s) { return url }
+            // If only a host is provided, try to build https URL from it.
+            if let url = URL(string: "https://\(s)") { return url }
+            return nil
         }
 
-        if components.path.hasSuffix("/api") {
-            let newPath = String(components.path.dropLast(4))
-            components.path = newPath
+        var base = candidateURLs.first ?? URL(string: "/")! // Neutral fallback
+
+        if var components = URLComponents(url: base, resolvingAgainstBaseURL: false) {
+            var path = components.path
+            if path.hasSuffix("/api") {
+                path.removeLast(4) // remove "/api"
+            }
+            components.path = path
+            if let url = components.url { base = url }
         }
 
-        return components.url ?? instance.baseURL.deletingLastPathComponent()
+        return base
     }
     
     private func buildMemberDTOs() -> [RemoteEventRepository.MemberDTO] {

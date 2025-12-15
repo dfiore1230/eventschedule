@@ -48,7 +48,7 @@ final class RemoteCheckInRepository: CheckInRepositoryProtocol {
         )
         
         let result: ScanResult = try await httpClient.request(
-            "api/checkins",
+            "/api/checkins",
             method: .post,
             query: nil,
             body: request,
@@ -62,7 +62,7 @@ final class RemoteCheckInRepository: CheckInRepositoryProtocol {
         // Try direct array first using the client's decoding; if that fails upstream it will throw.
         // We'll attempt the wrapped variant by asking for Response and returning its data.
         if let direct: [CheckIn] = try? await httpClient.request(
-            "api/checkins",
+            "/api/checkins",
             method: .get,
             query: ["event_id": eventId],
             body: Optional<CheckIn>.none,
@@ -71,7 +71,7 @@ final class RemoteCheckInRepository: CheckInRepositoryProtocol {
             return direct
         }
         let wrapped: Response = try await httpClient.request(
-            "api/checkins",
+            "/api/checkins",
             method: .get,
             query: ["event_id": eventId],
             body: Optional<CheckIn>.none,

@@ -195,7 +195,7 @@ final class RemoteEventRepository: EventRepository {
         // Assuming the backend accepts raw bytes or base64 via a dedicated endpoint.
         // If multipart is required, HTTPClientProtocol should provide that; for now, send as octet-stream.
         let response: UploadResponse = try await httpClient.request(
-            "events/flyers",
+            "/api/events/flyers",
             method: .post,
             query: nil,
             body: data,
@@ -243,7 +243,7 @@ final class RemoteEventRepository: EventRepository {
     func listEvents(for instance: InstanceProfile) async throws -> [Event] {
         do {
             let response: EventListResponse = try await httpClient.request(
-                "events",
+                "/api/events",
                 method: .get,
                 query: nil,
                 body: Optional<Event>.none,
@@ -275,7 +275,7 @@ final class RemoteEventRepository: EventRepository {
     func getEvent(id: String, instance: InstanceProfile) async throws -> Event {
         do {
             let response: EventDetailResponse = try await httpClient.request(
-                "events/\(id)",
+                "/api/events/\(id)",
                 method: .get,
                 query: nil,
                 body: Optional<Event>.none,
@@ -350,7 +350,7 @@ final class RemoteEventRepository: EventRepository {
 
         do {
             let response: ResourcesResponse = try await httpClient.request(
-                "events/resources",
+                "/api/events/resources",
                 method: .get,
                 query: ["per_page": "1000"],
                 body: (nil as (any Encodable)?),
@@ -456,7 +456,7 @@ final class RemoteEventRepository: EventRepository {
         )
         do {
             let response: EventDetailResponse = try await httpClient.request(
-                "events/\(subdomain)",
+                "/api/events/\(subdomain)",
                 method: .post,
                 query: nil,
                 body: dto,
@@ -529,7 +529,6 @@ final class RemoteEventRepository: EventRepository {
             // Determine incoming and previous role ids
             let previousCuratorId: String? = cache[instance.id]?.first(where: { $0.id == event.id })?.curatorId
             let incomingCuratorId: String? = event.curatorId?.trimmingCharacters(in: .whitespacesAndNewlines)
-            let validCuratorIds = Set(resources.curators.map { $0.id })
 
             // Backend does not accept role_id on update (see SQL error). Omit the key entirely.
             let resolvedRoleId: String?? = .none
@@ -603,7 +602,7 @@ final class RemoteEventRepository: EventRepository {
                 ]
             )
             let response: EventDetailResponse = try await httpClient.request(
-                "events/\(event.id)",
+                "/api/events/\(event.id)",
                 method: .patch,
                 query: nil,
                 body: dto,
@@ -647,7 +646,7 @@ final class RemoteEventRepository: EventRepository {
     func deleteEvent(id: String, instance: InstanceProfile) async throws {
         do {
             try await httpClient.requestVoid(
-                "events/\(id)",
+                "/api/events/\(id)",
                 method: .delete,
                 query: nil,
                 body: Optional<Event>.none,
@@ -670,7 +669,7 @@ final class RemoteEventRepository: EventRepository {
                 metadata: ["bodyType": String(describing: T.self)]
             )
             let response: GenericEventResponse = try await httpClient.request(
-                "events/\(id)",
+                "/api/events/\(id)",
                 method: .patch,
                 query: nil,
                 body: body,
@@ -728,7 +727,7 @@ final class RemoteEventRepository: EventRepository {
     private func resolveSubdomain(for instance: InstanceProfile) async throws -> (String, String?) {
         if let cached = subdomainCache[instance.id] { return (cached.subdomain, cached.type) }
         let response: SchedulesResponse = try await httpClient.request(
-            "schedules",
+            "/api/schedules",
             method: .get,
             query: ["per_page": "1000"],
             body: (nil as (any Encodable)?),

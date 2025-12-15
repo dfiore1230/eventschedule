@@ -74,6 +74,16 @@ struct InstanceOnboardingPlaceholder: View {
         }
     }
 
+    private func webBase(from apiBase: URL) -> URL {
+        if var comps = URLComponents(url: apiBase, resolvingAgainstBaseURL: false) {
+            if comps.path.hasSuffix("/api") {
+                comps.path = String(comps.path.dropLast(4))
+                if let url = comps.url { return url }
+            }
+        }
+        return apiBase.deletingLastPathComponent()
+    }
+
     private func addInstance() {
         guard !isConnecting else { return }
         guard let normalizedURL = normalizedBaseURL(from: urlString) else {
@@ -458,7 +468,7 @@ struct SettingsView: View {
                 if let instance = instanceStore.activeInstance {
                     Section("Active Instance") {
                         Text(instance.displayName)
-                        Text(instance.baseURL.absoluteString)
+                        Text("API: \(instance.baseURL.absoluteString)")
                             .font(.footnote)
                             .foregroundColor(.secondary)
                         Text("Auth method: \(instance.authMethod.rawValue)")
@@ -549,10 +559,40 @@ struct SettingsView: View {
     private func saveAPIKey(instance: InstanceProfile) {
         guard !isSaving else { return }
         isSaving = true
-
+        
+        let normalizedAPI = normalizeToAPIRoot(instance.baseURL)
+        var targetInstance = instance
+        if normalizedAPI != instance.baseURL {
+            let updated = InstanceProfile(
+                id: instance.id,
+                displayName: instance.displayName,
+                baseURL: normalizedAPI,
+                environment: instance.environment,
+                authMethod: instance.authMethod,
+                authEndpoints: instance.authEndpoints,
+                featureFlags: instance.featureFlags,
+                minAppVersion: instance.minAppVersion,
+                rateLimits: instance.rateLimits,
+                tokenIdentifier: instance.tokenIdentifier,
+                theme: instance.theme
+            )
+            if let idx = instanceStore.instances.firstIndex(where: { $0.id == instance.id }) {
+                var copies = instanceStore.instances
+                copies[idx] = updated
+                instanceStore.setInstances(copies)
+                instanceStore.setActiveInstance(updated.id)
+            }
+            targetInstance = updated
+        }
+        
         let authService = AuthService(httpClient: httpClient)
-        authService.save(apiKey: apiKey, for: instance)
-        alertMessage = "API Key saved successfully."
+        authService.save(apiKey: apiKey, for: targetInstance)
+        
+        if normalizedAPI != instance.baseURL {
+            alertMessage = "API Key saved successfully. Normalized API base URL to \(targetInstance.baseURL.absoluteString)."
+        } else {
+            alertMessage = "API Key saved successfully."
+        }
         showingAlert = true
         isSaving = false
     }
@@ -563,5 +603,24 @@ struct SettingsView: View {
         alertMessage = "API Key removed."
         showingAlert = true
     }
+
+    private func normalizeToAPIRoot(_ url: URL) -> URL {
+        let trimmedPath = url.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        if trimmedPath.lowercased() == "api" { return url }
+        if url.lastPathComponent.lowercased() == "api" { return url }
+        if var comps = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            let basePath = comps.path
+            let sanitizedBase = basePath.hasSuffix("/") ? String(basePath.dropLast()) : basePath
+            comps.path = sanitizedBase + "/api"
+            if let normalized = comps.url { return normalized }
+        }
+        return url.appendingPathComponent("api")
+    }
 }
 
+// Extend or add EventFormView helper for webBaseURL usage update
+extension EventFormView {
+    private func webBaseURL(for instance: InstanceProfile) -> URL {
+        return instance.baseURL
+    }
+}

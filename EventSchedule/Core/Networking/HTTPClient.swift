@@ -63,14 +63,21 @@ final class HTTPClient: HTTPClientProtocol {
             body: body,
             instance: instance
         )
+        
+        // Defensive: if 2xx but non-JSON content, surface a clear error early.
+        if response.statusCode >= 200 && response.statusCode < 300 {
+            let contentType = response.value(forHTTPHeaderField: "Content-Type")?.lowercased() ?? ""
+            if !contentType.contains("json") {
+                let bodyPreview = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
+                let limited = String(bodyPreview.prefix(1024))
+                let urlString = response.url?.absoluteString ?? path
+                DebugLogger.error("Non-JSON 2xx response for \(urlString). Hint: Verify instance.baseURL points to the API root and that X-API-Key is set. Content-Type=\(contentType). Body preview=\n\(limited)")
+                throw APIError.decodingError(NSError(domain: "HTTPClient", code: -2, userInfo: [NSLocalizedDescriptionKey: "Non-JSON 2xx response"]), bodyPreview: limited)
+            }
+        }
 
         guard !data.isEmpty else {
             throw APIError.serverError(statusCode: response.statusCode, message: "Empty response body")
-        }
-
-        let contentType = response.value(forHTTPHeaderField: "Content-Type")?.lowercased() ?? ""
-        if !contentType.contains("json") {
-            DebugLogger.network("Warning: response content-type is not JSON: \(contentType). Proceeding to attempt JSON decode.")
         }
 
         do {
@@ -273,4 +280,3 @@ private struct AnyEncodable: Encodable {
         try _encode(encoder)
     }
 }
-

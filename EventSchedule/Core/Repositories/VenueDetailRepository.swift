@@ -18,7 +18,7 @@ final class RemoteVenueDetailRepository: VenueDetailRepositoryProtocol {
     func fetchAll(instance: InstanceProfile) async throws -> [VenueDetail] {
         // Try direct array first
         if let direct: [VenueDetail] = try? await httpClient.request(
-            "api/venues",
+            "/api/venues",
             method: .get,
             query: nil,
             body: Optional<VenueDetail>.none,
@@ -29,7 +29,7 @@ final class RemoteVenueDetailRepository: VenueDetailRepositoryProtocol {
         // Fallback to wrapped response { data: [VenueDetail] }
         struct Response: Decodable { let data: [VenueDetail] }
         let wrapped: Response = try await httpClient.request(
-            "api/venues",
+            "/api/venues",
             method: .get,
             query: nil,
             body: Optional<VenueDetail>.none,
@@ -40,7 +40,7 @@ final class RemoteVenueDetailRepository: VenueDetailRepositoryProtocol {
     
     func fetch(id: String, instance: InstanceProfile) async throws -> VenueDetail {
         let venue: VenueDetail = try await httpClient.request(
-            "api/venues/\(id)",
+            "/api/venues/\(id)",
             method: .get,
             query: nil,
             body: Optional<VenueDetail>.none,
@@ -51,7 +51,7 @@ final class RemoteVenueDetailRepository: VenueDetailRepositoryProtocol {
     
     func create(_ venue: VenueDetail, instance: InstanceProfile) async throws -> VenueDetail {
         let created: VenueDetail = try await httpClient.request(
-            "api/venues",
+            "/api/venues",
             method: .post,
             query: nil,
             body: venue,
@@ -62,7 +62,7 @@ final class RemoteVenueDetailRepository: VenueDetailRepositoryProtocol {
     
     func update(_ venue: VenueDetail, instance: InstanceProfile) async throws -> VenueDetail {
         let updated: VenueDetail = try await httpClient.request(
-            "api/venues/\(venue.id)",
+            "/api/venues/\(venue.id)",
             method: .put,
             query: nil,
             body: venue,
@@ -73,7 +73,7 @@ final class RemoteVenueDetailRepository: VenueDetailRepositoryProtocol {
     
     func delete(id: String, instance: InstanceProfile) async throws {
         try await httpClient.requestVoid(
-            "api/venues/\(id)",
+            "/api/venues/\(id)",
             method: .delete,
             query: nil,
             body: Optional<VenueDetail>.none,

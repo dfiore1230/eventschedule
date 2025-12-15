@@ -17,31 +17,31 @@ final class RemoteTalentRepository: TalentRepositoryProtocol {
     
     func fetchAll(instance: InstanceProfile) async throws -> [Talent] {
         do {
-            return try await httpClient.request("api/talent", method: .get, query: nil, body: Optional<Talent>.none, instance: instance)
+            return try await httpClient.request("/api/talent", method: .get, query: nil, body: Optional<Talent>.none, instance: instance)
         } catch {
             struct Response: Decodable {
                 let data: [Talent]
             }
-            let response: Response = try await httpClient.request("api/talent", method: .get, query: nil, body: Optional<Talent>.none, instance: instance)
+            let response: Response = try await httpClient.request("/api/talent", method: .get, query: nil, body: Optional<Talent>.none, instance: instance)
             return response.data
         }
     }
     
     func fetch(id: String, instance: InstanceProfile) async throws -> Talent {
-        return try await httpClient.request("api/talent/\(id)", method: .get, query: nil, body: Optional<Talent>.none, instance: instance)
+        return try await httpClient.request("/api/talent/\(id)", method: .get, query: nil, body: Optional<Talent>.none, instance: instance)
     }
     
     func create(_ talent: Talent, instance: InstanceProfile) async throws -> Talent {
-        let created: Talent = try await httpClient.request("api/talent", method: .post, query: nil, body: talent, instance: instance)
+        let created: Talent = try await httpClient.request("/api/talent", method: .post, query: nil, body: talent, instance: instance)
         return created
     }
     
     func update(_ talent: Talent, instance: InstanceProfile) async throws -> Talent {
-        let updated: Talent = try await httpClient.request("api/talent/\(talent.id)", method: .put, query: nil, body: talent, instance: instance)
+        let updated: Talent = try await httpClient.request("/api/talent/\(talent.id)", method: .put, query: nil, body: talent, instance: instance)
         return updated
     }
     
     func delete(id: String, instance: InstanceProfile) async throws {
-        try await httpClient.requestVoid("api/talent/\(id)", method: .delete, query: nil, body: Optional<Talent>.none, instance: instance)
+        try await httpClient.requestVoid("/api/talent/\(id)", method: .delete, query: nil, body: Optional<Talent>.none, instance: instance)
     }
 }

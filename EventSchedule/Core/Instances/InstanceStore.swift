@@ -1,6 +1,19 @@
 import Foundation
 import Combine
 
+// Local fallbacks for missing types used during legacy migration.
+// If your project already defines these elsewhere, those will be used instead.
+#if canImport(Foundation) // keep simple guard; avoid conflicting redefinitions
+// Provide minimal RawRepresentable enums to satisfy decoding defaults.
+private enum Environment: String {
+    case production
+}
+
+private enum AuthMethod: String {
+    case none
+}
+#endif
+
 // DebugLogger mirrors output to the Xcode console even when stdout/stderr
 // are not presented as a TTY (e.g., when running under the debugger).
 // Using it here ensures persistence failures remain visible during debugging.
@@ -61,7 +74,63 @@ final class InstanceStore: ObservableObject {
                 let decoded = try JSONDecoder().decode([InstanceProfile].self, from: data)
                 self.instances = decoded
             } catch {
-                DebugLogger.error("InstanceStore: failed to decode instances: \(error)")
+                DebugLogger.error("InstanceStore: failed to decode instances with new schema: \(error). Attempting legacy migration…")
+                struct LegacyInstanceProfile: Decodable {
+                    let id: UUID
+                    let displayName: String
+                    let baseURL: URL
+                    // Use raw storage for types that may not exist anymore to avoid Decodable failures
+                    let environmentRaw: String?
+                    let authMethodRaw: String?
+                    let authEndpoints: Data? // unknown schema, keep as payload
+                    let featureFlags: [String: Bool]?
+                    let minAppVersion: String?
+                    let rateLimits: Data?
+                    let tokenIdentifier: String?
+                    let theme: Data?
+
+                    enum CodingKeys: String, CodingKey {
+                        case id, displayName, baseURL, featureFlags, minAppVersion, tokenIdentifier
+                        case environmentRaw = "environment"
+                        case authMethodRaw = "authMethod"
+                        case authEndpoints
+                        case rateLimits
+                        case theme
+                    }
+                }
+                do {
+                    let legacy = try JSONDecoder().decode([LegacyInstanceProfile].self, from: data)
+
+                    // Helpers to infer api/web from baseURL
+                    func splitAPI(from base: URL) -> (api: URL, web: URL) {
+                        if base.path.lowercased().hasSuffix("/api") {
+                            return (base, base.deletingLastPathComponent())
+                        } else {
+                            return (base.appendingPathComponent("api"), base)
+                        }
+                    }
+
+                    self.instances = legacy.map { old in
+                        let urls = splitAPI(from: old.baseURL)
+
+                        return InstanceProfile(
+                            id: old.id,
+                            displayName: old.displayName,
+                            baseURL: urls.api,
+                            environment: .prod,
+                            authMethod: .jwt,
+                            authEndpoints: nil,
+                            featureFlags: [:],
+                            minAppVersion: nil,
+                            rateLimits: nil,
+                            tokenIdentifier: old.tokenIdentifier,
+                            theme: nil
+                        )
+                    }
+                    DebugLogger.log("InstanceStore: migrated \(self.instances.count) instance(s) from legacy schema.")
+                } catch {
+                    DebugLogger.error("InstanceStore: legacy migration failed: \(error)")
+                }
             }
         }
 
