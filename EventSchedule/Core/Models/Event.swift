@@ -7,7 +7,7 @@ struct Event: Codable, Identifiable, Equatable {
     var startAt: Date
     var endAt: Date
     var durationMinutes: Int?
-    var venueId: String
+    var venueId: String?
     var venueName: String?
     var roomId: String?
     var images: [URL]
@@ -188,12 +188,12 @@ struct Event: Codable, Identifiable, Equatable {
         groupSlug = try container.decodeIfPresent(String.self, forKey: .groupSlug)
 
         if let venueIdentifier = try container.decodeIfPresent(String.self, forKey: .venueId) {
-            venueId = venueIdentifier
+            venueId = venueIdentifier.isEmpty ? nil : venueIdentifier
         } else if let venueRef = try container.decodeIfPresent(VenueReference.self, forKey: .venue) {
             venueId = venueRef.id
             venueName = venueRef.name
         } else {
-            venueId = "Unknown venue"
+            venueId = nil
         }
 
         if let decodedTicketTypes = try container.decodeIfPresent([TicketType].self, forKey: .ticketTypes) {
@@ -257,7 +257,7 @@ struct Event: Codable, Identifiable, Equatable {
         startAt: Date,
         endAt: Date,
         durationMinutes: Int? = nil,
-        venueId: String,
+        venueId: String?,
         venueName: String? = nil,
         roomId: String? = nil,
         images: [URL] = [],
@@ -314,6 +314,7 @@ struct Event: Codable, Identifiable, Equatable {
         if let durationMinutes, durationMinutes > 0 {
             try container.encode(durationMinutes / 60, forKey: .durationMinutes)
         }
+        // Always encode venueId, including explicit null for online-only events
         try container.encode(venueId, forKey: .venueId)
         try container.encodeIfPresent(roomId, forKey: .roomId)
         try container.encode(images, forKey: .images)
@@ -342,10 +343,10 @@ struct Event: Codable, Identifiable, Equatable {
         if let venueName, !venueName.isEmpty {
             return venueName
         }
-        if venueId.isEmpty {
-            return "Unknown venue"
+        if let venueId = venueId, !venueId.isEmpty {
+            return venueId
         }
-        return venueId
+        return "Unknown venue"
     }
 
     private static let iso8601WithFractional: ISO8601DateFormatter = {
@@ -499,4 +500,3 @@ extension Event {
         return formatter.string(from: date)
     }
 }
-

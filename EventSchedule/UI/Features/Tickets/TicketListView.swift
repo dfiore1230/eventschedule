@@ -5,7 +5,7 @@ struct TicketListView: View {
     @Environment(\.httpClient) private var httpClient
     @Environment(\.theme) private var theme
     
-    @State private var tickets: [Ticket] = []
+    @State private var tickets: [TicketSale] = []
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var searchQuery = ""
@@ -124,35 +124,34 @@ struct TicketListView: View {
 }
 
 private struct TicketRow: View {
-    let ticket: Ticket
+    let ticket: TicketSale
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .center, spacing: 8) {
-                Text(ticket.holderName ?? "Unknown")
+                Text(ticket.name)
                     .font(.headline)
                     .lineLimit(1)
                 Spacer()
                 statusBadge
             }
             
-            if let eventName = ticket.eventName {
-                Label(eventName, systemImage: "calendar")
+            if let event = ticket.event {
+                Label(event.name, systemImage: "calendar")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
             }
             
             HStack(spacing: 12) {
-                Text(ticket.ticketTypeName)
+                Label("\(ticket.totalQuantity) ticket(s)", systemImage: "ticket")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 
-                if let price = ticket.price {
-                    Text("\(ticket.currency ?? "USD") \(price as NSDecimalNumber)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                Text(ticket.email)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
             }
         }
         .padding(.vertical, 4)
@@ -171,11 +170,10 @@ private struct TicketRow: View {
     
     private var statusColor: Color {
         switch ticket.status {
-        case .valid: return .green
-        case .used: return .blue
-        case .refunded, .voided: return .red
-        case .expired: return .orange
-        case .transferred: return .purple
+        case .paid: return .green
+        case .pending: return .orange
+        case .refunded, .cancelled: return .red
+        case .expired: return .gray
         }
     }
 }

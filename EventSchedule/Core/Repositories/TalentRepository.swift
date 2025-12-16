@@ -2,10 +2,10 @@ import Foundation
 
 protocol TalentRepositoryProtocol {
     func fetchAll(instance: InstanceProfile) async throws -> [Talent]
-    func fetch(id: String, instance: InstanceProfile) async throws -> Talent
+    func fetch(id: Int, instance: InstanceProfile) async throws -> Talent
     func create(_ talent: Talent, instance: InstanceProfile) async throws -> Talent
     func update(_ talent: Talent, instance: InstanceProfile) async throws -> Talent
-    func delete(id: String, instance: InstanceProfile) async throws
+    func delete(id: Int, instance: InstanceProfile) async throws
 }
 
 final class RemoteTalentRepository: TalentRepositoryProtocol {
@@ -27,7 +27,7 @@ final class RemoteTalentRepository: TalentRepositoryProtocol {
         }
     }
     
-    func fetch(id: String, instance: InstanceProfile) async throws -> Talent {
+    func fetch(id: Int, instance: InstanceProfile) async throws -> Talent {
         return try await httpClient.request("/api/talent/\(id)", method: .get, query: nil, body: Optional<Talent>.none, instance: instance)
     }
     
@@ -41,7 +41,7 @@ final class RemoteTalentRepository: TalentRepositoryProtocol {
         return updated
     }
     
-    func delete(id: String, instance: InstanceProfile) async throws {
+    func delete(id: Int, instance: InstanceProfile) async throws {
         try await httpClient.requestVoid("/api/talent/\(id)", method: .delete, query: nil, body: Optional<Talent>.none, instance: instance)
     }
 }

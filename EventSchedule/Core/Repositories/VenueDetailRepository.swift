@@ -2,10 +2,10 @@ import Foundation
 
 protocol VenueDetailRepositoryProtocol {
     func fetchAll(instance: InstanceProfile) async throws -> [VenueDetail]
-    func fetch(id: String, instance: InstanceProfile) async throws -> VenueDetail
+    func fetch(id: Int, instance: InstanceProfile) async throws -> VenueDetail
     func create(_ venue: VenueDetail, instance: InstanceProfile) async throws -> VenueDetail
     func update(_ venue: VenueDetail, instance: InstanceProfile) async throws -> VenueDetail
-    func delete(id: String, instance: InstanceProfile) async throws
+    func delete(id: Int, instance: InstanceProfile) async throws
 }
 
 final class RemoteVenueDetailRepository: VenueDetailRepositoryProtocol {
@@ -38,7 +38,7 @@ final class RemoteVenueDetailRepository: VenueDetailRepositoryProtocol {
         return wrapped.data
     }
     
-    func fetch(id: String, instance: InstanceProfile) async throws -> VenueDetail {
+    func fetch(id: Int, instance: InstanceProfile) async throws -> VenueDetail {
         let venue: VenueDetail = try await httpClient.request(
             "/api/venues/\(id)",
             method: .get,
@@ -71,7 +71,7 @@ final class RemoteVenueDetailRepository: VenueDetailRepositoryProtocol {
         return updated
     }
     
-    func delete(id: String, instance: InstanceProfile) async throws {
+    func delete(id: Int, instance: InstanceProfile) async throws {
         try await httpClient.requestVoid(
             "/api/venues/\(id)",
             method: .delete,

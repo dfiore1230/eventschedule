@@ -1,104 +1,130 @@
 import Foundation
 
 struct Talent: Identifiable, Codable, Equatable {
-    let id: String
+    let id: Int
     var name: String
-    var role: String?
-    var bio: String?
-    var links: [String: URL]
-    var images: [URL]
-    var contact: ContactInfo?
-    var availability: [AvailabilityPeriod]
+    var email: String?
+    var phone: String?
+    var website: String?
+    var description: String?
+    var address1: String?
+    var city: String?
+    var state: String?
+    var postalCode: String?
+    var countryCode: String?
+    var timezone: String?
+    var subdomain: String?
+    var createdAt: Date?
+    var updatedAt: Date?
     
-    struct ContactInfo: Codable, Equatable {
-        var email: String?
-        var phone: String?
-        var website: URL?
-        var social: [String: String] = [:]
+    // Computed property for backward compatibility
+    var role: String? {
+        description
     }
     
-    struct AvailabilityPeriod: Codable, Equatable {
-        let startDate: Date
-        let endDate: Date
-        var notes: String?
+    var bio: String? {
+        description
     }
     
     init(
-        id: String,
+        id: Int,
         name: String,
-        role: String? = nil,
-        bio: String? = nil,
-        links: [String: URL] = [:],
-        images: [URL] = [],
-        contact: ContactInfo? = nil,
-        availability: [AvailabilityPeriod] = []
+        email: String? = nil,
+        phone: String? = nil,
+        website: String? = nil,
+        description: String? = nil,
+        address1: String? = nil,
+        city: String? = nil,
+        state: String? = nil,
+        postalCode: String? = nil,
+        countryCode: String? = nil,
+        timezone: String? = nil,
+        subdomain: String? = nil,
+        createdAt: Date? = nil,
+        updatedAt: Date? = nil
     ) {
         self.id = id
         self.name = name
-        self.role = role
-        self.bio = bio
-        self.links = links
-        self.images = images
-        self.contact = contact
-        self.availability = availability
+        self.email = email
+        self.phone = phone
+        self.website = website
+        self.description = description
+        self.address1 = address1
+        self.city = city
+        self.state = state
+        self.postalCode = postalCode
+        self.countryCode = countryCode
+        self.timezone = timezone
+        self.subdomain = subdomain
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
     }
     
     enum CodingKeys: String, CodingKey {
         case id
         case name
-        case role
-        case bio
+        case email
+        case phone
+        case website
         case description
-        case links
-        case images
-        case contact
-        case availability
+        case address1
+        case city
+        case state
+        case postalCode = "postal_code"
+        case countryCode = "country_code"
+        case timezone
+        case subdomain
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
     }
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
-        id = try container.decode(String.self, forKey: .id)
+        id = try container.decode(Int.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
-        role = try container.decodeIfPresent(String.self, forKey: .role)
+        email = try container.decodeIfPresent(String.self, forKey: .email)
+        phone = try container.decodeIfPresent(String.self, forKey: .phone)
+        website = try container.decodeIfPresent(String.self, forKey: .website)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+        address1 = try container.decodeIfPresent(String.self, forKey: .address1)
+        city = try container.decodeIfPresent(String.self, forKey: .city)
+        state = try container.decodeIfPresent(String.self, forKey: .state)
+        postalCode = try container.decodeIfPresent(String.self, forKey: .postalCode)
+        countryCode = try container.decodeIfPresent(String.self, forKey: .countryCode)
+        timezone = try container.decodeIfPresent(String.self, forKey: .timezone)
+        subdomain = try container.decodeIfPresent(String.self, forKey: .subdomain)
         
-        // Bio can be in 'bio' or 'description' field
-        if let bioDecode = try container.decodeIfPresent(String.self, forKey: .bio) {
-            bio = bioDecode
+        // Handle date decoding
+        let dateFormatter = ISO8601DateFormatter()
+        if let createdString = try container.decodeIfPresent(String.self, forKey: .createdAt) {
+            createdAt = dateFormatter.date(from: createdString)
         } else {
-            bio = try container.decodeIfPresent(String.self, forKey: .description)
+            createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
         }
-        
-        // Links can be dictionary of URLs or array of strings
-        if let linksDict = try? container.decodeIfPresent([String: URL].self, forKey: .links) {
-            links = linksDict
-        } else if let linksArray = try? container.decodeIfPresent([String].self, forKey: .links) {
-            // Safely convert array of strings to dictionary of URLs
-            var linksDict: [String: URL] = [:]
-            for (index, urlString) in linksArray.enumerated() {
-                if let url = URL(string: urlString) {
-                    linksDict["link\(index)"] = url
-                }
-            }
-            links = linksDict
+        if let updatedString = try container.decodeIfPresent(String.self, forKey: .updatedAt) {
+            updatedAt = dateFormatter.date(from: updatedString)
         } else {
-            links = [:]
+            updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
         }
-        
-        images = try container.decodeIfPresent([URL].self, forKey: .images) ?? []
-        contact = try container.decodeIfPresent(ContactInfo.self, forKey: .contact)
-        availability = try container.decodeIfPresent([AvailabilityPeriod].self, forKey: .availability) ?? []
     }
     
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(id, forKey: .id)
         try container.encode(name, forKey: .name)
-        try container.encodeIfPresent(role, forKey: .role)
-        try container.encodeIfPresent(bio, forKey: .bio)
-        try container.encode(links, forKey: .links)
-        try container.encode(images, forKey: .images)
-        try container.encodeIfPresent(contact, forKey: .contact)
-        try container.encode(availability, forKey: .availability)
+        try container.encodeIfPresent(email, forKey: .email)
+        try container.encodeIfPresent(phone, forKey: .phone)
+        try container.encodeIfPresent(website, forKey: .website)
+        try container.encodeIfPresent(description, forKey: .description)
+        try container.encodeIfPresent(address1, forKey: .address1)
+        try container.encodeIfPresent(city, forKey: .city)
+        try container.encodeIfPresent(state, forKey: .state)
+        try container.encodeIfPresent(postalCode, forKey: .postalCode)
+        try container.encodeIfPresent(countryCode, forKey: .countryCode)
+        try container.encodeIfPresent(timezone, forKey: .timezone)
+        try container.encodeIfPresent(subdomain, forKey: .subdomain)
+        try container.encodeIfPresent(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
     }
 }

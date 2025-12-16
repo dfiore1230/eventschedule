@@ -1,13 +1,11 @@
 import Foundation
 
 protocol TicketRepositoryProtocol {
-    func search(eventId: String?, query: String?, instance: InstanceProfile) async throws -> [Ticket]
-    func fetch(id: String, instance: InstanceProfile) async throws -> Ticket
-    func issue(_ ticket: Ticket, instance: InstanceProfile) async throws -> Ticket
-    func refund(id: String, instance: InstanceProfile) async throws -> Ticket
-    func void(id: String, instance: InstanceProfile) async throws -> Ticket
-    func reassign(id: String, newHolder: String, newEmail: String, instance: InstanceProfile) async throws -> Ticket
-    func addNote(id: String, note: String, instance: InstanceProfile) async throws -> Ticket
+    func search(eventId: Int?, query: String?, instance: InstanceProfile) async throws -> [TicketSale]
+    func fetch(id: Int, instance: InstanceProfile) async throws -> TicketSale
+    func updateStatus(id: Int, action: String, instance: InstanceProfile) async throws -> TicketSale
+    func reassign(id: Int, newHolder: String, newEmail: String, instance: InstanceProfile) async throws -> TicketSale
+    func addNote(id: Int, note: String, instance: InstanceProfile) async throws
 }
 
 final class RemoteTicketRepository: TicketRepositoryProtocol {
@@ -17,67 +15,84 @@ final class RemoteTicketRepository: TicketRepositoryProtocol {
         self.httpClient = httpClient
     }
     
-    func search(eventId: String?, query: String?, instance: InstanceProfile) async throws -> [Ticket] {
-        let queryItems: [String: String?] = [
-            "event_id": eventId,
-            "query": query
-        ]
+    func search(eventId: Int?, query: String?, instance: InstanceProfile) async throws -> [TicketSale] {
+        var queryItems: [String: String?] = [:]
+        if let eventId = eventId {
+            queryItems["event_id"] = String(eventId)
+        }
+        if let query = query {
+            queryItems["query"] = query
+        }
         
         do {
-            let tickets: [Ticket] = try await httpClient.request("/api/tickets", method: .get, query: queryItems, body: Optional<Ticket>.none, instance: instance)
+            let tickets: [TicketSale] = try await httpClient.request("/api/tickets", method: .get, query: queryItems, body: Optional<TicketSale>.none, instance: instance)
             return tickets
         } catch {
             struct Response: Decodable {
-                let data: [Ticket]
+                let data: [TicketSale]
             }
-            let response: Response = try await httpClient.request("/api/tickets", method: .get, query: queryItems, body: Optional<Ticket>.none, instance: instance)
+            let response: Response = try await httpClient.request("/api/tickets", method: .get, query: queryItems, body: Optional<TicketSale>.none, instance: instance)
             return response.data
         }
     }
     
-    func fetch(id: String, instance: InstanceProfile) async throws -> Ticket {
-        let response: Ticket = try await httpClient.request("/api/tickets/\(id)", method: .get, query: nil, body: Optional<Ticket>.none, instance: instance)
+    func fetch(id: Int, instance: InstanceProfile) async throws -> TicketSale {
+        let response: TicketSale = try await httpClient.request("/api/tickets/\(id)", method: .get, query: nil, body: Optional<TicketSale>.none, instance: instance)
         return response
     }
     
-    func issue(_ ticket: Ticket, instance: InstanceProfile) async throws -> Ticket {
-        let created: Ticket = try await httpClient.request("/api/tickets", method: .post, query: nil, body: ticket, instance: instance)
-        return created
+    func updateStatus(id: Int, action: String, instance: InstanceProfile) async throws -> TicketSale {
+        struct ActionRequest: Codable {
+            let action: String
+        }
+        
+        let request = ActionRequest(action: action)
+        
+        struct Response: Decodable {
+            let data: TicketSale
+        }
+        
+        do {
+            let sale: TicketSale = try await httpClient.request("/api/tickets/\(id)", method: .patch, query: nil, body: request, instance: instance)
+            return sale
+        } catch {
+            let response: Response = try await httpClient.request("/api/tickets/\(id)", method: .patch, query: nil, body: request, instance: instance)
+            return response.data
+        }
     }
     
-    func refund(id: String, instance: InstanceProfile) async throws -> Ticket {
-        let ticket: Ticket = try await httpClient.request("/api/tickets/\(id)/refund", method: .post, query: nil, body: Optional<Ticket>.none, instance: instance)
-        return ticket
-    }
-    
-    func void(id: String, instance: InstanceProfile) async throws -> Ticket {
-        let ticket: Ticket = try await httpClient.request("/api/tickets/\(id)/void", method: .post, query: nil, body: Optional<Ticket>.none, instance: instance)
-        return ticket
-    }
-    
-    func reassign(id: String, newHolder: String, newEmail: String, instance: InstanceProfile) async throws -> Ticket {
+    func reassign(id: Int, newHolder: String, newEmail: String, instance: InstanceProfile) async throws -> TicketSale {
         struct ReassignRequest: Codable {
-            let holderName: String
-            let holderEmail: String
+            let newHolderName: String
+            let newHolderEmail: String
             
             enum CodingKeys: String, CodingKey {
-                case holderName = "holder_name"
-                case holderEmail = "holder_email"
+                case newHolderName = "new_holder_name"
+                case newHolderEmail = "new_holder_email"
             }
         }
         
-        let request = ReassignRequest(holderName: newHolder, holderEmail: newEmail)
-        let ticket: Ticket = try await httpClient.request("/api/tickets/\(id)/reassign", method: .post, query: nil, body: request, instance: instance)
-        return ticket
+        let request = ReassignRequest(newHolderName: newHolder, newHolderEmail: newEmail)
+        
+        struct Response: Decodable {
+            let data: TicketSale
+        }
+        
+        do {
+            let sale: TicketSale = try await httpClient.request("/api/tickets/\(id)/reassign", method: .post, query: nil, body: request, instance: instance)
+            return sale
+        } catch {
+            let response: Response = try await httpClient.request("/api/tickets/\(id)/reassign", method: .post, query: nil, body: request, instance: instance)
+            return response.data
+        }
     }
     
-    func addNote(id: String, note: String, instance: InstanceProfile) async throws -> Ticket {
+    func addNote(id: Int, note: String, instance: InstanceProfile) async throws {
         struct NoteRequest: Codable {
             let note: String
         }
         
         let request = NoteRequest(note: note)
-        let ticket: Ticket = try await httpClient.request("/api/tickets/\(id)/notes", method: .post, query: nil, body: request, instance: instance)
-        return ticket
+        try await httpClient.requestVoid("/api/tickets/\(id)/notes", method: .post, query: nil, body: request, instance: instance)
     }
 }

@@ -134,17 +134,27 @@ private struct VenueRow: View {
                 Spacer()
             }
             
-            if let address = venue.address, !address.formatted.isEmpty {
-                Label(address.formatted, systemImage: "location")
+            if !venue.displayAddress.isEmpty {
+                Label(venue.displayAddress, systemImage: "location")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .lineLimit(1)
             }
             
-            if !venue.rooms.isEmpty {
-                Label("\(venue.rooms.count) room(s)", systemImage: "square.split.2x2")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            HStack(spacing: 12) {
+                if let phone = venue.phone, !phone.isEmpty {
+                    Label(phone, systemImage: "phone")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                
+                if let email = venue.email, !email.isEmpty {
+                    Label(email, systemImage: "envelope")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
             }
         }
         .padding(.vertical, 4)

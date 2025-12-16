@@ -16,7 +16,7 @@ struct EventFormView: View {
     @State private var description: String
     @State private var startAtLocal: Date
     @State private var endAtLocal: Date
-    @State private var venueId: String
+    @State private var venueId: String?
     @State private var venueName: String?
     @State private var venueTimeZoneIdentifier: String? = nil
     @State private var availableVenues: [Venue] = []
@@ -127,14 +127,22 @@ struct EventFormView: View {
         }
         _name = State(initialValue: event?.name ?? "")
         _description = State(initialValue: event?.description ?? "")
-        _venueId = State(initialValue: event?.venueId ?? "")
+        _venueId = State(initialValue: event?.venueId)
         _venueName = State(initialValue: nil)
         _talentSelections = State(initialValue: [])
         _roomId = State(initialValue: event?.roomId ?? "")
         _capacity = State(initialValue: event?.capacity.map { String($0) } ?? "")
         _durationHours = State(initialValue: Self.durationHoursString(from: event?.durationMinutes))
-        _isOnline = State(initialValue: event?.onlineURL != nil)
-        _isInPerson = State(initialValue: event?.venueId.isEmpty == false || event == nil)
+        // Initialize toggles based on actual data present in the event
+        let hasOnlineURL = event?.onlineURL != nil
+        let hasVenue = event?.venueId != nil && !(event!.venueId!.isEmpty)
+        // Debug logging
+        if let evt = event {
+            DebugLogger.log("EventFormView init: venueId='\(evt.venueId)' hasVenue=\(hasVenue) onlineURL=\(evt.onlineURL?.absoluteString ?? "nil") hasOnlineURL=\(hasOnlineURL)")
+        }
+        // For new events, default to in-person only; for existing, set based on data
+        _isOnline = State(initialValue: hasOnlineURL)
+        _isInPerson = State(initialValue: event == nil ? true : hasVenue)
         _onlineURL = State(initialValue: event?.onlineURL?.absoluteString ?? "")
         _selectedCategory = State(initialValue: event?.category ?? "")
         _selectedGroupSlug = State(initialValue: event?.groupSlug ?? "")
@@ -179,7 +187,11 @@ struct EventFormView: View {
     }
 
     private var requiresVenueSelection: Bool {
-        isInPerson && venueId.isEmpty
+        isInPerson && !isOnline && (venueId == nil || venueId!.isEmpty)
+    }
+    
+    private var passwordMissingForOnline: Bool {
+        isOnline && eventPassword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var saveDisabled: Bool {
@@ -198,7 +210,7 @@ struct EventFormView: View {
                 TextField("Name", text: $name)
                 if originalEvent != nil {
                     HStack {
-                        Text("Link")
+                        Text("Event Page")
                         Spacer()
                         let base = webBaseURL()
                         let linkString = base.appendingPathComponent("events").appendingPathComponent(originalEvent?.id ?? "").absoluteString
@@ -206,8 +218,9 @@ struct EventFormView: View {
                             .foregroundColor(.secondary)
                             .lineLimit(1)
                             .truncationMode(.middle)
-                        Button("Copy Link") { copyEventLink() }
+                        Button("Copy") { copyEventLink() }
                     }
+                    .font(.caption)
                 }
                 if !selectedGroupSlug.isEmpty {
                     Text("Group: \(selectedGroupSlug)")
@@ -253,7 +266,25 @@ struct EventFormView: View {
 
             Section(header: Text("Type")) {
                 Toggle("In-person", isOn: $isInPerson)
+                    .onChange(of: isInPerson) { _, newValue in
+                        if newValue {
+                            // Auto-select first venue when enabling in-person mode
+                            if venueId == nil || venueId!.isEmpty, let firstVenue = availableVenues.first {
+                                venueId = firstVenue.id
+                            }
+                        } else {
+                            // Clear venue selection when in-person is disabled
+                            venueId = nil
+                            roomId = ""
+                        }
+                    }
                 Toggle("Online", isOn: $isOnline)
+                    .onChange(of: isOnline) { _, newValue in
+                        if !newValue {
+                            // Clear the URL when online is disabled
+                            onlineURL = ""
+                        }
+                    }
                 if isOnline {
                     TextField("Online URL", text: $onlineURL)
                         .textInputAutocapitalization(.never)
@@ -276,30 +307,38 @@ struct EventFormView: View {
                 }
             }
 
-            Section(header: Text("Location")) {
-                if isLoadingVenues {
-                    ProgressView("Loading venues…")
-                }
-                if !availableVenues.isEmpty {
-                    Picker("Venue", selection: $venueId) {
-                        ForEach(availableVenues) { venue in
-                            Text(venue.name).tag(venue.id)
+            if isInPerson {
+                Section(header: Text("Location")) {
+                    if isLoadingVenues {
+                        ProgressView("Loading venues…")
+                    }
+                    if !availableVenues.isEmpty {
+                        Picker("Venue", selection: $venueId) {
+                            Text("Select a venue").tag(nil as String?)
+                            ForEach(availableVenues) { venue in
+                                Text(venue.name).tag(venue.id as String?)
+                            }
                         }
+                        .onChange(of: venueId) { _, _ in
+                            venueTimeZoneIdentifier = nil
+                        }
+                        if requiresVenueSelection {
+                            Text("Please select a venue for in-person events.")
+                                .font(.footnote)
+                                .foregroundColor(.red)
+                        }
+                    } else {
+                        Text("No venues available. Add a venue in the web app, then refresh.")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
                     }
-                    .onChange(of: venueId) { _, _ in
-                        venueTimeZoneIdentifier = nil
-                    }
-                } else {
-                    Text("No venues available. Add a venue in the web app, then refresh.")
-                        .font(.footnote)
-                        .foregroundColor(.secondary)
-                }
-                TextField("Room ID", text: $roomId)
+                    TextField("Room ID", text: $roomId)
 
-                if let venueErrorMessage {
-                    Text(venueErrorMessage)
-                        .font(.footnote)
-                        .foregroundColor(.red)
+                    if let venueErrorMessage {
+                        Text(venueErrorMessage)
+                            .font(.footnote)
+                            .foregroundColor(.red)
+                    }
                 }
             }
 
@@ -392,8 +431,8 @@ struct EventFormView: View {
                 }
 
                 ForEach(ticketDrafts) { draft in
-                    VStack(alignment: .leading) {
-                        TextField("Ticket name", text: binding(for: draft).name)
+                    VStack(alignment: .leading, spacing: 8) {
+                        TextField("Ticket type name", text: binding(for: draft).name)
                         HStack {
                             TextField("Price", text: binding(for: draft).price)
                                 .keyboardType(.decimalPad)
@@ -402,6 +441,8 @@ struct EventFormView: View {
                         }
                         TextField("Quantity available", text: binding(for: draft).quantity)
                             .keyboardType(.numberPad)
+                        TextField("Description", text: binding(for: draft).description, axis: .vertical)
+                            .lineLimit(2...4)
                         Button(role: .destructive) {
                             removeTicket(draft)
                         } label: {
@@ -409,6 +450,7 @@ struct EventFormView: View {
                         }
                         .buttonStyle(.borderless)
                     }
+                    .padding(.vertical, 4)
                 }
 
                 Button(action: { ticketDrafts.append(TicketDraft()) }) {
@@ -429,11 +471,11 @@ struct EventFormView: View {
                 Picker("Payment method", selection: $paymentMethod) {
                     Text("Online").tag("online")
                     Text("Cash (offline)").tag("cash")
+                    Text("Stripe").tag("stripe")
+                    Text("InvoiceNinja").tag("invoiceninja")
                 }
-                if paymentMethod == "cash" {
-                    TextField("Payment instructions", text: $paymentInstructions, axis: .vertical)
-                        .lineLimit(2...4)
-                }
+                TextField("Payment instructions (Markdown/HTML supported)", text: $paymentInstructions, axis: .vertical)
+                    .lineLimit(3...6)
                 Toggle("Expire unpaid tickets", isOn: $expireUnpaidTickets)
                 TextField("Remind unpaid every (hours)", text: $remindUnpaidTicketsEvery)
                     .keyboardType(.numberPad)
@@ -443,7 +485,14 @@ struct EventFormView: View {
             }
             
             Section(header: Text("Security & Media")) {
-                SecureField("Event password", text: $eventPassword)
+                VStack(alignment: .leading, spacing: 4) {
+                    SecureField(isOnline ? "Event password (recommended for online)" : "Event password (optional)", text: $eventPassword)
+                    if passwordMissingForOnline {
+                        Text("Tip: Add a password to secure your online event.")
+                            .font(.footnote)
+                            .foregroundColor(.orange)
+                    }
+                }
                 TextField("Flyer image ID", text: $flyerImageId)
                     .keyboardType(.numberPad)
             }
@@ -658,7 +707,7 @@ struct EventFormView: View {
                         totalTicketsMode: totalTicketsMode,
                         ticketNotes: ticketNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : ticketNotes,
                         paymentMethod: paymentMethod,
-                        paymentInstructions: paymentMethod == "cash" ? (paymentInstructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : paymentInstructions) : nil,
+                        paymentInstructions: paymentInstructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : paymentInstructions,
                         expireUnpaidTickets: expireUnpaidTickets ? true : nil,
                         remindUnpaidTicketsEvery: Int(remindUnpaidTicketsEvery.trimmingCharacters(in: .whitespacesAndNewlines)),
                         registrationUrl: URL(string: registrationURL.trimmingCharacters(in: .whitespacesAndNewlines)),
@@ -669,6 +718,9 @@ struct EventFormView: View {
                         schedule: scheduleSlug.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : scheduleSlug
                     )
 
+                    let finalVenueId = isInPerson ? venueId : nil
+                    DebugLogger.log("EventFormView create: isInPerson=\(isInPerson) isOnline=\(isOnline) venueId='\(finalVenueId ?? "nil")' onlineURL=\(onlineLink?.absoluteString ?? "nil")")
+                    
                     let payload = Event(
                         id: UUID().uuidString,
                         name: name,
@@ -676,7 +728,7 @@ struct EventFormView: View {
                         startAt: roundedStartCreate,
                         endAt: computedEndAt,
                         durationMinutes: parsedDurationMinutes,
-                        venueId: isInPerson ? venueId : "",
+                        venueId: finalVenueId,
                         roomId: roomId.isEmpty ? nil : roomId,
                         images: cleanedImages,
                         capacity: Int(capacity),
@@ -744,7 +796,7 @@ struct EventFormView: View {
                         totalTicketsMode: totalTicketsMode,
                         ticketNotes: ticketNotes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : ticketNotes,
                         paymentMethod: paymentMethod,
-                        paymentInstructions: paymentMethod == "cash" ? (paymentInstructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : paymentInstructions) : nil,
+                        paymentInstructions: paymentInstructions.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : paymentInstructions,
                         expireUnpaidTickets: expireUnpaidTickets ? true : nil,
                         remindUnpaidTicketsEvery: Int(remindUnpaidTicketsEvery.trimmingCharacters(in: .whitespacesAndNewlines)),
                         registrationUrl: URL(string: registrationURL.trimmingCharacters(in: .whitespacesAndNewlines)),
@@ -755,6 +807,9 @@ struct EventFormView: View {
                         schedule: scheduleSlug.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : scheduleSlug
                     )
 
+                    let finalVenueId = isInPerson ? venueId : nil
+                    DebugLogger.log("EventFormView update: isInPerson=\(isInPerson) isOnline=\(isOnline) venueId='\(finalVenueId ?? "nil")' onlineURL=\(parsedOnlineURL()?.absoluteString ?? "nil")")
+                    
                     let updatedEvent = Event(
                         id: originalEvent!.id,
                         name: name,
@@ -762,7 +817,7 @@ struct EventFormView: View {
                         startAt: reconstructedStart,
                         endAt: computedEndAt,
                         durationMinutes: parsedDurationMinutes,
-                        venueId: isInPerson ? venueId : "",
+                        venueId: finalVenueId,
                         venueName: originalEvent?.venueName,
                         roomId: roomId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : roomId,
                         images: imageURLs,
@@ -826,15 +881,15 @@ struct EventFormView: View {
                 }
 
                 if availableVenues.isEmpty {
-                    venueId = ""
+                    venueId = nil
                     venueName = nil
-                } else if venueId.isEmpty, let firstVenue = availableVenues.first {
+                } else if venueId == nil || venueId!.isEmpty, let firstVenue = availableVenues.first {
                     venueId = firstVenue.id
                     venueName = firstVenue.name
-                } else if let selected = availableVenues.first(where: { $0.id == venueId }) {
+                } else if let venueId = venueId, let selected = availableVenues.first(where: { $0.id == venueId }) {
                     venueName = selected.name
                 } else {
-                    venueId = ""
+                    venueId = nil
                     venueName = nil
                 }
 
@@ -884,7 +939,8 @@ struct EventFormView: View {
                 name: .constant(draft.name),
                 price: .constant(draft.price),
                 currency: .constant(draft.currency),
-                quantity: .constant(draft.quantity)
+                quantity: .constant(draft.quantity),
+                description: .constant(draft.description)
             )
         }
 
@@ -904,6 +960,10 @@ struct EventFormView: View {
             quantity: Binding(
                 get: { ticketDrafts[index].quantity },
                 set: { ticketDrafts[index].quantity = $0 }
+            ),
+            description: Binding(
+                get: { ticketDrafts[index].description },
+                set: { ticketDrafts[index].description = $0 }
             )
         )
     }
@@ -927,26 +987,8 @@ struct EventFormView: View {
         // Prefer to infer from the instance profile if possible; otherwise, fall back to root URL.
         // If the URL ends with "/api", strip that segment to form the web base.
 
-        // Attempt to use any obvious URL from the instance if available via reflection of common property names.
-        // This avoids hard dependency on unknown protocols while keeping compile-time safety.
-        let candidateStrings: [String?] = [
-            // Common fields projects use on instance-like types
-            (instance as AnyObject).value(forKey: "webBaseURLString") as? String,
-            (instance as AnyObject).value(forKey: "baseURLString") as? String,
-            (instance as AnyObject).value(forKey: "apiBaseURLString") as? String,
-            // Fallback to known host or domain if exposed
-            (instance as AnyObject).value(forKey: "host") as? String
-        ]
-
-        let candidateURLs: [URL] = candidateStrings.compactMap { str in
-            guard let s = str?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty else { return nil }
-            if let url = URL(string: s) { return url }
-            // If only a host is provided, try to build https URL from it.
-            if let url = URL(string: "https://\(s)") { return url }
-            return nil
-        }
-
-        var base = candidateURLs.first ?? URL(string: "/")! // Neutral fallback
+        // Use the baseURL directly from InstanceProfile
+        var base = instance.baseURL
 
         if var components = URLComponents(url: base, resolvingAgainstBaseURL: false) {
             var path = components.path
@@ -979,13 +1021,15 @@ private struct TicketDraft: Identifiable, Equatable {
     var price: String
     var currency: String
     var quantity: String
+    var description: String
 
-    init(id: UUID = UUID(), name: String = "", price: String = "", currency: String = "", quantity: String = "") {
+    init(id: UUID = UUID(), name: String = "", price: String = "", currency: String = "", quantity: String = "", description: String = "") {
         self.id = id
         self.name = name
         self.price = price
         self.currency = currency
         self.quantity = quantity
+        self.description = description
     }
 
     init(from ticket: TicketType) {
@@ -998,6 +1042,7 @@ private struct TicketDraft: Identifiable, Equatable {
         }
         self.currency = ticket.currency ?? ""
         self.quantity = ticket.quantity.map(String.init) ?? ""
+        self.description = ""
     }
 
     func toTicketType() -> TicketType? {
@@ -1022,6 +1067,7 @@ private struct TicketDraft: Identifiable, Equatable {
         let price: Binding<String>
         let currency: Binding<String>
         let quantity: Binding<String>
+        let description: Binding<String>
     }
 }
 

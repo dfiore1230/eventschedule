@@ -94,6 +94,26 @@ private struct EventDetailResponse: Decodable {
 }
 
 final class RemoteEventRepository: EventRepository {
+    // Helper to extract category ID (integer) or nil if the value is a name
+    private func extractCategoryId(_ category: String?) -> Int? {
+        guard let cat = category, !cat.isEmpty else { return nil }
+        return Int(cat)
+    }
+    
+    // Helper to extract category name or nil if the value is numeric
+    private func extractCategoryName(_ category: String?, explicitName: String?) -> String? {
+        // If explicit name is provided, use it
+        if let name = explicitName, !name.isEmpty {
+            return name
+        }
+        // If category is not numeric, treat it as a name
+        guard let cat = category, !cat.isEmpty else { return nil }
+        if Int(cat) != nil {
+            return nil // It's numeric, so not a name
+        }
+        return cat
+    }
+    
     // Normalize/whitelist payment method values expected by the backend.
     // If the provided value isn't recognized, return nil so we omit the field.
     private func normalizePaymentMethod(_ value: String?) -> String? {
@@ -116,6 +136,13 @@ final class RemoteEventRepository: EventRepository {
         }
     }
 
+    struct TicketDTO: Codable {
+        let type: String?
+        let price: Int
+        let quantity: Int
+        let description: String?
+    }
+    
     struct ExtendedEventOptions {
         var categoryName: String?
         var ticketsEnabled: Bool?
@@ -133,6 +160,8 @@ final class RemoteEventRepository: EventRepository {
         var guestListVisibility: String?
         var members: [MemberDTO]
         var schedule: String?
+        var tickets: [TicketDTO]?
+        var paymentUrl: String?
         
         init(
             categoryName: String? = nil,
@@ -150,7 +179,9 @@ final class RemoteEventRepository: EventRepository {
             flyerImageData: Data? = nil,
             guestListVisibility: String? = nil,
             members: [MemberDTO] = [],
-            schedule: String? = nil
+            schedule: String? = nil,
+            tickets: [TicketDTO]? = nil,
+            paymentUrl: String? = nil
         ) {
             self.categoryName = categoryName
             self.ticketsEnabled = ticketsEnabled
@@ -168,6 +199,8 @@ final class RemoteEventRepository: EventRepository {
             self.guestListVisibility = guestListVisibility
             self.members = members
             self.schedule = schedule
+            self.tickets = tickets
+            self.paymentUrl = paymentUrl
         }
     }
 
@@ -213,7 +246,7 @@ final class RemoteEventRepository: EventRepository {
         }
         let map = Dictionary(uniqueKeysWithValues: venues.map { ($0.id, $0.name) })
         return events.map { e in
-            if e.venueName == nil, let name = map[e.venueId] {
+            if e.venueName == nil, let venueId = e.venueId, let name = map[venueId] {
                 var copy = e
                 copy.venueName = name
                 DebugLogger.log("Enrichment: set venue name for event id=\(e.id) -> \(name)")
@@ -225,13 +258,14 @@ final class RemoteEventRepository: EventRepository {
 
     private func enrichVenueName(_ event: Event, for instance: InstanceProfile) async -> Event {
         if event.venueName != nil { return event }
+        guard let venueId = event.venueId else { return event }
         var venues = venueCache[instance.id] ?? []
         if venues.isEmpty {
             if let res = try? await listEventResources(for: instance) {
                 venues = res.venues.map { Venue(id: $0.id, name: $0.name) }
             }
         }
-        if let name = venues.first(where: { $0.id == event.venueId })?.name {
+        if let name = venues.first(where: { $0.id == venueId })?.name {
             var copy = event
             copy.venueName = name
             DebugLogger.log("Enrichment: set venue name for event id=\(event.id) -> \(name)")
@@ -377,8 +411,7 @@ final class RemoteEventRepository: EventRepository {
         options: ExtendedEventOptions? = nil
     ) async throws -> Event {
         let (subdomain, scheduleType) = try await resolveSubdomain(for: instance)
-        let includeVenueId = !(scheduleType?.lowercased().contains("venue") ?? false)
-        DebugLogger.log("RemoteEventRepository: creating under subdomain=\(subdomain) type=\(scheduleType ?? "<nil>") includeVenueId=\(includeVenueId)")
+        DebugLogger.log("RemoteEventRepository: creating under subdomain=\(subdomain) type=\(scheduleType ?? "<nil>")")
         let payloadTimeZone = timeZoneOverride ?? payloadTimeZoneProvider()
         
         let resources: EventResources
@@ -399,7 +432,6 @@ final class RemoteEventRepository: EventRepository {
             eventName: event.name,
             instance: instance,
             metadata: [
-                "includeVenueId": String(includeVenueId),
                 "payloadTimeZone": payloadTimeZone.identifier,
                 "hasOnlineUrl": String(event.onlineURL != nil)
             ]
@@ -418,6 +450,12 @@ final class RemoteEventRepository: EventRepository {
             }
         }
         
+        // Determine venue fields: if no venue, send venue_address1="Online Event" to satisfy validation
+        // Backend requires at least one of: venue_id, venue_address1, or event_url
+        let hasVenue = event.venueId != nil && !event.venueId!.isEmpty
+        let venueIdValue = hasVenue ? event.venueId : nil
+        let venueAddress1Value = !hasVenue ? "Online Event" : nil
+        
         let dto = CreateEventDTO(
             id: event.id,
             name: event.name,
@@ -426,7 +464,8 @@ final class RemoteEventRepository: EventRepository {
             endAt: apiDateString(event.endAt, timeZone: payloadTimeZone),
             durationMinutes: event.durationMinutes,
             timezone: payloadTimeZone.identifier,
-            venueId: includeVenueId ? (event.venueId.isEmpty ? nil : event.venueId) : nil,
+            venueId: venueIdValue,
+            venueAddress1: venueAddress1Value,
             roomId: event.roomId,
             images: event.images,
             capacity: event.capacity,
@@ -434,11 +473,11 @@ final class RemoteEventRepository: EventRepository {
             publishState: event.publishState,
             roleId: safeRoleId,
             showGuestList: event.attendeesVisible,
-            categoryId: event.category,
+            categoryId: extractCategoryId(event.category),
             eventUrl: event.onlineURL,
             attendeesVisible: event.attendeesVisible,
             isRecurring: event.isRecurring,
-            categoryName: options?.categoryName,
+            categoryName: extractCategoryName(event.category, explicitName: options?.categoryName),
             ticketsEnabled: options?.ticketsEnabled,
             ticketCurrencyCode: options?.ticketCurrencyCode,
             totalTicketsMode: options?.totalTicketsMode,
@@ -452,7 +491,9 @@ final class RemoteEventRepository: EventRepository {
             flyerImageId: resolvedFlyerId,
             guestListVisibility: options?.guestListVisibility,
             members: memberObjects,
-            schedule: options?.schedule
+            schedule: options?.schedule,
+            tickets: options?.tickets,
+            paymentUrl: options?.paymentUrl
         )
         do {
             let response: EventDetailResponse = try await httpClient.request(
@@ -471,7 +512,7 @@ final class RemoteEventRepository: EventRepository {
                 eventName: enriched.name,
                 instance: instance,
                 metadata: [
-                    "venueId": enriched.venueId
+                    "venueId": enriched.venueId ?? "nil"
                 ]
             )
             return enriched
@@ -509,17 +550,13 @@ final class RemoteEventRepository: EventRepository {
         do {
             // A: Always refresh resources to avoid stale role/venue data
             let resources: EventResources = try await listEventResources(for: instance)
-            let (_, scheduleType) = try await resolveSubdomain(for: instance)
             let validVenueIds = Set(resources.venues.map { $0.id })
-            let includeVenueId = !(scheduleType?.lowercased().contains("venue") ?? false)
             let safeVenueId: String?
-            if !includeVenueId {
-                safeVenueId = nil
-            } else if event.venueId.isEmpty {
-                safeVenueId = nil
-            } else if validVenueIds.contains(event.venueId) {
-                safeVenueId = event.venueId
+            if let venueId = event.venueId, !venueId.isEmpty {
+                // Validate venue ID against available venues
+                safeVenueId = validVenueIds.contains(venueId) ? venueId : nil
             } else {
+                // Explicit nil for online-only events
                 safeVenueId = nil
             }
             // members and talent filtering removed per instructions
@@ -551,6 +588,11 @@ final class RemoteEventRepository: EventRepository {
                 }
             }
             
+            // Determine venue fields: if no venue, send venue_address1="Online Event" to satisfy validation
+            // Backend requires at least one of: venue_id, venue_address1, or event_url
+            let venueAddress1Value = safeVenueId == nil ? "Online Event" : nil
+            DebugLogger.log("RemoteEventRepository update DTO values: venueId=\(safeVenueId ?? "nil") venueAddress1=\(venueAddress1Value ?? "nil") eventUrl=\(event.onlineURL?.absoluteString ?? "nil")")
+            
             let dto = UpdateEventDTO(
                 id: event.id,
                 name: event.name,
@@ -560,6 +602,7 @@ final class RemoteEventRepository: EventRepository {
                 durationMinutes: event.durationMinutes,
                 timezone: payloadTimeZone.identifier,
                 venueId: safeVenueId,
+                venueAddress1: venueAddress1Value,
                 roomId: event.roomId,
                 images: event.images,
                 capacity: event.capacity,
@@ -567,11 +610,11 @@ final class RemoteEventRepository: EventRepository {
                 publishState: event.publishState,
                 roleId: resolvedRoleId,
                 showGuestList: event.attendeesVisible,
-                categoryId: event.category,
+                categoryId: extractCategoryId(event.category),
                 eventUrl: event.onlineURL,
                 attendeesVisible: event.attendeesVisible,
                 isRecurring: event.isRecurring,
-                categoryName: options?.categoryName,
+                categoryName: extractCategoryName(event.category, explicitName: options?.categoryName),
                 ticketsEnabled: options?.ticketsEnabled,
                 ticketCurrencyCode: options?.ticketCurrencyCode,
                 totalTicketsMode: options?.totalTicketsMode,
@@ -585,7 +628,9 @@ final class RemoteEventRepository: EventRepository {
                 flyerImageId: resolvedFlyerId,
                 guestListVisibility: options?.guestListVisibility,
                 members: safeMembers,
-                schedule: options?.schedule
+                schedule: options?.schedule,
+                tickets: options?.tickets,
+                paymentUrl: options?.paymentUrl
             )
             EventInstrumentation.log(
                 action: "event_update_request",
@@ -594,11 +639,13 @@ final class RemoteEventRepository: EventRepository {
                 instance: instance,
                 metadata: [
                     "payloadTimeZone": payloadTimeZone.identifier,
-                    "includeVenueId": String(includeVenueId),
                     "incomingCuratorId": incomingCuratorId ?? "nil",
                     "previousCuratorId": previousCuratorId ?? "nil",
                     "sendingRoleKey": "false",
-                    "sendingRoleValue": "omit"
+                    "sendingRoleValue": "omit",
+                    "dto_venueId": dto.venueId ?? "null",
+                    "dto_venueAddress1": dto.venueAddress1 ?? "null",
+                    "dto_eventUrl": dto.eventUrl?.absoluteString ?? "null"
                 ]
             )
             let response: EventDetailResponse = try await httpClient.request(
@@ -611,13 +658,16 @@ final class RemoteEventRepository: EventRepository {
             let enriched = await enrichVenueName(response.event, for: instance)
             upsert(enriched, for: instance)
             consoleLog("RemoteEventRepository: updated event id=\(enriched.id) for instance=\(instance.displayName) (id=\(instance.id))")
+            DebugLogger.log("Server returned after update: venueId=\(enriched.venueId ?? "nil") eventUrl=\(enriched.onlineURL?.absoluteString ?? "nil")")
             EventInstrumentation.log(
                 action: "event_update_success",
                 eventId: enriched.id,
                 eventName: enriched.name,
                 instance: instance,
                 metadata: [
-                    "publishState": enriched.publishState.rawValue
+                    "publishState": enriched.publishState.rawValue,
+                    "returned_venueId": enriched.venueId ?? "null",
+                    "returned_eventUrl": enriched.onlineURL?.absoluteString ?? "null"
                 ]
             )
             return enriched
@@ -749,6 +799,7 @@ final class RemoteEventRepository: EventRepository {
         let durationMinutes: Int?
         let timezone: String
         let venueId: String?
+        let venueAddress1: String?
         let roomId: String?
         let images: [URL]
         let capacity: Int?
@@ -756,7 +807,7 @@ final class RemoteEventRepository: EventRepository {
         let publishState: PublishState
         let roleId: String?
         let showGuestList: Bool?
-        let categoryId: String?
+        let categoryId: Int?
         let eventUrl: URL?
         let attendeesVisible: Bool?
         let isRecurring: Bool?
@@ -776,6 +827,8 @@ final class RemoteEventRepository: EventRepository {
         let guestListVisibility: String?
         let members: [MemberDTO]
         let schedule: String?
+        let tickets: [TicketDTO]?
+        let paymentUrl: String?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -786,6 +839,7 @@ final class RemoteEventRepository: EventRepository {
             case duration
             case timezone
             case venueId = "venue_id"
+            case venueAddress1 = "venue_address1"
             case roomId = "room_id"
             case images
             case capacity
@@ -826,7 +880,9 @@ final class RemoteEventRepository: EventRepository {
                 try container.encode(durationMinutes / 60, forKey: .duration)
             }
             try container.encode(timezone, forKey: .timezone)
+            // Always encode venue fields including null to satisfy backend validation
             if let venueId { try container.encode(venueId, forKey: .venueId) }
+            try container.encode(venueAddress1, forKey: .venueAddress1)
             try container.encodeIfPresent(roomId, forKey: .roomId)
             try container.encode(images, forKey: .images)
             try container.encodeIfPresent(capacity, forKey: .capacity)
@@ -835,7 +891,8 @@ final class RemoteEventRepository: EventRepository {
             try container.encodeIfPresent(roleId, forKey: .roleId)
             try container.encodeIfPresent(showGuestList, forKey: .showGuestList)
             try container.encodeIfPresent(categoryId, forKey: .categoryId)
-            try container.encodeIfPresent(eventUrl, forKey: .eventUrl)
+            // Always encode event_url including null for proper validation
+            try container.encode(eventUrl, forKey: .eventUrl)
             try container.encodeIfPresent(attendeesVisible, forKey: .attendeesVisible)
             try container.encodeIfPresent(isRecurring, forKey: .isRecurring)
 
@@ -868,6 +925,7 @@ final class RemoteEventRepository: EventRepository {
         let durationMinutes: Int?
         let timezone: String
         let venueId: String?
+        let venueAddress1: String?
         let roomId: String?
         let images: [URL]
         let capacity: Int?
@@ -875,7 +933,7 @@ final class RemoteEventRepository: EventRepository {
         let publishState: PublishState
         let roleId: String?? // Double-optional to support explicit null encoding
         let showGuestList: Bool?
-        let categoryId: String?
+        let categoryId: Int?
         let eventUrl: URL?
         let attendeesVisible: Bool?
         let isRecurring: Bool?
@@ -895,6 +953,8 @@ final class RemoteEventRepository: EventRepository {
         let guestListVisibility: String?
         let members: [MemberDTO]
         let schedule: String?
+        let tickets: [TicketDTO]?
+        let paymentUrl: String?
 
         enum CodingKeys: String, CodingKey {
             case id
@@ -905,6 +965,7 @@ final class RemoteEventRepository: EventRepository {
             case duration
             case timezone
             case venueId = "venue_id"
+            case venueAddress1 = "venue_address1"
             case roomId = "room_id"
             case images
             case capacity
@@ -945,7 +1006,10 @@ final class RemoteEventRepository: EventRepository {
                 try container.encode(durationMinutes / 60, forKey: .duration)
             }
             try container.encode(timezone, forKey: .timezone)
-            if let venueId { try container.encode(venueId, forKey: .venueId) }
+            // Always encode venueId, venueAddress1, and eventUrl - including null values
+            // The backend requires at least one of: venue_id, venue_address1, or event_url
+            try container.encode(venueId, forKey: .venueId)
+            try container.encode(venueAddress1, forKey: .venueAddress1)
             try container.encodeIfPresent(roomId, forKey: .roomId)
             try container.encode(images, forKey: .images)
             try container.encodeIfPresent(capacity, forKey: .capacity)
@@ -960,7 +1024,8 @@ final class RemoteEventRepository: EventRepository {
 
             try container.encodeIfPresent(showGuestList, forKey: .showGuestList)
             try container.encodeIfPresent(categoryId, forKey: .categoryId)
-            try container.encodeIfPresent(eventUrl, forKey: .eventUrl)
+            // Always encode event_url including null for proper validation
+            try container.encode(eventUrl, forKey: .eventUrl)
             try container.encodeIfPresent(attendeesVisible, forKey: .attendeesVisible)
             try container.encodeIfPresent(isRecurring, forKey: .isRecurring)
 
