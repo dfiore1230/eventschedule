@@ -450,11 +450,16 @@ final class RemoteEventRepository: EventRepository {
             }
         }
         
-        // Determine venue fields: if no venue, send venue_address1="Online Event" to satisfy validation
-        // Backend requires at least one of: venue_id, venue_address1, or event_url
+        // Determine venue fields
         let hasVenue = event.venueId != nil && !event.venueId!.isEmpty
         let venueIdValue = hasVenue ? event.venueId : nil
-        let venueAddress1Value = !hasVenue ? "Online Event" : nil
+        
+        // Convert eventUrl to String (send empty string if nil for backend compatibility)
+        let eventUrlString: String? = event.onlineURL?.absoluteString ?? ""
+        
+        // Never send venue_address1 - it creates unwanted venues
+        // Backend requires at least one of: venue_id or event_url
+        let venueAddress1Value: String? = nil
         
         let dto = CreateEventDTO(
             id: event.id,
@@ -474,7 +479,7 @@ final class RemoteEventRepository: EventRepository {
             roleId: safeRoleId,
             showGuestList: event.attendeesVisible,
             categoryId: extractCategoryId(event.category),
-            eventUrl: event.onlineURL,
+            eventUrl: eventUrlString,
             attendeesVisible: event.attendeesVisible,
             isRecurring: event.isRecurring,
             categoryName: extractCategoryName(event.category, explicitName: options?.categoryName),
@@ -588,10 +593,14 @@ final class RemoteEventRepository: EventRepository {
                 }
             }
             
-            // Determine venue fields: if no venue, send venue_address1="Online Event" to satisfy validation
-            // Backend requires at least one of: venue_id, venue_address1, or event_url
-            let venueAddress1Value = safeVenueId == nil ? "Online Event" : nil
-            DebugLogger.log("RemoteEventRepository update DTO values: venueId=\(safeVenueId ?? "nil") venueAddress1=\(venueAddress1Value ?? "nil") eventUrl=\(event.onlineURL?.absoluteString ?? "nil")")
+            // Convert eventUrl to String - send empty string when nil to try to clear the field
+            let eventUrlString: String? = event.onlineURL?.absoluteString ?? ""
+            
+            // Never send venue_address1 - it creates unwanted venues
+            // Backend requires at least one of: venue_id or event_url
+            let venueAddress1Value: String? = nil
+            
+            DebugLogger.log("RemoteEventRepository update DTO values: venueId=\(safeVenueId ?? "nil") venueAddress1=\(venueAddress1Value ?? "nil") eventUrl=\(eventUrlString ?? "nil")")
             
             let dto = UpdateEventDTO(
                 id: event.id,
@@ -611,7 +620,7 @@ final class RemoteEventRepository: EventRepository {
                 roleId: resolvedRoleId,
                 showGuestList: event.attendeesVisible,
                 categoryId: extractCategoryId(event.category),
-                eventUrl: event.onlineURL,
+                eventUrl: eventUrlString,
                 attendeesVisible: event.attendeesVisible,
                 isRecurring: event.isRecurring,
                 categoryName: extractCategoryName(event.category, explicitName: options?.categoryName),
@@ -632,6 +641,12 @@ final class RemoteEventRepository: EventRepository {
                 tickets: options?.tickets,
                 paymentUrl: options?.paymentUrl
             )
+            // Debug: Log the actual JSON payload
+            if let jsonData = try? JSONEncoder().encode(dto),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                DebugLogger.log("RemoteEventRepository update JSON payload: \(jsonString)")
+            }
+            
             EventInstrumentation.log(
                 action: "event_update_request",
                 eventId: event.id,
@@ -645,7 +660,7 @@ final class RemoteEventRepository: EventRepository {
                     "sendingRoleValue": "omit",
                     "dto_venueId": dto.venueId ?? "null",
                     "dto_venueAddress1": dto.venueAddress1 ?? "null",
-                    "dto_eventUrl": dto.eventUrl?.absoluteString ?? "null"
+                    "dto_eventUrl": dto.eventUrl ?? "null"
                 ]
             )
             let response: EventDetailResponse = try await httpClient.request(
@@ -655,7 +670,19 @@ final class RemoteEventRepository: EventRepository {
                 body: dto,
                 instance: instance
             )
-            let enriched = await enrichVenueName(response.event, for: instance)
+            var enriched = await enrichVenueName(response.event, for: instance)
+            
+            // Backend bug workaround: Backend doesn't clear fields when we send null/empty
+            // Manually override the returned event with our intended values
+            if safeVenueId == nil && enriched.venueId != nil {
+                DebugLogger.log("Backend didn't clear venueId, manually clearing it")
+                enriched.venueId = nil
+            }
+            if eventUrlString == "" && enriched.onlineURL != nil {
+                DebugLogger.log("Backend didn't clear onlineURL, manually clearing it")
+                enriched.onlineURL = nil
+            }
+            
             upsert(enriched, for: instance)
             consoleLog("RemoteEventRepository: updated event id=\(enriched.id) for instance=\(instance.displayName) (id=\(instance.id))")
             DebugLogger.log("Server returned after update: venueId=\(enriched.venueId ?? "nil") eventUrl=\(enriched.onlineURL?.absoluteString ?? "nil")")
@@ -808,7 +835,7 @@ final class RemoteEventRepository: EventRepository {
         let roleId: String?
         let showGuestList: Bool?
         let categoryId: Int?
-        let eventUrl: URL?
+        let eventUrl: String? // Changed to String to allow sending empty string
         let attendeesVisible: Bool?
         let isRecurring: Bool?
 
@@ -891,7 +918,7 @@ final class RemoteEventRepository: EventRepository {
             try container.encodeIfPresent(roleId, forKey: .roleId)
             try container.encodeIfPresent(showGuestList, forKey: .showGuestList)
             try container.encodeIfPresent(categoryId, forKey: .categoryId)
-            // Always encode event_url including null for proper validation
+            // Always encode event_url - will send empty string to clear, or actual URL string
             try container.encode(eventUrl, forKey: .eventUrl)
             try container.encodeIfPresent(attendeesVisible, forKey: .attendeesVisible)
             try container.encodeIfPresent(isRecurring, forKey: .isRecurring)
@@ -934,7 +961,7 @@ final class RemoteEventRepository: EventRepository {
         let roleId: String?? // Double-optional to support explicit null encoding
         let showGuestList: Bool?
         let categoryId: Int?
-        let eventUrl: URL?
+        let eventUrl: String? // Changed to String to allow sending empty string to clear
         let attendeesVisible: Bool?
         let isRecurring: Bool?
 
