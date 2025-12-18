@@ -359,13 +359,7 @@
                                             </svg>
                                         </a>
 
-                                        @include('landing.partials.layout-toggle', [
-                                            'calendarRouteName' => $calendarRouteName,
-                                            'listViewParams' => $listViewParams,
-                                            'calendarViewParams' => $calendarViewParams,
-                                            'isListView' => $isListView,
-                                            'wrapperClass' => 'shadow-sm'
-                                        ])
+                                        {{-- Removed duplicate layout-toggle here to avoid duplicate controls; keep the lower toggle inside the calendar partial --}}
                                     </div>
                                 </div>
                             </div>
