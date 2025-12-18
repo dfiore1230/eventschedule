@@ -344,7 +344,7 @@
                 <div class="flex flex-col gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-800/40">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div class="flex items-center gap-3 text-sm text-gray-700 dark:text-gray-200">
-                            <a href="{{ route($calendarRouteName, $previousParams) }}" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700">
+                            <a href="{{ route($calendarRouteName, array_merge($previousParams, ['view' => 'list'])) }}" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700">
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
                                 </svg>
@@ -366,7 +366,7 @@
                                 <div x-show="open" x-cloak @click.outside="open = false" class="absolute z-20 mt-2 max-h-64 w-56 overflow-hidden rounded-lg border border-gray-100 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
                                     <div class="max-h-64 overflow-y-auto py-2">
                                         @foreach($monthOptions as $option)
-                                            <a href="{{ route($calendarRouteName, $option['params']) }}" class="flex items-center justify-between px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
+                                            <a href="{{ route($calendarRouteName, array_merge($option['params'], ['view' => 'list'])) }}" class="flex items-center justify-between px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
                                                 <span>{{ $option['label'] }}</span>
                                                 @if($option['is_current'])
                                                     <svg class="h-4 w-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -379,7 +379,7 @@
                                 </div>
                             </div>
 
-                            <a href="{{ route($calendarRouteName, $nextParams) }}" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700">
+                            <a href="{{ route($calendarRouteName, array_merge($nextParams, ['view' => 'list'])) }}" class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700">
                                 {{ __('messages.next_month') }}
                                 <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
@@ -387,7 +387,7 @@
                             </a>
                         </div>
 
-                        <a href="{{ route($calendarRouteName, $currentParams) }}" class="inline-flex items-center gap-2 self-start rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700">
+                        <a href="{{ route($calendarRouteName, array_merge($currentParams, ['view' => 'list'])) }}" class="inline-flex items-center gap-2 self-start rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700">
                             {{ __('messages.this_month') }}
                         </a>
                     </div>
