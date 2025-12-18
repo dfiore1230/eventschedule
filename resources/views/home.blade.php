@@ -143,12 +143,7 @@
             <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">{{ __('messages.calendar') }}</h2>
                 <div class="flex justify-start md:justify-end">
-                    @include('landing.partials.layout-toggle', [
-                        'calendarRouteName' => $calendarRouteName,
-                        'listViewParams' => $listViewParams,
-                        'calendarViewParams' => $calendarViewParams,
-                        'isListView' => $isListView,
-                    ])
+                    {{-- Duplicate layout-toggle removed here; the calendar partial provides the single control. --}}
                 </div>
             </div>
 
@@ -387,46 +382,7 @@
                     </div>
                 </div>
 
-                <div class="mt-4 space-y-4">
-                    @forelse($calendarEvents as $occurrence)
-                        @php
-                            $event = $occurrence['event'];
-                            $eventUrl = $event->getGuestUrl(false, true);
-                        @endphp
-
-                        <div class="rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition hover:border-indigo-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-900">
-                            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                                    <svg class="h-4 w-4 text-slate-500 dark:text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l3 3" />
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    <span>{{ $occurrence['occurs_at_display'] ?? $event->localStartsAt(true) }}</span>
-                                </div>
-
-                                <div class="flex items-center gap-2 text-sm font-semibold text-indigo-600 dark:text-indigo-300">
-                                    @if($event->days_of_week)
-                                        <span class="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
-                                            {{ __('messages.recurring') }}
-                                        </span>
-                                    @endif
-                                </div>
-                            </div>
-
-                            <div class="mt-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
-                                @if($eventUrl)
-                                    <a href="{{ $eventUrl }}" class="hover:text-indigo-600">{{ $event->translatedName() }}</a>
-                                @else
-                                    {{ $event->translatedName() }}
-                                @endif
-                            </div>
-                        </div>
-                    @empty
-                        <div class="rounded-xl border border-dashed border-gray-300 p-8 text-center text-gray-600 dark:border-gray-700 dark:text-gray-300">
-                            {{ __('messages.no_events_found') }}
-                        </div>
-                    @endforelse
-                </div>
+                {{-- Removed duplicate calendar event cards: events are displayed above in the Events table (List view) to avoid repetition. --}}
             @else
                 @include('role/partials/calendar', [
                     'route' => 'home',
