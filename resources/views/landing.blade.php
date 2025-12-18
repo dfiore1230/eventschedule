@@ -523,7 +523,10 @@
                                     </div>
                                 @endforelse
                             </div>
+<<<<<<< HEAD
 
+=======
+>>>>>>> 68e118d499d9b7af633a060b89119786cbb8745d
                             <div class="mb-4 flex items-center justify-end md:hidden">
                                 @include('landing.partials.layout-toggle', [
                                     'calendarRouteName' => $calendarRouteName,
