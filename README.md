@@ -159,6 +159,14 @@ Once configured, paid ticket emails and the ticket viewer will surface “Add to
 
 Event Schedule includes a comprehensive browser test suite powered by Laravel Dusk.
 
+Pest (optional):
+- To use Pest, install it locally (optional):
+  - `composer require --dev pestphp/pest`
+  - `php artisan pest:install`
+- Run Pest tests: `./vendor/bin/pest` or `php artisan test`
+
+
+
 > [!WARNING]  
 > WARNING: Running the tests will empty the database. 
 
@@ -183,7 +191,33 @@ cp .env .env.dusk.local
 
 ### Running Tests
 
+Run the automated tests locally or rely on CI to run them on PRs.
+
+PHP tests (Pest/PHPUnit):
 ```bash
-# Run all browser tests
+# Run PHP tests
+php artisan test
+```
+
+Cypress (E2E):
+```bash
+# install deps
+npm ci
+# open interactive
+npm run cypress:open
+# run headless
+npm run cypress:run
+```
+
+GitHub Actions CI: `.github/workflows/ci.yml` runs PHP tests and the Cypress smoke suite on push & PRs.
+
+Seed test data (local/testing only):
+
+```bash
+curl -X POST http://127.0.0.1:8000/__test/seed
+```
+
+```bash
+# Run all browser tests (if using Dusk)
 php artisan dusk
 ```

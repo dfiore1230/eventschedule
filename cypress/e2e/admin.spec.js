@@ -1,0 +1,42 @@
+describe('Admin flows', () => {
+  let seed;
+
+  before(() => {
+    cy.request({ method: 'POST', url: '/__test/seed', failOnStatusCode: false }).then((resp) => {
+      seed = resp.body || {};
+      Cypress.env('seedData', seed);
+    });
+  });
+
+  after(() => {
+    const seed = Cypress.env('seedData') || {};
+    cy.request({
+      method: 'POST',
+      url: '/__test/teardown',
+      body: { event_ids: seed.created_event_ids || [], sale_ids: seed.created_sale_ids || [], user_ids: seed.created_user_ids || [] },
+      failOnStatusCode: false,
+    });
+  });
+
+  it('can log in as admin and see merged Events panel and list view', () => {
+    const seed = Cypress.env('seedData');
+    // visit login and perform UI login
+    cy.visit('/login');
+    cy.get('input[name="email"]').type(seed.admin_email);
+    cy.get('input[name="password"]').type(seed.admin_password);
+    cy.get('button[type="submit"]').click();
+
+    // ensure we are logged in by visiting /home
+    cy.visit('/home');
+
+    // switch to list view and check events table exists
+    cy.get('button').contains(/list/i).click({ force: true });
+    cy.get('table').should('exist');
+
+    // merged Events panel check - look for section header
+    cy.contains(/Events/).should('exist');
+
+    // ensure at least one admin-owned event is present
+    cy.contains('E2E Event 1').should('exist');
+  });
+});

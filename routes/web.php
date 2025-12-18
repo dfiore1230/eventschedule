@@ -363,3 +363,8 @@ if (config('app.env') == 'local') {
 
 Route::get('/home', [HomeController::class, 'landing'])->name('landing');
 Route::get('/{slug?}', [HomeController::class, 'root'])->name('home');
+
+if (app()->environment(['local', 'testing'])) {
+    Route::post('/__test/seed', [\App\Http\Controllers\Test\TestHelpersController::class, 'seedE2eData']);
+    Route::post('/__test/teardown', [\App\Http\Controllers\Test\TestHelpersController::class, 'teardownE2eData']);
+}
