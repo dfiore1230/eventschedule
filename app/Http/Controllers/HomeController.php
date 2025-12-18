@@ -192,6 +192,14 @@ class HomeController extends Controller
                 ->values();
         }
 
+        // Provide a paginated events list when in list view so the Events table
+        // on the landing page can show month-filtered results and pagination.
+        if ($viewMode === 'list') {
+            $events = $filteredQuery->orderBy('starts_at')->paginate(10)->withQueryString();
+        } else {
+            $events = collect();
+        }
+
         $venueOptions = $optionEvents
             ->map->venue
             ->filter(function ($role) use ($user) {
@@ -329,6 +337,7 @@ class HomeController extends Controller
         $homeContent = $this->buildHomePageContent((bool) $user);
 
         return view('landing', [
+            'events' => $events,
             'calendarEvents' => $calendarEvents,
             'month' => $month,
             'year' => $year,
