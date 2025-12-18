@@ -257,7 +257,6 @@
 
                 <div class="bg-white dark:bg-gray-900 shadow-sm rounded-2xl border border-gray-100 dark:border-gray-800 p-4 sm:p-6">
                     <div class="pt-2 sm:pt-4">
-                        @if($isListView)
                             @php
                                 $currentMonthDate = \Carbon\Carbon::create($year, $month, 1);
                                 $localizedMonth = $currentMonthDate->copy()->locale(app()->getLocale())->translatedFormat('F Y');
@@ -432,9 +431,21 @@
                         <div class="mt-6 space-y-5">
                                 @forelse($calendarEvents as $occurrence)
                                     @php
-                                        $event = $occurrence['event'];
+                                        if (is_array($occurrence)) {
+                                            $event = $occurrence['event'] ?? null;
+                                            $startsAt = $occurrence['occurs_at_display'] ?? ($event ? $event->localStartsAt(true) : null);
+                                        } else {
+                                            $event = $occurrence;
+                                            $startsAt = $event ? $event->localStartsAt(true) : null;
+                                        }
+                                    @endphp
+
+                                    @if (! $event)
+                                        @continue
+                                    @endif
+
+                                    @php
                                         $eventUrl = $event->getGuestUrl(false, true);
-                                        $startsAt = $occurrence['occurs_at_display'] ?? $event->localStartsAt(true);
                                         $venueName = $event->getVenueDisplayName();
                                         $talentList = $event->roles->filter(function ($role) {
                                             return $role->isTalent();
@@ -586,7 +597,9 @@
                 <div class="px-4 py-5 text-center text-sm text-slate-300">
                     {!! str_replace(':link', '<a href="https://www.eventschedule.com" target="_blank" rel="noopener" class="hover:underline font-medium text-white">EventSchedule</a>', __('messages.powered_by_eventschedule')) !!}
                 </div>
-            @else
+            @endif
+
+            @if(! request()->embed)
                 <div class="max-w-6xl mx-auto flex flex-col gap-4 px-4 py-8 text-center sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
                     <div class="text-sm text-slate-300">
                         {!! str_replace(':link', '<a href="https://www.eventschedule.com" target="_blank" rel="noopener" class="hover:underline font-medium text-white">EventSchedule</a>', __('messages.powered_by_eventschedule')) !!}
