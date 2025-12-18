@@ -428,17 +428,8 @@
                                                                            x-on:click="open = false"
                                                                            class="block px-4 py-2 text-xs text-gray-700 hover:bg-gray-100 w-full text-left transition-colors duration-150 dark:text-gray-200 dark:hover:bg-gray-700"
                                                                            role="menuitem">
-                                                                            {{ __('messages.view') }}
+                                                                            {{ __('messages.view_ticket') }}
                                                                         </a>
-
-                                                                        @if ($unusedEntries->isNotEmpty())
-                                                                            <button type="button"
-                                                                                    x-on:click="$dispatch('open-modal', 'mark-ticket-used-{{ $sale->id }}'); open = false"
-                                                                                    class="block w-full px-4 py-2 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors duration-150 dark:text-gray-200 dark:hover:bg-gray-700"
-                                                                                    role="menuitem">
-                                                                                {{ __('messages.mark_tickets_as_used') }}
-                                                                            </button>
-                                                                        @endif
 
                                                                         @if ($sale->status === 'unpaid')
                                                                             <form method="POST" action="{{ route('sales.action', ['sale_id' => \App\Utils\UrlUtils::encodeId($sale->id)]) }}">
@@ -451,7 +442,49 @@
                                                                                     {{ __('messages.mark_paid') }}
                                                                                 </button>
                                                                             </form>
+                                                                        @elseif($sale->status === 'paid')
+                                                                            <form method="POST" action="{{ route('sales.action', ['sale_id' => \App\Utils\UrlUtils::encodeId($sale->id)]) }}">
+                                                                                @csrf
+                                                                                <input type="hidden" name="action" value="mark_unpaid">
+                                                                                <button type="submit"
+                                                                                        x-on:click="open = false"
+                                                                                        class="block w-full px-4 py-2 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors duration-150 dark:text-gray-200 dark:hover:bg-gray-700"
+                                                                                        role="menuitem">
+                                                                                    {{ __('messages.mark_unpaid') }}
+                                                                                </button>
+                                                                            </form>
                                                                         @endif
+
+                                                                        @if($sale->status === 'paid' && $sale->payment_method != 'cash')
+                                                                            <form method="POST" action="{{ route('sales.action', ['sale_id' => \App\Utils\UrlUtils::encodeId($sale->id)]) }}">
+                                                                                @csrf
+                                                                                <input type="hidden" name="action" value="refund">
+                                                                                <button type="submit"
+                                                                                        x-on:click="open = false"
+                                                                                        class="block w-full px-4 py-2 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors duration-150 dark:text-gray-200 dark:hover:bg-gray-700"
+                                                                                        role="menuitem">
+                                                                                    {{ __('messages.refund') }}
+                                                                                </button>
+                                                                            </form>
+                                                                        @endif
+
+                                                                        <button type="button"
+                                                                                x-on:click="$dispatch('open-modal', 'mark-ticket-used-{{ $sale->id }}'); open = false"
+                                                                                class="block w-full px-4 py-2 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors duration-150 dark:text-gray-200 dark:hover:bg-gray-700"
+                                                                                role="menuitem">
+                                                                            {{ __('messages.mark_tickets_as_used') }}
+                                                                        </button>
+
+                                                                        <form method="POST" action="{{ route('sales.action', ['sale_id' => \App\Utils\UrlUtils::encodeId($sale->id)]) }}">
+                                                                            @csrf
+                                                                            <input type="hidden" name="action" value="mark_unused">
+                                                                            <button type="submit"
+                                                                                    x-on:click="open = false"
+                                                                                    class="block w-full px-4 py-2 text-left text-xs text-gray-700 hover:bg-gray-100 transition-colors duration-150 dark:text-gray-200 dark:hover:bg-gray-700"
+                                                                                    role="menuitem">
+                                                                                {{ __('messages.mark_tickets_as_unused') }}
+                                                                            </button>
+                                                                        </form>
 
                                                                         @if (in_array($sale->status, ['unpaid', 'paid']))
                                                                             <form method="POST" action="{{ route('sales.action', ['sale_id' => \App\Utils\UrlUtils::encodeId($sale->id)]) }}">
