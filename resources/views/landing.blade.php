@@ -315,7 +315,7 @@
                                     </div>
 
                                     <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-                                        <a href="{{ route($calendarRouteName, $previousParams) }}"
+                                        <a href="{{ route($calendarRouteName, ($isListView ? array_merge($previousParams, ['view' => 'list']) : $previousParams)) }}"
                                            class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">
                                             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -338,7 +338,7 @@
                                             <div x-show="open" x-cloak @click.outside="open = false" class="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-lg border border-gray-100 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900">
                                                 <div class="max-h-64 overflow-y-auto py-2">
                                                     @foreach($monthOptions as $option)
-                                                        <a href="{{ route($calendarRouteName, $option['params']) }}" class="flex items-center justify-between px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
+                                                        <a href="{{ route($calendarRouteName, ($isListView ? array_merge($option['params'], ['view' => 'list']) : $option['params'])) }}" class="flex items-center justify-between px-3 py-2 text-sm text-gray-700 transition hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-800">
                                                             <span>{{ $option['label'] }}</span>
                                                             @if($option['is_current'])
                                                                 <svg class="h-4 w-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -351,7 +351,7 @@
                                             </div>
                                         </div>
 
-                                        <a href="{{ route($calendarRouteName, $nextParams) }}"
+                                        <a href="{{ route($calendarRouteName, ($isListView ? array_merge($nextParams, ['view' => 'list']) : $nextParams)) }}"
                                            class="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">
                                             {{ __('messages.next_month') }}
                                             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -364,7 +364,72 @@
                                 </div>
                             </div>
 
-                            <div class="mt-6 space-y-5">
+                            @if($isListView)
+                        <div class="mb-6 bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg">
+                            <div class="px-6 py-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                <div>
+                                    <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ __('messages.events') }}</h2>
+                                </div>
+
+                                <div class="flex items-center gap-3">
+                                    @include('landing.partials.layout-toggle', [
+                                        'calendarRouteName' => $calendarRouteName,
+                                        'listViewParams' => $listViewParams,
+                                        'calendarViewParams' => $calendarViewParams,
+                                        'isListView' => $isListView,
+                                        'wrapperClass' => 'shadow-sm'
+                                    ])
+                                </div>
+                            </div>
+
+                            <div class="border-t border-gray-200 dark:border-gray-700">
+                                @if ($events->count())
+                                    <div class="overflow-x-auto">
+                                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                            <thead class="bg-gray-50 dark:bg-gray-900/60 text-gray-700 dark:text-gray-200">
+                                                <tr>
+                                                    <th scope="col" class="px-6 py-3 text-left font-medium">{{ __('messages.event_details') }}</th>
+                                                    <th scope="col" class="px-6 py-3 text-left font-medium">{{ __('messages.venue') }}</th>
+                                                    <th scope="col" class="px-6 py-3 text-right font-medium">{{ __('messages.actions') }}</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                                                @foreach ($events as $event)
+                                                    @php
+                                                        $startAt = $event->starts_at ? $event->getStartDateTime(null, true) : null;
+                                                        $dateDisplay = $startAt ? $startAt->locale(app()->getLocale())->translatedFormat('M j, Y • g:i A') : __('messages.unscheduled');
+                                                    @endphp
+                                                    <tr class="text-gray-700 dark:text-gray-200">
+                                                        <td class="px-6 py-4 align-top">
+                                                            <div class="font-medium text-gray-900 dark:text-gray-100">{{ $event->translatedName() }}</div>
+                                                            <div class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ $dateDisplay }}</div>
+                                                        </td>
+                                                        <td class="px-6 py-4 align-top">
+                                                            <div class="text-sm text-gray-700 dark:text-gray-200">{{ $event->getVenueDisplayName() ?: __('messages.none') }}</div>
+                                                        </td>
+                                                        <td class="px-6 py-4 align-top text-right">
+                                                            @if ($event->getGuestUrl())
+                                                                <a href="{{ $event->getGuestUrl() }}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">{{ __('messages.view_event') }}</a>
+                                                            @endif
+                                                        </td>
+                                                    </tr>
+                                                @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    @if (method_exists($events, 'hasPages') && $events->hasPages())
+                                        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+                                            {{ $events->links() }}
+                                        </div>
+                                    @endif
+                                @else
+                                    <div class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">{{ __('messages.no_events_found') }}</div>
+                                @endif
+                            </div>
+                        </div>
+                    @else
+                        <div class="mt-6 space-y-5">
                                 @forelse($calendarEvents as $occurrence)
                                     @php
                                         $event = $occurrence['event'];
