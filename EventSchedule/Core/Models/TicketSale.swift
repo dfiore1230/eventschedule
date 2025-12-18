@@ -10,41 +10,61 @@ struct TicketSale: Identifiable, Codable, Equatable {
     var event: EventInfo?
     var tickets: [SaleTicket]
     
+    enum CodingKeys: String, CodingKey {
+        case id
+        case status
+        case name
+        case email
+        case eventId = "event_id"
+        case event
+        case tickets
+    }
+    
     enum SaleStatus: String, Codable {
         case pending
         case paid
+        case unpaid
         case cancelled
         case refunded
         case expired
+        case deleted
         
         var displayName: String {
             switch self {
             case .pending: return "Pending"
             case .paid: return "Paid"
+            case .unpaid: return "Unpaid"
             case .cancelled: return "Cancelled"
             case .refunded: return "Refunded"
             case .expired: return "Expired"
+            case .deleted: return "Deleted"
             }
         }
         
         var isActive: Bool {
-            return self == .paid || self == .pending
+            return self == .paid || self == .pending || self == .unpaid
         }
     }
     
     struct EventInfo: Codable, Equatable {
         let id: String
         let name: String
-        
-        enum CodingKeys: String, CodingKey {
-            case id, name
+
+        init(id: String = "", name: String = "") {
+            self.id = id
+            self.name = name
         }
-        
-        // Only decode id and name, ignore all other fields
+
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
-            id = try container.decode(String.self, forKey: .id)
-            name = try container.decode(String.self, forKey: .name)
+            let id = try container.decodeIfPresent(String.self, forKey: .id) ?? ""
+            let name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+            self.init(id: id, name: name)
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case id
+            case name
         }
     }
     
@@ -53,6 +73,13 @@ struct TicketSale: Identifiable, Codable, Equatable {
         let ticketId: Int
         let quantity: Int
         let usageStatus: String
+
+        init(id: Int = 0, ticketId: Int = 0, quantity: Int = 0, usageStatus: String = "unused") {
+            self.id = id
+            self.ticketId = ticketId
+            self.quantity = quantity
+            self.usageStatus = usageStatus
+        }
     }
     
     init(
@@ -71,6 +98,18 @@ struct TicketSale: Identifiable, Codable, Equatable {
         self.eventId = eventId
         self.event = event
         self.tickets = tickets
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let id = try container.decodeIfPresent(Int.self, forKey: .id) ?? 0
+        let status = try container.decodeIfPresent(SaleStatus.self, forKey: .status) ?? .pending
+        let name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        let email = try container.decodeIfPresent(String.self, forKey: .email) ?? ""
+        let eventId = try container.decodeIfPresent(Int.self, forKey: .eventId) ?? 0
+        let event = try container.decodeIfPresent(EventInfo.self, forKey: .event)
+        let tickets = try container.decodeIfPresent([SaleTicket].self, forKey: .tickets) ?? []
+        self.init(id: id, status: status, name: name, email: email, eventId: eventId, event: event, tickets: tickets)
     }
     
     var displayStatus: String {

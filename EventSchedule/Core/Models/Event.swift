@@ -11,6 +11,8 @@ struct Event: Codable, Identifiable, Equatable {
     var venueName: String?
     var roomId: String?
     var images: [URL]
+    var flyerImageUrl: String?
+    var flyerImageId: String?
     var capacity: Int?
     var ticketTypes: [TicketType]
     var publishState: PublishState
@@ -45,6 +47,8 @@ struct Event: Codable, Identifiable, Equatable {
         case venueId
         case roomId
         case images
+        case flyerImageUrl
+        case flyerImageId
         case capacity
         case ticketTypes
         case publishState
@@ -174,6 +178,8 @@ struct Event: Codable, Identifiable, Equatable {
         }
         roomId = try container.decodeIfPresent(String.self, forKey: .roomId)
         images = try container.decodeIfPresent([URL].self, forKey: .images) ?? []
+        flyerImageUrl = try container.decodeIfPresent(String.self, forKey: .flyerImageUrl)
+        flyerImageId = try container.decodeIfPresent(String.self, forKey: .flyerImageId)
         capacity = try container.decodeIfPresent(Int.self, forKey: .capacity)
         publishState = try container.decodeIfPresent(PublishState.self, forKey: .publishState) ?? .draft
         if let categoryString = try? container.decodeIfPresent(String.self, forKey: .category) {
@@ -261,6 +267,8 @@ struct Event: Codable, Identifiable, Equatable {
         venueName: String? = nil,
         roomId: String? = nil,
         images: [URL] = [],
+        flyerImageUrl: String? = nil,
+        flyerImageId: String? = nil,
         capacity: Int? = nil,
         ticketTypes: [TicketType] = [],
         publishState: PublishState = .draft,
@@ -283,6 +291,8 @@ struct Event: Codable, Identifiable, Equatable {
         self.venueName = venueName
         self.roomId = roomId
         self.images = images
+        self.flyerImageUrl = flyerImageUrl
+        self.flyerImageId = flyerImageId
         self.capacity = capacity
         self.ticketTypes = ticketTypes
         self.publishState = publishState
@@ -318,6 +328,9 @@ struct Event: Codable, Identifiable, Equatable {
         try container.encode(venueId, forKey: .venueId)
         try container.encodeIfPresent(roomId, forKey: .roomId)
         try container.encode(images, forKey: .images)
+        // Always encode flyer fields, including explicit null to support removal
+        try container.encode(flyerImageUrl, forKey: .flyerImageUrl)
+        try container.encode(flyerImageId, forKey: .flyerImageId)
         try container.encodeIfPresent(capacity, forKey: .capacity)
         try container.encode(ticketTypes, forKey: .ticketTypes)
         try container.encode(publishState, forKey: .publishState)
@@ -346,7 +359,8 @@ struct Event: Codable, Identifiable, Equatable {
         if let venueId = venueId, !venueId.isEmpty {
             return venueId
         }
-        return "Unknown venue"
+        // If no venue is set, this is an online event
+        return "Online"
     }
 
     private static let iso8601WithFractional: ISO8601DateFormatter = {

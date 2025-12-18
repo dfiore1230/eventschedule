@@ -1,11 +1,16 @@
 # EventSchedule iOS App - Implementation Status
 
-**Last Updated**: 2025-12-14  
+**Last Updated**: 2025-12-17  
 **Version**: 1.0.0-beta
 
 ## Overview
 
 This document tracks the implementation status of the EventSchedule iOS app against the full v1.0 requirements specification. The app provides administrative access to EventSchedule backends via API key authentication.
+
+## 🔄 Recent Updates
+
+- **Event fetching**: Server disallows GET `/api/events/{id}`. The app now selects the event from the list (`GET /api/events`) and enriches with resources, avoiding the unsupported route.
+- **Ticket scanning**: Scanner integrated in Event Detail; calls `POST /api/tickets/scan` with decoded `event_id` and `ticket_code`. Errors are mapped to user-friendly toasts; validation pending with known-valid codes.
 
 ## ✅ Completed Features
 

@@ -202,9 +202,9 @@ struct InstanceOnboardingPlaceholder: View {
                 return "Server error (status: \(statusCode)). \(message ?? "No details provided.")"
             case .decodingError(let underlying, let bodyPreview):
                 if let bodyPreview, !bodyPreview.isEmpty {
-                    return "Failed to decode response: \(bodyPreview)"
+                    DebugLogger.error("Decoding error with body preview: \(bodyPreview.prefix(1024))")
                 }
-                return "Failed to decode response: \(underlying.localizedDescription)"
+                return "Failed to decode response from server."
             case .encodingError(let underlying):
                 return "Failed to encode request: \(underlying.localizedDescription)"
             case .networkError(let underlying):
@@ -265,6 +265,8 @@ struct EventsListView: View {
             }
             .task { await bootstrapIfNeeded() }
             .onChange(of: instanceStore.activeInstance?.id) { _, _ in
+                viewModel.events = []
+                viewModel.errorMessage = nil
                 Task { await bootstrapIfNeeded() }
             }
             .sheet(isPresented: $showingNewEvent) {
@@ -311,11 +313,18 @@ struct EventsListView: View {
 
             ForEach(viewModel.events) { event in
                 NavigationLink {
-                    EventDetailView(event: event, repository: repository, instance: instance, onSave: { updated in
-                        viewModel.apply(event: updated)
-                    }, onDelete: { deleted in
-                        viewModel.remove(id: deleted.id)
-                    })
+                    EventDetailView(
+                        event: event,
+                        repository: repository,
+                        checkInRepository: RemoteCheckInRepository(httpClient: httpClient),
+                        instance: instance,
+                        onSave: { updated in
+                            viewModel.apply(event: updated)
+                        },
+                        onDelete: { deleted in
+                            viewModel.remove(id: deleted.id)
+                        }
+                    )
                 } label: {
                     EventRow(event: event)
                 }
@@ -385,34 +394,71 @@ struct EventsListView: View {
 private struct EventRow: View {
     let event: Event
     @EnvironmentObject private var appSettings: AppSettings
+    @EnvironmentObject private var instanceStore: InstanceStore
+    
+    private func makeAbsoluteURL(_ urlString: String?) -> URL? {
+        guard let urlString = urlString, !urlString.isEmpty else { return nil }
+        guard let instance = instanceStore.activeInstance else { return nil }
+        
+        // If already absolute, return as-is
+        if urlString.hasPrefix("http://") || urlString.hasPrefix("https://") {
+            return URL(string: urlString)
+        }
+        
+        // Convert relative URL to absolute
+        var baseURLString = instance.baseURL.absoluteString
+        if baseURLString.hasSuffix("/api") {
+            baseURLString = String(baseURLString.dropLast(4))
+        }
+        if baseURLString.hasSuffix("/") {
+            baseURLString = String(baseURLString.dropLast())
+        }
+        let path = urlString.hasPrefix("/") ? urlString : "/" + urlString
+        return URL(string: baseURLString + path)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .center, spacing: 8) {
-                Text(event.name)
-                    .font(.headline)
-                    .lineLimit(2)
-                Spacer()
-                // Removed publish state badge as requested
+        HStack(alignment: .top, spacing: 12) {
+            // Flyer thumbnail
+            if let flyerURL = makeAbsoluteURL(event.flyerImageUrl) {
+                AsyncImage(url: flyerURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Color.gray.opacity(0.2)
+                }
+                .frame(width: 60, height: 60)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
             }
+            
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .center, spacing: 8) {
+                    Text(event.name)
+                        .font(.headline)
+                        .lineLimit(2)
+                    Spacer()
+                    // Removed publish state badge as requested
+                }
 
-            HStack(spacing: 12) {
-                Label(
-                    event.formattedDateTime(event.startAt, fallbackTimeZone: appSettings.timeZone),
-                    systemImage: "clock"
-                )
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-
-            HStack(spacing: 12) {
-                Label(event.venueDisplayDescription, systemImage: "building.2")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                if let capacity = event.capacity {
-                    Label("Cap: \(capacity)", systemImage: "person.3")
+                HStack(spacing: 12) {
+                    Label(
+                        event.formattedDateTime(event.startAt, fallbackTimeZone: appSettings.timeZone),
+                        systemImage: "clock"
+                    )
                         .font(.subheadline)
                         .foregroundColor(.secondary)
+                }
+
+                HStack(spacing: 12) {
+                    Label(event.venueDisplayDescription, systemImage: "building.2")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    if let capacity = event.capacity {
+                        Label("Cap: \(capacity)", systemImage: "person.3")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
         }
@@ -432,6 +478,10 @@ struct SettingsView: View {
     @State private var alertMessage: String?
     @State private var selectedTimeZone: String = TimeZone.current.identifier
     @State private var timeZoneQuery: String = ""
+    @State private var showingAddServer = false
+    @State private var showingEditServer: InstanceProfile?
+    @State private var serverToDelete: InstanceProfile?
+    @State private var showingDeleteAlert = false
 
     private var filteredTimeZones: [String] {
         if timeZoneQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -465,15 +515,85 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    ForEach(instanceStore.instances) { instance in
+                        Button {
+                            instanceStore.setActiveInstance(instance.id)
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(instance.displayName)
+                                        .font(.headline)
+                                        .foregroundColor(.primary)
+                                    Text(instance.baseURL.host ?? instance.baseURL.absoluteString)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                }
+                                Spacer()
+                                if instanceStore.activeInstanceID == instance.id {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(theme.accent)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                serverToDelete = instance
+                                showingDeleteAlert = true
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                            
+                            Button {
+                                showingEditServer = instance
+                            } label: {
+                                Label("Edit", systemImage: "pencil")
+                            }
+                            .tint(.blue)
+                        }
+                        .contextMenu {
+                            Button {
+                                instanceStore.setActiveInstance(instance.id)
+                            } label: {
+                                Label("Switch to This Server", systemImage: "arrow.right.circle")
+                            }
+                            .disabled(instanceStore.activeInstanceID == instance.id)
+                            
+                            Button {
+                                showingEditServer = instance
+                            } label: {
+                                Label("Edit Server", systemImage: "pencil")
+                            }
+                            
+                            Divider()
+                            
+                            Button(role: .destructive) {
+                                serverToDelete = instance
+                                showingDeleteAlert = true
+                            } label: {
+                                Label("Delete Server", systemImage: "trash")
+                            }
+                        }
+                    }
+                    
+                    Button {
+                        showingAddServer = true
+                    } label: {
+                        Label("Add Server", systemImage: "plus.circle")
+                    }
+                } header: {
+                    Text("Servers")
+                } footer: {
+                    Text("Tap a server to switch to it. Swipe to delete.")
+                }
+                
                 if let instance = instanceStore.activeInstance {
-                    Section("Active Instance") {
-                        Text(instance.displayName)
-                        Text("API: \(instance.baseURL.absoluteString)")
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
-                        Text("Auth method: \(instance.authMethod.rawValue)")
-                            .font(.footnote)
-                            .foregroundColor(.secondary)
+                    Section("Active Server Details") {
+                        LabeledContent("Name", value: instance.displayName)
+                        LabeledContent("URL", value: instance.baseURL.absoluteString)
+                        LabeledContent("Environment", value: instance.environment.rawValue)
+                        LabeledContent("Auth Method", value: instance.authMethod.rawValue)
                     }
 
                     Section("API Key") {
@@ -496,7 +616,7 @@ struct SettingsView: View {
 
                 } else {
                     Section {
-                        Text("Add an instance to configure authentication.")
+                        Text("Add a server to get started.")
                             .foregroundColor(.secondary)
                     }
                 }
@@ -529,8 +649,26 @@ struct SettingsView: View {
             }
             .tint(theme.primary)
             .navigationTitle("Settings")
-            .toolbar {
-                InstanceSwitcherToolbarItem()
+            .sheet(isPresented: $showingAddServer) {
+                ServerFormView(onSave: { /* Refresh handled by InstanceStore */ })
+                    .environmentObject(instanceStore)
+                    .environment(\.theme, theme)
+            }
+            .sheet(item: $showingEditServer) { server in
+                ServerFormView(server: server, onSave: { /* Refresh handled by InstanceStore */ })
+                    .environmentObject(instanceStore)
+                    .environment(\.theme, theme)
+            }
+            .alert("Delete Server", isPresented: $showingDeleteAlert, presenting: serverToDelete) { server in
+                Button("Cancel", role: .cancel) {
+                    serverToDelete = nil
+                }
+                Button("Delete", role: .destructive) {
+                    instanceStore.removeInstance(server.id)
+                    serverToDelete = nil
+                }
+            } message: { server in
+                Text("Are you sure you want to delete \(server.displayName)? This will remove all saved authentication data for this server.")
             }
             .onAppear {
                 selectedTimeZone = appSettings.timeZoneIdentifier

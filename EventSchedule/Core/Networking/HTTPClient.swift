@@ -9,6 +9,15 @@ protocol HTTPClientProtocol {
         instance: InstanceProfile
     ) async throws -> T
 
+    func request<T: Decodable>(
+        _ path: String,
+        method: HTTPMethod,
+        query: [String: String?]?,
+        body: Encodable?,
+        instance: InstanceProfile,
+        additionalHeaders: [String: String]?
+    ) async throws -> T
+
     func requestVoid(
         _ path: String,
         method: HTTPMethod,
@@ -16,6 +25,25 @@ protocol HTTPClientProtocol {
         body: Encodable?,
         instance: InstanceProfile
     ) async throws
+
+    func requestVoid(
+        _ path: String,
+        method: HTTPMethod,
+        query: [String: String?]?,
+        body: Encodable?,
+        instance: InstanceProfile,
+        additionalHeaders: [String: String]?
+    ) async throws
+
+    /// Low-level request returning raw Data and HTTPURLResponse. Use carefully.
+    func requestRaw(
+        _ path: String,
+        method: HTTPMethod,
+        query: [String: String?]?,
+        body: Encodable?,
+        instance: InstanceProfile,
+        additionalHeaders: [String: String]?
+    ) async throws -> (Data, HTTPURLResponse)
 }
 
 enum HTTPMethod: String {
@@ -54,14 +82,16 @@ final class HTTPClient: HTTPClientProtocol {
         method: HTTPMethod = .get,
         query: [String: String?]? = nil,
         body: Encodable? = nil,
-        instance: InstanceProfile
+        instance: InstanceProfile,
+        additionalHeaders: [String: String]? = nil
     ) async throws -> T {
         let (data, response) = try await performRequest(
             path,
             method: method,
             query: query,
             body: body,
-            instance: instance
+            instance: instance,
+            additionalHeaders: additionalHeaders
         )
         
         // Defensive: if 2xx but non-JSON content, surface a clear error early.
@@ -114,9 +144,21 @@ final class HTTPClient: HTTPClientProtocol {
                 }
             }
             let bodyPreview = String(data: data, encoding: .utf8) ?? "<non-UTF8 body>"
-            DebugLogger.error("Decoding failed for \(T.self). Status OK, body:\n\(bodyPreview)")
+            DebugLogger.error("Decoding failed for \(T.self). Error: \(error.localizedDescription)")
+            DebugLogger.error("Status OK, body:\n\(bodyPreview)")
             throw APIError.decodingError(error, bodyPreview: bodyPreview)
         }
+    }
+
+    // Overload without additionalHeaders for backward compatibility
+    func request<T: Decodable>(
+        _ path: String,
+        method: HTTPMethod = .get,
+        query: [String: String?]? = nil,
+        body: Encodable? = nil,
+        instance: InstanceProfile
+    ) async throws -> T {
+        return try await request(path, method: method, query: query, body: body, instance: instance, additionalHeaders: nil)
     }
 
     func requestVoid(
@@ -124,9 +166,34 @@ final class HTTPClient: HTTPClientProtocol {
         method: HTTPMethod,
         query: [String: String?]? = nil,
         body: Encodable? = nil,
+        instance: InstanceProfile,
+        additionalHeaders: [String: String]? = nil
+    ) async throws {
+        _ = try await performRequest(path, method: method, query: query, body: body, instance: instance, additionalHeaders: additionalHeaders)
+    }
+
+    /// Perform a request and return the raw Data and HTTPURLResponse. Useful when callers
+    /// need to inspect the raw body or status code even if decoding fails.
+    func requestRaw(
+        _ path: String,
+        method: HTTPMethod = .get,
+        query: [String: String?]? = nil,
+        body: Encodable? = nil,
+        instance: InstanceProfile,
+        additionalHeaders: [String: String]? = nil
+    ) async throws -> (Data, HTTPURLResponse) {
+        return try await performRequest(path, method: method, query: query, body: body, instance: instance, additionalHeaders: additionalHeaders)
+    }
+
+    // Overload without additionalHeaders for backward compatibility
+    func requestVoid(
+        _ path: String,
+        method: HTTPMethod,
+        query: [String: String?]? = nil,
+        body: Encodable? = nil,
         instance: InstanceProfile
     ) async throws {
-        _ = try await performRequest(path, method: method, query: query, body: body, instance: instance)
+        _ = try await performRequest(path, method: method, query: query, body: body, instance: instance, additionalHeaders: nil)
     }
 
     private func performRequest(
@@ -134,7 +201,8 @@ final class HTTPClient: HTTPClientProtocol {
         method: HTTPMethod,
         query: [String: String?]?,
         body: Encodable?,
-        instance: InstanceProfile
+        instance: InstanceProfile,
+        additionalHeaders: [String: String]? = nil
     ) async throws -> (Data, HTTPURLResponse) {
         DebugLogger.network("HTTPClient.performRequest path=\(path) base=\(instance.baseURL.absoluteString)")
         
@@ -171,6 +239,10 @@ final class HTTPClient: HTTPClientProtocol {
         var request = URLRequest(url: url)
         request.httpMethod = method.rawValue
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        // Force fresh data - tell backend and any intermediary caches not to use cached responses
+        request.setValue("no-cache, no-store, must-revalidate", forHTTPHeaderField: "Cache-Control")
+        request.setValue("no-cache", forHTTPHeaderField: "Pragma")
 
         // Inject API key header from APIKeyStore
         if let apiKey = APIKeyStore.shared.load(for: instance) {
@@ -178,6 +250,14 @@ final class HTTPClient: HTTPClientProtocol {
             DebugLogger.network("Auth header: X-API-Key: <redacted>")
         } else {
             DebugLogger.network("Auth header: no API key available for instance \(instance.displayName)")
+        }
+
+        // Add any additional headers (e.g., CSRF tokens)
+        if let additionalHeaders = additionalHeaders {
+            for (key, value) in additionalHeaders {
+                request.setValue(value, forHTTPHeaderField: key)
+                DebugLogger.network("Additional header: \(key): <redacted>")
+            }
         }
 
         DebugLogger.network("Request headers: \(request.allHTTPHeaderFields ?? [:])")

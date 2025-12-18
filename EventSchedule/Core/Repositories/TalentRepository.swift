@@ -16,15 +16,11 @@ final class RemoteTalentRepository: TalentRepositoryProtocol {
     }
     
     func fetchAll(instance: InstanceProfile) async throws -> [Talent] {
-        do {
-            return try await httpClient.request("/api/talent", method: .get, query: nil, body: Optional<Talent>.none, instance: instance)
-        } catch {
-            struct Response: Decodable {
-                let data: [Talent]
-            }
-            let response: Response = try await httpClient.request("/api/talent", method: .get, query: nil, body: Optional<Talent>.none, instance: instance)
-            return response.data
+        struct Response: Decodable {
+            let data: [Talent]
         }
+        let response: Response = try await httpClient.request("/api/talent", method: .get, query: nil, body: Optional<Talent>.none, instance: instance)
+        return response.data
     }
     
     func fetch(id: Int, instance: InstanceProfile) async throws -> Talent {

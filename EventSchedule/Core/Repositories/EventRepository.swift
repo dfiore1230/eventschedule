@@ -25,6 +25,7 @@ protocol EventRepository {
     func updateEvent(_ event: Event, instance: InstanceProfile, timeZoneOverride: TimeZone?, options: RemoteEventRepository.ExtendedEventOptions?) async throws -> Event
     func deleteEvent(id: String, instance: InstanceProfile) async throws
     func patchEvent<T: Encodable>(id: String, body: T, instance: InstanceProfile) async throws -> Event
+    func uploadEventFlyer(eventId: String, imageData: Data, instance: InstanceProfile) async throws -> Event
 }
 
 extension EventRepository {
@@ -155,8 +156,9 @@ final class RemoteEventRepository: EventRepository {
         var remindUnpaidTicketsEvery: Int?
         var registrationUrl: URL?
         var eventPassword: String?
-        var flyerImageId: Int?
+        var flyerImageId: String?
         var flyerImageData: Data?
+        var clearFlyerImage: Bool?
         var guestListVisibility: String?
         var members: [MemberDTO]
         var schedule: String?
@@ -175,8 +177,9 @@ final class RemoteEventRepository: EventRepository {
             remindUnpaidTicketsEvery: Int? = nil,
             registrationUrl: URL? = nil,
             eventPassword: String? = nil,
-            flyerImageId: Int? = nil,
+            flyerImageId: String? = nil,
             flyerImageData: Data? = nil,
+            clearFlyerImage: Bool? = nil,
             guestListVisibility: String? = nil,
             members: [MemberDTO] = [],
             schedule: String? = nil,
@@ -196,6 +199,7 @@ final class RemoteEventRepository: EventRepository {
             self.eventPassword = eventPassword
             self.flyerImageId = flyerImageId
             self.flyerImageData = flyerImageData
+            self.clearFlyerImage = clearFlyerImage
             self.guestListVisibility = guestListVisibility
             self.members = members
             self.schedule = schedule
@@ -223,8 +227,8 @@ final class RemoteEventRepository: EventRepository {
     }
 
     // Upload a flyer image and return its server-assigned image id
-    private func uploadFlyer(_ data: Data, instance: InstanceProfile) async throws -> Int {
-        struct UploadResponse: Decodable { let id: Int }
+    private func uploadFlyer(_ data: Data, instance: InstanceProfile) async throws -> String {
+        struct UploadResponse: Decodable { let id: String }
         // Assuming the backend accepts raw bytes or base64 via a dedicated endpoint.
         // If multipart is required, HTTPClientProtocol should provide that; for now, send as octet-stream.
         let response: UploadResponse = try await httpClient.request(
@@ -307,33 +311,27 @@ final class RemoteEventRepository: EventRepository {
     }
 
     func getEvent(id: String, instance: InstanceProfile) async throws -> Event {
+        // Prefer cached event first
+        if let cachedEvent = cache[instance.id]?.first(where: { $0.id == id }) {
+            consoleLog("RemoteEventRepository: returning cached event id=\(id) for instance=\(instance.displayName) (id=\(instance.id))")
+            return await enrichVenueName(cachedEvent, for: instance)
+        }
+
+        // Fallback to listing events and selecting the matching one
         do {
-            let response: EventDetailResponse = try await httpClient.request(
-                "/api/events/\(id)",
-                method: .get,
-                query: nil,
-                body: Optional<Event>.none,
-                instance: instance
-            )
-            let enriched = await enrichVenueName(response.event, for: instance)
-            upsert(enriched, for: instance)
-            consoleLog("RemoteEventRepository: fetched event id=\(enriched.id) for instance=\(instance.displayName) (id=\(instance.id))")
-            return enriched
+            let events = try await listEvents(for: instance)
+            if let found = events.first(where: { $0.id == id }) {
+                let enriched = await enrichVenueName(found, for: instance)
+                upsert(enriched, for: instance)
+                consoleLog("RemoteEventRepository: selected event from list id=\(enriched.id) for instance=\(instance.displayName) (id=\(instance.id))")
+                return enriched
+            }
+            // Not found in list
+            let error = NSError(domain: "RemoteEventRepository", code: 404, userInfo: [NSLocalizedDescriptionKey: "Event not found for id=\(id)"])
+            throw error
         } catch {
-            consoleError("RemoteEventRepository: getEvent failed for id=\(id) on instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
-            if case let DecodingError.dataCorrupted(context) = error {
-                consoleError("DecodingError.dataCorrupted: codingPath=\(context.codingPath.map { $0.stringValue }.joined(separator: ".")) debug=\(context.debugDescription)")
-            } else if case let DecodingError.keyNotFound(key, context) = error {
-                consoleError("DecodingError.keyNotFound: key=\(key.stringValue) codingPath=\(context.codingPath.map { $0.stringValue }.joined(separator: ".")) debug=\(context.debugDescription)")
-            } else if case let DecodingError.typeMismatch(type, context) = error {
-                consoleError("DecodingError.typeMismatch: type=\(type) codingPath=\(context.codingPath.map { $0.stringValue }.joined(separator: ".")) debug=\(context.debugDescription)")
-            } else if case let DecodingError.valueNotFound(type, context) = error {
-                consoleError("DecodingError.valueNotFound: type=\(type) codingPath=\(context.codingPath.map { $0.stringValue }.joined(separator: ".")) debug=\(context.debugDescription)")
-            }
-            if let cachedEvent = cache[instance.id]?.first(where: { $0.id == id }) {
-                consoleLog("RemoteEventRepository: returning cached event id=\(id) after fetch failure on instance=\(instance.displayName) (id=\(instance.id))")
-                return cachedEvent
-            }
+            consoleError("RemoteEventRepository: getEvent selection failed for id=\(id) on instance=\(instance.displayName) (id=\(instance.id)) error=\(error.localizedDescription)")
+            // If list retrieval fails, bubble up the error
             throw error
         }
     }
@@ -439,11 +437,11 @@ final class RemoteEventRepository: EventRepository {
         let memberObjects = options?.members ?? []
         
         // Resolve flyer image id: prefer explicit id; else upload if data provided
-        var resolvedFlyerId: Int? = options?.flyerImageId
+        var resolvedFlyerId: String? = options?.flyerImageId
         if resolvedFlyerId == nil, let flyerData = options?.flyerImageData {
             do {
                 resolvedFlyerId = try await uploadFlyer(flyerData, instance: instance)
-                DebugLogger.log("RemoteEventRepository: uploaded flyer, received id=\(resolvedFlyerId ?? -1)")
+                DebugLogger.log("RemoteEventRepository: uploaded flyer, received id=\(resolvedFlyerId ?? "nil")")
             } catch {
                 DebugLogger.error("RemoteEventRepository: flyer upload failed: \(error.localizedDescription)")
                 // Proceed without flyer if upload fails
@@ -583,11 +581,11 @@ final class RemoteEventRepository: EventRepository {
             let adjustedEnd = event.endAt.addingTimeInterval(1)
             
             // Resolve flyer image id for update
-            var resolvedFlyerId: Int? = options?.flyerImageId
+            var resolvedFlyerId: String? = options?.flyerImageId
             if resolvedFlyerId == nil, let flyerData = options?.flyerImageData {
                 do {
                     resolvedFlyerId = try await uploadFlyer(flyerData, instance: instance)
-                    DebugLogger.log("RemoteEventRepository: uploaded flyer, received id=\(resolvedFlyerId ?? -1)")
+                    DebugLogger.log("RemoteEventRepository: uploaded flyer, received id=\(resolvedFlyerId ?? "nil")")
                 } catch {
                     DebugLogger.error("RemoteEventRepository: flyer upload failed: \(error.localizedDescription)")
                 }
@@ -634,7 +632,8 @@ final class RemoteEventRepository: EventRepository {
                 remindUnpaidTicketsEvery: options?.remindUnpaidTicketsEvery,
                 registrationUrl: options?.registrationUrl,
                 eventPassword: options?.eventPassword,
-                flyerImageId: resolvedFlyerId,
+                flyerImageId: resolvedFlyerId != nil ? .some(resolvedFlyerId) : nil,
+                flyerImageUrl: (options?.clearFlyerImage == true) ? .some(nil) : (event.flyerImageUrl != nil ? .some(event.flyerImageUrl) : nil),
                 guestListVisibility: options?.guestListVisibility,
                 members: safeMembers,
                 schedule: options?.schedule,
@@ -774,6 +773,112 @@ final class RemoteEventRepository: EventRepository {
             throw error
         }
     }
+    
+    func uploadEventFlyer(eventId: String, imageData: Data, instance: InstanceProfile) async throws -> Event {
+        // Upload to dedicated endpoint: POST /api/events/flyer/{event_id}
+        let boundary = UUID().uuidString
+        var body = Data()
+        
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"image\"; filename=\"flyer.jpg\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        let uploadURL = instance.baseURL.appendingPathComponent("events/flyer/\(eventId)")
+        var uploadRequest = URLRequest(url: uploadURL)
+        uploadRequest.httpMethod = "POST"
+        uploadRequest.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        uploadRequest.httpBody = body
+        
+        if let token = AuthTokenStore.shared.token(for: instance) {
+            uploadRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        } else if let apiKey = APIKeyStore.shared.load(for: instance) {
+            uploadRequest.setValue(apiKey, forHTTPHeaderField: "X-API-Key")
+        }
+        
+        consoleLog("uploadEventFlyer: Uploading to events/flyer/\(eventId), full URL: \(uploadURL.absoluteString)")
+        let (uploadData, uploadResponse) = try await URLSession.shared.data(for: uploadRequest)
+        
+        guard let httpUploadResponse = uploadResponse as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+        
+        guard (200...299).contains(httpUploadResponse.statusCode) else {
+            let errorMsg = String(data: uploadData, encoding: .utf8) ?? "No response body"
+            consoleError("uploadEventFlyer: Upload failed \(httpUploadResponse.statusCode): \(errorMsg)")
+            throw NSError(domain: "EventRepository", code: httpUploadResponse.statusCode, userInfo: [
+                NSLocalizedDescriptionKey: "Failed to upload flyer",
+                NSLocalizedFailureReasonErrorKey: errorMsg
+            ])
+        }
+        
+        // Parse response: {"data": event.toApiData(), "meta": {"message": "..."}}
+        struct FlyerResponse: Decodable {
+            let data: Event
+            let meta: Meta
+            
+            struct Meta: Decodable {
+                let message: String
+            }
+        }
+        
+        // Log raw response for debugging - search for flyer fields
+        if let responseString = String(data: uploadData, encoding: .utf8) {
+            consoleLog("uploadEventFlyer: Raw response length: \(responseString.count) characters")
+            consoleLog("uploadEventFlyer: FULL raw response: \(responseString)")
+            
+            // Check if flyer fields exist anywhere in response and extract their values
+            let hasImageUrl = responseString.contains("flyer_image_url")
+            let hasImageId = responseString.contains("flyer_image_id")
+            consoleLog("uploadEventFlyer: Response contains 'flyer_image_url': \(hasImageUrl)")
+            consoleLog("uploadEventFlyer: Response contains 'flyer_image_id': \(hasImageId)")
+            
+            // Extract the actual JSON values using regex
+            if hasImageUrl {
+                let pattern = "\"flyer_image_url\"\\s*:\\s*([^,}\\]]+)"
+                if let regex = try? NSRegularExpression(pattern: pattern, options: []),
+                   let match = regex.firstMatch(in: responseString, options: [], range: NSRange(responseString.startIndex..., in: responseString)),
+                   let valueRange = Range(match.range(at: 1), in: responseString) {
+                    let value = String(responseString[valueRange]).trimmingCharacters(in: .whitespaces)
+                    consoleLog("uploadEventFlyer: flyer_image_url value in JSON: \(value)")
+                }
+            }
+            
+            if hasImageId {
+                let pattern = "\"flyer_image_id\"\\s*:\\s*([^,}\\]]+)"
+                if let regex = try? NSRegularExpression(pattern: pattern, options: []),
+                   let match = regex.firstMatch(in: responseString, options: [], range: NSRange(responseString.startIndex..., in: responseString)),
+                   let valueRange = Range(match.range(at: 1), in: responseString) {
+                    let value = String(responseString[valueRange]).trimmingCharacters(in: .whitespaces)
+                    consoleLog("uploadEventFlyer: flyer_image_id value in JSON: \(value)")
+                }
+            }
+        }
+        
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+        
+        let response = try decoder.decode(FlyerResponse.self, from: uploadData)
+        consoleLog("uploadEventFlyer: \(response.meta.message)")
+        consoleLog("uploadEventFlyer: Decoded event flyerImageUrl=\(response.data.flyerImageUrl ?? "nil") flyerImageId=\(response.data.flyerImageId?.description ?? "nil")")
+        consoleLog("uploadEventFlyer: Decoded event id=\(response.data.id) name=\(response.data.name)")
+        
+        // Try to manually parse just the flyer fields to verify they can be decoded
+        if let jsonDict = try? JSONSerialization.jsonObject(with: uploadData) as? [String: Any],
+           let dataDict = jsonDict["data"] as? [String: Any] {
+            let rawFlyerUrl = dataDict["flyer_image_url"]
+            let rawFlyerId = dataDict["flyer_image_id"]
+            consoleLog("uploadEventFlyer: RAW from dict - flyer_image_url: \(String(describing: rawFlyerUrl))")
+            consoleLog("uploadEventFlyer: RAW from dict - flyer_image_id: \(String(describing: rawFlyerId))")
+        }
+        
+        // Update cache
+        upsert(response.data, for: instance)
+        
+        return response.data
+    }
 
     private func upsert(_ event: Event, for instance: InstanceProfile) {
         var events = cache[instance.id] ?? []
@@ -850,7 +955,7 @@ final class RemoteEventRepository: EventRepository {
         let remindUnpaidTicketsEvery: Int?
         let registrationUrl: URL?
         let eventPassword: String?
-        let flyerImageId: Int?
+        let flyerImageId: String?
         let guestListVisibility: String?
         let members: [MemberDTO]
         let schedule: String?
@@ -976,7 +1081,8 @@ final class RemoteEventRepository: EventRepository {
         let remindUnpaidTicketsEvery: Int?
         let registrationUrl: URL?
         let eventPassword: String?
-        let flyerImageId: Int?
+        let flyerImageId: String?? // Double-optional to support explicit null for removal
+        let flyerImageUrl: String?? // Double-optional to support explicit null for removal
         let guestListVisibility: String?
         let members: [MemberDTO]
         let schedule: String?
@@ -1017,6 +1123,7 @@ final class RemoteEventRepository: EventRepository {
             case registrationUrl = "registration_url"
             case eventPassword = "event_password"
             case flyerImageId = "flyer_image_id"
+            case flyerImageUrl = "flyer_image_url"
             case guestListVisibility = "guest_list_visibility"
             case members = "members"
             case schedule = "schedule"
@@ -1067,7 +1174,13 @@ final class RemoteEventRepository: EventRepository {
             try container.encodeIfPresent(remindUnpaidTicketsEvery, forKey: .remindUnpaidTicketsEvery)
             try container.encodeIfPresent(registrationUrl, forKey: .registrationUrl)
             try container.encodeIfPresent(eventPassword, forKey: .eventPassword)
-            try container.encodeIfPresent(flyerImageId, forKey: .flyerImageId)
+            // Encode flyer fields with explicit null support for removal
+            if let flyerImageId = flyerImageId {
+                try container.encode(flyerImageId, forKey: .flyerImageId)
+            }
+            if let flyerImageUrl = flyerImageUrl {
+                try container.encode(flyerImageUrl, forKey: .flyerImageUrl)
+            }
             try container.encodeIfPresent(guestListVisibility, forKey: .guestListVisibility)
             if !members.isEmpty {
                 try container.encode(members, forKey: .members)

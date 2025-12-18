@@ -6,6 +6,7 @@ struct CheckIn: Identifiable, Codable, Equatable {
     let ticketId: String
     let ticketCode: String?
     let eventId: String
+    let attendeeName: String?
     let gateId: String?
     let deviceId: String?
     let action: CheckInAction
@@ -32,6 +33,7 @@ struct CheckIn: Identifiable, Codable, Equatable {
         ticketId: String,
         ticketCode: String? = nil,
         eventId: String,
+        attendeeName: String? = nil,
         gateId: String? = nil,
         deviceId: String? = nil,
         action: CheckInAction,
@@ -45,6 +47,7 @@ struct CheckIn: Identifiable, Codable, Equatable {
         self.ticketId = ticketId
         self.ticketCode = ticketCode
         self.eventId = eventId
+        self.attendeeName = attendeeName
         self.gateId = gateId
         self.deviceId = deviceId
         self.action = action
@@ -70,31 +73,32 @@ struct CheckIn: Identifiable, Codable, Equatable {
         case notes
         case isOffline = "is_offline"
         case syncedAt = "synced_at"
+        case attendeeName = "attendee_name"
     }
     
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         
-        id = try container.decode(String.self, forKey: .id)
-        ticketId = try container.decode(String.self, forKey: .ticketId)
-        ticketCode = try container.decodeIfPresent(String.self, forKey: .ticketCode)
-            ?? container.decodeIfPresent(String.self, forKey: .code)
-        eventId = try container.decode(String.self, forKey: .eventId)
-        gateId = try container.decodeIfPresent(String.self, forKey: .gateId)
-        deviceId = try container.decodeIfPresent(String.self, forKey: .deviceId)
-        action = try container.decode(CheckInAction.self, forKey: .action)
-        
-        // Timestamp can be in 'timestamp' or 'ts' field
-        if let ts = try container.decodeIfPresent(Date.self, forKey: .timestamp) {
-            timestamp = ts
-        } else {
-            timestamp = try container.decodeIfPresent(Date.self, forKey: .ts) ?? Date()
-        }
-        
-        performedBy = try container.decodeIfPresent(String.self, forKey: .performedBy)
-        notes = try container.decodeIfPresent(String.self, forKey: .notes)
-        isOffline = try container.decodeIfPresent(Bool.self, forKey: .isOffline) ?? false
-        syncedAt = try container.decodeIfPresent(Date.self, forKey: .syncedAt)
+            id = try container.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+            ticketId = try container.decodeIfPresent(String.self, forKey: .ticketId) ?? ""
+            ticketCode = try container.decodeIfPresent(String.self, forKey: .ticketCode)
+                ?? container.decodeIfPresent(String.self, forKey: .code)
+            eventId = try container.decodeIfPresent(String.self, forKey: .eventId) ?? ""
+            attendeeName = try container.decodeIfPresent(String.self, forKey: .attendeeName)
+            gateId = try container.decodeIfPresent(String.self, forKey: .gateId)
+            deviceId = try container.decodeIfPresent(String.self, forKey: .deviceId)
+            action = try container.decodeIfPresent(CheckInAction.self, forKey: .action) ?? .checkIn
+
+            if let ts = try container.decodeIfPresent(Date.self, forKey: .timestamp) {
+                timestamp = ts
+            } else {
+                timestamp = try container.decodeIfPresent(Date.self, forKey: .ts) ?? Date()
+            }
+
+            performedBy = try container.decodeIfPresent(String.self, forKey: .performedBy)
+            notes = try container.decodeIfPresent(String.self, forKey: .notes)
+            isOffline = try container.decodeIfPresent(Bool.self, forKey: .isOffline) ?? false
+            syncedAt = try container.decodeIfPresent(Date.self, forKey: .syncedAt)
     }
     
     func encode(to encoder: Encoder) throws {
@@ -111,6 +115,7 @@ struct CheckIn: Identifiable, Codable, Equatable {
         try container.encodeIfPresent(notes, forKey: .notes)
         try container.encode(isOffline, forKey: .isOffline)
         try container.encodeIfPresent(syncedAt, forKey: .syncedAt)
+        try container.encodeIfPresent(attendeeName, forKey: .attendeeName)
     }
     
     /// Generate an idempotency key for this check-in to prevent duplicates
@@ -129,6 +134,9 @@ struct ScanResult: Codable, Equatable {
         case refunded
         case voided
         case wrongEvent = "wrong_event"
+        case wrongDate = "wrong_date"
+        case unpaid
+        case cancelled
         case unknown
         case expired
         case invalid
@@ -140,10 +148,13 @@ struct ScanResult: Codable, Equatable {
             case .refunded: return "Refunded"
             case .voided: return "Voided"
             case .wrongEvent: return "Wrong Event"
+            case .wrongDate: return "Wrong Date"
+            case .unpaid: return "Unpaid"
+            case .cancelled: return "Cancelled"
             case .unknown: return "Unknown"
             case .expired: return "Expired"
             case .invalid: return "Invalid"
-            }
+        }
         }
         
         var isSuccess: Bool {
@@ -160,6 +171,7 @@ struct ScanResult: Codable, Equatable {
     let gateId: String?
     let serverTime: Date
     let message: String?
+    let saleTicketId: Int?
     
     init(
         status: Status,
@@ -170,7 +182,8 @@ struct ScanResult: Codable, Equatable {
         checkedInAt: Date? = nil,
         gateId: String? = nil,
         serverTime: Date = Date(),
-        message: String? = nil
+        message: String? = nil,
+        saleTicketId: Int? = nil
     ) {
         self.status = status
         self.ticketId = ticketId
@@ -181,6 +194,7 @@ struct ScanResult: Codable, Equatable {
         self.gateId = gateId
         self.serverTime = serverTime
         self.message = message
+        self.saleTicketId = saleTicketId
     }
     
     enum CodingKeys: String, CodingKey {
@@ -194,6 +208,7 @@ struct ScanResult: Codable, Equatable {
         case gateId = "gate_id"
         case serverTime = "server_time"
         case message
+        case saleTicketId = "sale_ticket_id"
     }
     
     init(from decoder: Decoder) throws {
@@ -215,6 +230,7 @@ struct ScanResult: Codable, Equatable {
         gateId = try container.decodeIfPresent(String.self, forKey: .gateId)
         serverTime = try container.decodeIfPresent(Date.self, forKey: .serverTime) ?? Date()
         message = try container.decodeIfPresent(String.self, forKey: .message)
+        saleTicketId = try container.decodeIfPresent(Int.self, forKey: .saleTicketId)
     }
     
     func encode(to encoder: Encoder) throws {
@@ -228,5 +244,6 @@ struct ScanResult: Codable, Equatable {
         try container.encodeIfPresent(gateId, forKey: .gateId)
         try container.encode(serverTime, forKey: .serverTime)
         try container.encodeIfPresent(message, forKey: .message)
+        try container.encodeIfPresent(saleTicketId, forKey: .saleTicketId)
     }
 }

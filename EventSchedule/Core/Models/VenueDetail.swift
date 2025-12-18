@@ -22,6 +22,67 @@ struct VenueDetail: Identifiable, Codable, Equatable {
     var createdAt: Date?
     var updatedAt: Date?
     
+    // Profile & Header Images
+    var profileImageUrl: String?
+    var headerImageUrl: String?
+    var backgroundImageUrl: String? // Main background image for the venue
+    
+    // Privacy Settings
+    var showEmail: Bool?
+    
+    // Schedule Style
+    var scheduleBackgroundType: String? // "gradient", "solid", "image"
+    var scheduleBackgroundImageUrl: String?
+    var scheduleAccentColor: String?
+    
+    // Schedule Settings
+    var scheduleLanguage: String?
+    var scheduleTimezone: String?
+    var schedule24Hour: Bool?
+    
+    // Subschedules
+    var subschedules: [String]?
+    
+    // Auto Import Settings
+    var autoImportUrls: [String]?
+    var autoImportCities: [String]?
+    
+    // Rooms
+    var rooms: [VenueRoom]?
+    
+    // Contacts
+    var contacts: [VenueContact]?
+    
+    struct VenueRoom: Identifiable, Codable, Equatable {
+        let id: String
+        var name: String
+        var capacity: Int?
+        var description: String?
+        
+        init(id: String = UUID().uuidString, name: String, capacity: Int? = nil, description: String? = nil) {
+            self.id = id
+            self.name = name
+            self.capacity = capacity
+            self.description = description
+        }
+    }
+    
+    struct VenueContact: Identifiable, Codable, Equatable {
+        let id: String
+        var name: String
+        var role: String?
+        var email: String?
+        var phone: String?
+        
+        init(id: String = UUID().uuidString, name: String, role: String? = nil, email: String? = nil, phone: String? = nil) {
+            self.id = id
+            self.name = name
+            self.role = role
+            self.email = email
+            self.phone = phone
+        }
+    }
+    
     // Computed properties for convenience
     var displayAddress: String {
         if let formatted = formattedAddress, !formatted.isEmpty {
@@ -58,7 +119,22 @@ struct VenueDetail: Identifiable, Codable, Equatable {
         timezone: String? = nil,
         subdomain: String? = nil,
         createdAt: Date? = nil,
-        updatedAt: Date? = nil
+        updatedAt: Date? = nil,
+        profileImageUrl: String? = nil,
+        headerImageUrl: String? = nil,
+        backgroundImageUrl: String? = nil,
+        showEmail: Bool? = nil,
+        scheduleBackgroundType: String? = nil,
+        scheduleBackgroundImageUrl: String? = nil,
+        scheduleAccentColor: String? = nil,
+        scheduleLanguage: String? = nil,
+        scheduleTimezone: String? = nil,
+        schedule24Hour: Bool? = nil,
+        subschedules: [String]? = nil,
+        autoImportUrls: [String]? = nil,
+        autoImportCities: [String]? = nil,
+        rooms: [VenueRoom]? = nil,
+        contacts: [VenueContact]? = nil
     ) {
         self.id = id
         self.name = name
@@ -79,87 +155,24 @@ struct VenueDetail: Identifiable, Codable, Equatable {
         self.subdomain = subdomain
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.profileImageUrl = profileImageUrl
+        self.headerImageUrl = headerImageUrl
+        self.backgroundImageUrl = backgroundImageUrl
+        self.showEmail = showEmail
+        self.scheduleBackgroundType = scheduleBackgroundType
+        self.scheduleBackgroundImageUrl = scheduleBackgroundImageUrl
+        self.scheduleAccentColor = scheduleAccentColor
+        self.scheduleLanguage = scheduleLanguage
+        self.scheduleTimezone = scheduleTimezone
+        self.schedule24Hour = schedule24Hour
+        self.subschedules = subschedules
+        self.autoImportUrls = autoImportUrls
+        self.autoImportCities = autoImportCities
+        self.rooms = rooms
+        self.contacts = contacts
     }
     
-    enum CodingKeys: String, CodingKey {
-        case id
-        case name
-        case email
-        case phone
-        case website
-        case description
-        case address1
-        case address2
-        case city
-        case state
-        case postalCode = "postal_code"
-        case countryCode = "country_code"
-        case formattedAddress = "formatted_address"
-        case geoLat = "geo_lat"
-        case geoLon = "geo_lon"
-        case timezone
-        case subdomain
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-    }
-    
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        
-        id = try container.decode(Int.self, forKey: .id)
-        name = try container.decode(String.self, forKey: .name)
-        email = try container.decodeIfPresent(String.self, forKey: .email)
-        phone = try container.decodeIfPresent(String.self, forKey: .phone)
-        website = try container.decodeIfPresent(String.self, forKey: .website)
-        description = try container.decodeIfPresent(String.self, forKey: .description)
-        address1 = try container.decodeIfPresent(String.self, forKey: .address1)
-        address2 = try container.decodeIfPresent(String.self, forKey: .address2)
-        city = try container.decodeIfPresent(String.self, forKey: .city)
-        state = try container.decodeIfPresent(String.self, forKey: .state)
-        postalCode = try container.decodeIfPresent(String.self, forKey: .postalCode)
-        countryCode = try container.decodeIfPresent(String.self, forKey: .countryCode)
-        formattedAddress = try container.decodeIfPresent(String.self, forKey: .formattedAddress)
-        geoLat = try container.decodeIfPresent(Double.self, forKey: .geoLat)
-        geoLon = try container.decodeIfPresent(Double.self, forKey: .geoLon)
-        timezone = try container.decodeIfPresent(String.self, forKey: .timezone)
-        subdomain = try container.decodeIfPresent(String.self, forKey: .subdomain)
-        
-        // Handle date decoding
-        let dateFormatter = ISO8601DateFormatter()
-        if let createdString = try container.decodeIfPresent(String.self, forKey: .createdAt) {
-            createdAt = dateFormatter.date(from: createdString)
-        } else {
-            createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt)
-        }
-        if let updatedString = try container.decodeIfPresent(String.self, forKey: .updatedAt) {
-            updatedAt = dateFormatter.date(from: updatedString)
-        } else {
-            updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt)
-        }
-    }
-    
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(id, forKey: .id)
-        try container.encode(name, forKey: .name)
-        try container.encodeIfPresent(email, forKey: .email)
-        try container.encodeIfPresent(phone, forKey: .phone)
-        try container.encodeIfPresent(website, forKey: .website)
-        try container.encodeIfPresent(description, forKey: .description)
-        try container.encodeIfPresent(address1, forKey: .address1)
-        try container.encodeIfPresent(address2, forKey: .address2)
-        try container.encodeIfPresent(city, forKey: .city)
-        try container.encodeIfPresent(state, forKey: .state)
-        try container.encodeIfPresent(postalCode, forKey: .postalCode)
-        try container.encodeIfPresent(countryCode, forKey: .countryCode)
-        try container.encodeIfPresent(formattedAddress, forKey: .formattedAddress)
-        try container.encodeIfPresent(geoLat, forKey: .geoLat)
-        try container.encodeIfPresent(geoLon, forKey: .geoLon)
-        try container.encodeIfPresent(timezone, forKey: .timezone)
-        try container.encodeIfPresent(subdomain, forKey: .subdomain)
-        try container.encodeIfPresent(createdAt, forKey: .createdAt)
-        try container.encodeIfPresent(updatedAt, forKey: .updatedAt)
-    }
+    // Removed explicit CodingKeys and custom init/encode - let convertFromSnakeCase handle everything automatically
     
     /// Convert to simple Venue reference for use in other models
     func toVenue() -> Venue {

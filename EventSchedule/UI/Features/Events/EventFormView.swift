@@ -56,6 +56,10 @@ struct EventFormView: View {
     @State private var eventPassword: String = ""
     @State private var flyerImageId: String = ""
     @State private var scheduleSlug: String = ""
+    @State private var flyerImageUrl: String = ""
+    @State private var flyerImageSelection: PhotosPickerItem?
+    @State private var isUploadingFlyer = false
+    @State private var showMediaLibraryPicker = false
 
     @State private var availableCategories: [String] = []
     @State private var availableGroups: [EventGroup] = []
@@ -64,6 +68,22 @@ struct EventFormView: View {
     @State private var ticketDrafts: [TicketDraft] = []
 
     @State private var isSaving: Bool = false
+    
+    private func makeAbsoluteURL(_ urlString: String?) -> URL? {
+        guard let urlString = urlString, !urlString.isEmpty else { return nil }
+        if urlString.hasPrefix("http://") || urlString.hasPrefix("https://") {
+            return URL(string: urlString)
+        }
+        var baseURLString = instance.baseURL.absoluteString
+        if baseURLString.hasSuffix("/api") {
+            baseURLString = String(baseURLString.dropLast(4))
+        }
+        if baseURLString.hasSuffix("/") {
+            baseURLString = String(baseURLString.dropLast())
+        }
+        let path = urlString.hasPrefix("/") ? urlString : "/" + urlString
+        return URL(string: baseURLString + path)
+    }
     @State private var errorMessage: String?
     @State private var startWasModified: Bool = false
     @State private var durationWasModified: Bool = false
@@ -138,7 +158,7 @@ struct EventFormView: View {
         let hasVenue = event?.venueId != nil && !(event!.venueId!.isEmpty)
         // Debug logging
         if let evt = event {
-            DebugLogger.log("EventFormView init: venueId='\(evt.venueId)' hasVenue=\(hasVenue) onlineURL=\(evt.onlineURL?.absoluteString ?? "nil") hasOnlineURL=\(hasOnlineURL)")
+            DebugLogger.log("EventFormView init: venueId='\(evt.venueId ?? "nil")' hasVenue=\(hasVenue) onlineURL=\(evt.onlineURL?.absoluteString ?? "nil") hasOnlineURL=\(hasOnlineURL)")
         }
         // For new events, default to in-person only; for existing, set based on data
         _isOnline = State(initialValue: hasOnlineURL)
@@ -146,6 +166,7 @@ struct EventFormView: View {
         _onlineURL = State(initialValue: event?.onlineURL?.absoluteString ?? "")
         _selectedCategory = State(initialValue: event?.category ?? "")
         _selectedGroupSlug = State(initialValue: event?.groupSlug ?? "")
+        _flyerImageUrl = State(initialValue: event?.flyerImageUrl ?? "")
         _imageURLs = State(initialValue: event?.images ?? [])
         _ticketDrafts = State(initialValue: event?.ticketTypes.map { TicketDraft(from: $0) } ?? [])
         _isRecurring = State(initialValue: event?.isRecurring ?? false)
@@ -398,28 +419,62 @@ struct EventFormView: View {
                 }
             }
 
-            Section(header: Text("Fliers")) {
-                if imageURLs.isEmpty {
-                    Text("Attach image files to use as fliers.")
-                        .font(.footnote)
+            Section(header: Text("Event Flyer")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Upload Flyer Image")
+                        .font(.subheadline)
                         .foregroundColor(.secondary)
-                }
-                ForEach(Array(imageURLs.enumerated()), id: \.offset) { index, url in
-                    HStack {
-                        Label(url.lastPathComponent, systemImage: "photo")
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Spacer()
-                        Button(role: .destructive) {
-                            imageURLs.remove(at: index)
-                        } label: {
-                            Image(systemName: "trash")
+                    
+                    HStack(spacing: 12) {
+                        PhotosPicker(selection: $flyerImageSelection, matching: .images) {
+                            HStack {
+                                Image(systemName: "photo.badge.plus")
+                                Text(isUploadingFlyer ? "Uploading..." : "Upload New")
+                            }
                         }
-                        .buttonStyle(.borderless)
+                        .buttonStyle(.bordered)
+                        .disabled(isUploadingFlyer || originalEvent == nil)
+                        .onChange(of: flyerImageSelection) { _, newItem in
+                            if originalEvent != nil {
+                                Task { await uploadFlyerImage(newItem) }
+                            }
+                        }
+                        
+                        Button {
+                            showMediaLibraryPicker = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "photo.on.rectangle")
+                                Text("From Library")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(originalEvent == nil)
+                        
+                        if !flyerImageUrl.isEmpty {
+                            Button(role: .destructive) {
+                                Task { await removeFlyerImage() }
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                            }
+                        }
                     }
-                }
-                PhotosPicker(selection: $flierSelection, matching: .images) {
-                    Label("Add flier", systemImage: "plus")
+                    
+                    if originalEvent == nil {
+                        Text("Save the event first before selecting a flyer image.")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                    
+                    if let url = makeAbsoluteURL(flyerImageUrl) {
+                        AsyncImage(url: url) { image in
+                            image.resizable().scaledToFit()
+                        } placeholder: {
+                            ProgressView()
+                        }
+                        .frame(height: 200)
+                        .cornerRadius(8)
+                    }
                 }
             }
 
@@ -542,6 +597,9 @@ struct EventFormView: View {
         }
         .onChange(of: flierSelection) { _, newItems in
             Task { await importFliers(from: newItems) }
+        }
+        .sheet(isPresented: $showMediaLibraryPicker) {
+            MediaLibraryPicker(instance: instance, onSelect: selectMediaLibraryImage)
         }
         .task {
             await loadResources()
@@ -712,7 +770,7 @@ struct EventFormView: View {
                         remindUnpaidTicketsEvery: Int(remindUnpaidTicketsEvery.trimmingCharacters(in: .whitespacesAndNewlines)),
                         registrationUrl: URL(string: registrationURL.trimmingCharacters(in: .whitespacesAndNewlines)),
                         eventPassword: eventPassword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : eventPassword,
-                        flyerImageId: Int(flyerImageId.trimmingCharacters(in: .whitespacesAndNewlines)),
+                        flyerImageId: flyerImageId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : flyerImageId.trimmingCharacters(in: .whitespacesAndNewlines),
                         guestListVisibility: guestListVisibility,
                         members: buildMemberDTOs(),
                         schedule: scheduleSlug.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : scheduleSlug
@@ -801,7 +859,7 @@ struct EventFormView: View {
                         remindUnpaidTicketsEvery: Int(remindUnpaidTicketsEvery.trimmingCharacters(in: .whitespacesAndNewlines)),
                         registrationUrl: URL(string: registrationURL.trimmingCharacters(in: .whitespacesAndNewlines)),
                         eventPassword: eventPassword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : eventPassword,
-                        flyerImageId: Int(flyerImageId.trimmingCharacters(in: .whitespacesAndNewlines)),
+                        flyerImageId: flyerImageId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : flyerImageId.trimmingCharacters(in: .whitespacesAndNewlines),
                         guestListVisibility: guestListVisibility,
                         members: buildMemberDTOs(),
                         schedule: scheduleSlug.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : scheduleSlug
@@ -1068,6 +1126,119 @@ private struct TicketDraft: Identifiable, Equatable {
         let currency: Binding<String>
         let quantity: Binding<String>
         let description: Binding<String>
+    }
+}
+
+// MARK: - EventFormView Flyer Upload Extension
+extension EventFormView {
+    @MainActor
+    private func uploadFlyerImage(_ item: PhotosPickerItem?) async {
+        guard let item = item else {
+            DebugLogger.log("EventFormView.uploadFlyerImage: item is nil")
+            return
+        }
+        guard let eventId = originalEvent?.id else {
+            DebugLogger.log("EventFormView.uploadFlyerImage: no event ID, originalEvent=\(originalEvent == nil ? "nil" : "exists")")
+            errorMessage = "Save the event first before uploading a flyer"
+            return
+        }
+        
+        DebugLogger.log("EventFormView.uploadFlyerImage: Starting upload for event \(eventId)")
+        isUploadingFlyer = true
+        defer { isUploadingFlyer = false }
+        
+        do {
+            DebugLogger.log("EventFormView.uploadFlyerImage: Loading image data from PhotosPicker")
+            guard let imageData = try await item.loadTransferable(type: Data.self) else {
+                DebugLogger.error("EventFormView.uploadFlyerImage: Failed to load transferable data")
+                errorMessage = "Failed to load image data"
+                return
+            }
+            
+            DebugLogger.log("EventFormView.uploadFlyerImage: Loaded \(imageData.count) bytes, calling repository")
+            let updatedEvent = try await repository.uploadEventFlyer(
+                eventId: eventId,
+                imageData: imageData,
+                instance: instance
+            )
+            
+            // Update the flyer URL and notify parent
+            DebugLogger.log("EventFormView.uploadFlyerImage: Upload succeeded, flyerImageUrl=\(updatedEvent.flyerImageUrl ?? "nil")")
+            await MainActor.run {
+                flyerImageUrl = updatedEvent.flyerImageUrl ?? ""
+                flyerImageSelection = nil // Reset to allow selecting same image again
+            }
+            onSave?(updatedEvent)
+        } catch {
+            DebugLogger.error("EventFormView.uploadFlyerImage: Upload failed: \(error.localizedDescription)")
+            errorMessage = "Failed to upload flyer: \(error.localizedDescription)"
+        }
+    }
+    
+    @MainActor
+    private func removeFlyerImage() async {
+        guard var event = originalEvent else {
+            errorMessage = "Cannot remove flyer: event not saved"
+            return
+        }
+        
+        DebugLogger.log("EventFormView.removeFlyerImage: Removing flyer for event \(event.id)")
+        
+        // Clear locally first for immediate UI feedback
+        let previousUrl = flyerImageUrl
+        flyerImageUrl = ""
+        
+        // Update the event with null flyer fields
+        event.flyerImageUrl = nil
+        event.flyerImageId = nil
+        
+        do {
+            let updatedEvent = try await repository.updateEvent(
+                event,
+                instance: instance,
+                timeZoneOverride: nil,
+                options: .init(clearFlyerImage: true)
+            )
+            
+            DebugLogger.log("EventFormView.removeFlyerImage: Successfully removed flyer, flyerImageUrl=\(updatedEvent.flyerImageUrl ?? "nil")")
+            flyerImageUrl = updatedEvent.flyerImageUrl ?? ""
+            onSave?(updatedEvent)
+        } catch {
+            DebugLogger.error("EventFormView.removeFlyerImage: Failed to remove flyer: \(error.localizedDescription)")
+            // Restore the previous URL since removal failed
+            flyerImageUrl = previousUrl
+            errorMessage = "Failed to remove flyer: \(error.localizedDescription)"
+        }
+    }
+    
+    private func selectMediaLibraryImage(_ mediaItem: MediaItem) {
+        // When selecting from media library, just set the URL directly
+        // The image is already on the server
+        DebugLogger.log("EventFormView.selectMediaLibraryImage: Selected \(mediaItem.originalFilename) with URL \(mediaItem.url)")
+        
+        // Update the event with the new flyer URL
+        guard var event = originalEvent else {
+            DebugLogger.error("EventFormView.selectMediaLibraryImage: No original event to update")
+            return
+        }
+        event.flyerImageUrl = mediaItem.url
+        DebugLogger.log("EventFormView.selectMediaLibraryImage: Set event.flyerImageUrl to \(mediaItem.url), about to call updateEvent")
+        
+        Task {
+            do {
+                let updatedEvent = try await repository.updateEvent(event, instance: instance, timeZoneOverride: nil, options: nil)
+                await MainActor.run {
+                    flyerImageUrl = updatedEvent.flyerImageUrl ?? ""
+                    onSave?(updatedEvent)
+                    DebugLogger.log("EventFormView.selectMediaLibraryImage: Successfully updated event with flyer URL: \(updatedEvent.flyerImageUrl ?? "nil")")
+                }
+            } catch {
+                DebugLogger.error("EventFormView.selectMediaLibraryImage: Failed to update: \(error.localizedDescription)")
+                await MainActor.run {
+                    errorMessage = "Failed to set flyer from library: \(error.localizedDescription)"
+                }
+            }
+        }
     }
 }
 

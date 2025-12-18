@@ -16,17 +16,6 @@ final class RemoteVenueDetailRepository: VenueDetailRepositoryProtocol {
     }
     
     func fetchAll(instance: InstanceProfile) async throws -> [VenueDetail] {
-        // Try direct array first
-        if let direct: [VenueDetail] = try? await httpClient.request(
-            "/api/venues",
-            method: .get,
-            query: nil,
-            body: Optional<VenueDetail>.none,
-            instance: instance
-        ) {
-            return direct
-        }
-        // Fallback to wrapped response { data: [VenueDetail] }
         struct Response: Decodable { let data: [VenueDetail] }
         let wrapped: Response = try await httpClient.request(
             "/api/venues",
