@@ -3,7 +3,10 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "vite build"
+        "build": "vite build",
+        "test": "php artisan test",
+        "cypress:open": "cypress open",
+        "cypress:run": "cypress run"
     },
     "devDependencies": {
         "@tailwindcss/forms": "^0.5.2",

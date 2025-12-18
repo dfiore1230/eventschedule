@@ -244,6 +244,9 @@ class ApiTicketController extends Controller
 
         $code = $validated['ticket_code'];
 
+        // Diagnostic log
+        Log::info('scan_by_code: attempt', ['code' => $code, 'user_id' => $request->user() ? $request->user()->id : null]);
+
         // 1) Try lookup by entry secret (web QR)
         $entry = SaleTicketEntry::with(['saleTicket.sale', 'saleTicket.ticket'])
             ->where('secret', $code)
@@ -251,11 +254,13 @@ class ApiTicketController extends Controller
 
         if ($entry && $entry->saleTicket && $entry->saleTicket->sale) {
             $sale = $entry->saleTicket->sale;
+            Log::info('scan_by_code: entry_found', ['entry_id' => $entry->id, 'sale_id' => $sale->id]);
             $sale->loadMissing(['event', 'saleTickets.ticket', 'saleTickets.entries']);
 
             // Auth: must be able to manage event
             $user = $request->user();
             if (! $user->canEditEvent($sale->event)) {
+                Log::info('scan_by_code: unauthorized_entry', ['sale_id' => $sale->id, 'user_id' => $user ? $user->id : null]);
                 return response()->json(['error' => 'You are not authorized to scan this ticket'], 403);
             }
 
@@ -264,6 +269,7 @@ class ApiTicketController extends Controller
             $eventDateLocal = Carbon::parse($sale->event_date, 'UTC')->setTimezone($tz)->toDateString();
             $todayLocal = now($tz)->toDateString();
             if ($eventDateLocal !== $todayLocal) {
+                Log::info('scan_by_code: date_mismatch', ['sale_id' => $sale->id ?? null, 'event_date_local' => $eventDateLocal, 'today_local' => $todayLocal]);
                 return response()->json(['error' => 'This ticket is not valid for today'], 400);
             }
 
@@ -317,12 +323,14 @@ class ApiTicketController extends Controller
             ->first();
 
         if (! $sale) {
+            Log::info('scan_by_code: not_found', ['code' => $code]);
             return response()->json(['error' => 'Ticket not found'], 404);
         }
 
         // Auth
         $user = $request->user();
         if (! $user->canEditEvent($sale->event)) {
+            Log::info('scan_by_code: unauthorized_sale', ['sale_id' => $sale->id]);
             return response()->json(['error' => 'You are not authorized to scan this ticket'], 403);
         }
 
@@ -347,11 +355,13 @@ class ApiTicketController extends Controller
         if (isset($validated['sale_ticket_id'])) {
             $saleTicket = $sale->saleTickets->firstWhere('id', $validated['sale_ticket_id']);
             if (! $saleTicket) {
+                Log::info('scan_by_code: sale_ticket_not_found', ['sale_id' => $sale->id, 'sale_ticket_id' => $validated['sale_ticket_id']]);
                 return response()->json(['error' => 'Sale ticket not found'], 404);
             }
         } else {
             $saleTicket = $sale->saleTickets->first();
             if (! $saleTicket) {
+                Log::info('scan_by_code: no_tickets_in_sale', ['sale_id' => $sale->id]);
                 return response()->json(['error' => 'No tickets found in this sale'], 404);
             }
         }
@@ -363,6 +373,8 @@ class ApiTicketController extends Controller
             'seat_number' => $validated['seat_number'] ?? null,
             'scanned_at' => now(),
         ]);
+
+        Log::info('scan_by_code: created_entry', ['entry_id' => $newEntry->id, 'sale_id' => $sale->id]);
 
         // Reload entries to reflect updated usage status
         $sale->load(['saleTickets.entries']);
