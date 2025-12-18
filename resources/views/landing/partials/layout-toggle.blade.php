@@ -20,7 +20,7 @@
         </svg>
         {{ __('messages.list') }}
     </a>
-    <a href="{{ route($calendarRouteName, $calendarViewParams) }}"
+    <a href="{{ route($calendarRouteName, array_merge($calendarViewParams, ['view' => 'calendar'])) }}"
        class="{{ $calendarButtonClasses }}"
        @unless($isListView) aria-current="page" @endunless
     >

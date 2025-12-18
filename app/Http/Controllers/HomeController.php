@@ -556,6 +556,15 @@ class HomeController extends Controller
                 ->values();
         }
 
+        // If we're in the list view, limit the results to the selected month
+        // so the month navigation controls affect the events list.
+        if ($viewMode === 'list') {
+            $baseQuery = $baseQuery->where(function ($query) use ($startOfMonth, $endOfMonth) {
+                $query->whereBetween('starts_at', [$startOfMonth, $endOfMonth])
+                      ->orWhereNotNull('days_of_week');
+            });
+        }
+
         $events = $baseQuery
             ->orderBy('starts_at')
             ->paginate(10)
