@@ -137,149 +137,7 @@
         </div>
         @endif
 
-        <div class="mb-8 space-y-6">
-            <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg">
-                <div class="px-6 py-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ __('messages.events') }}</h2>
-                    </div>
-                    @if ($canCreateEvent)
-                        <x-primary-button type="button" x-data="" x-on:click="$dispatch('open-modal', 'create-event')">
-                            {{ __('messages.add_event') }}
-                        </x-primary-button>
-                    @endif
-                </div>
-
-                <div class="border-t border-gray-200 dark:border-gray-700">
-                    @if (count($events))
-                        <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200 text-sm">
-                                <thead class="bg-gray-50 dark:bg-gray-900/60 text-gray-700 dark:text-gray-200">
-                                    <tr>
-                                        <th scope="col" class="px-6 py-3 text-left font-medium">{{ __('messages.event_details') }}</th>
-                                        <th scope="col" class="px-6 py-3 text-left font-medium">{{ __('messages.venue') }}</th>
-                                        <th scope="col" class="px-6 py-3 text-left font-medium">{{ \Illuminate\Support\Str::plural(__('messages.talent')) }}</th>
-                                        <th scope="col" class="px-6 py-3 text-left font-medium">{{ \Illuminate\Support\Str::plural(__('messages.curator')) }}</th>
-                                        <th scope="col" class="px-6 py-3 text-right font-medium">{{ __('messages.actions') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
-                                    @foreach ($events as $event)
-                                        @php
-                                            $startAt = $event->starts_at ? $event->getStartDateTime(null, true) : null;
-                                            $dateDisplay = $startAt ? $startAt->locale(app()->getLocale())->translatedFormat('M j, Y • g:i A') : __('messages.unscheduled');
-                                            $talentList = $event->roles->filter(fn($role) => $role->isTalent())->map->translatedName()->implode(', ');
-                                            $curatorList = $event->roles->filter(fn($role) => $role->isCurator())->map->translatedName()->implode(', ');
-                                            $hashedId = \App\Utils\UrlUtils::encodeId($event->id);
-                                            $canEdit = auth()->user()->canEditEvent($event);
-                                        @endphp
-                                        <tr class="text-gray-700 dark:text-gray-200">
-                                            <td class="px-6 py-4 align-top">
-                                                <div class="font-medium text-gray-900 dark:text-gray-100">{{ $event->translatedName() }}</div>
-                                                <div class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                                                    {{ $dateDisplay }}
-                                                    @if ($event->days_of_week)
-                                                        <span class="ml-2 inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200">{{ __('messages.recurring') }}</span>
-                                                    @endif
-                                                </div>
-                                                @if ($event->tickets_enabled && $event->tickets->isNotEmpty())
-                                                    @php
-                                                        $hasLimitedTickets = $event->hasLimitedTickets();
-                                                        $totalTicketCount = $hasLimitedTickets ? $event->getTotalTicketQuantity() : null;
-                                                        $remainingTicketCount = $event->getRemainingTicketQuantity();
-                                                        $remainingTicketValue = $hasLimitedTickets ? max($remainingTicketCount ?? 0, 0) : null;
-                                                        $totalTicketLabel = $hasLimitedTickets ? number_format($totalTicketCount) : __('messages.unlimited');
-                                                        $remainingTicketLabel = $hasLimitedTickets ? number_format($remainingTicketValue) : __('messages.unlimited');
-                                                        $remainingBadgeClasses = 'inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200';
-
-                                                        if ($hasLimitedTickets) {
-                                                            if ($remainingTicketValue === 0) {
-                                                                $remainingBadgeClasses = 'inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-red-700 dark:bg-red-900/40 dark:text-red-200';
-                                                            } elseif ($remainingTicketValue <= 5) {
-                                                                $remainingBadgeClasses = 'inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200';
-                                                            }
-                                                        }
-                                                    @endphp
-                                                    <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold">
-                                                        <span class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
-                                                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 5.25h16.5a.75.75 0 01.75.75v3a2.25 2.25 0 010 4.5v3a.75.75 0 01-.75.75H3.75a.75.75 0 01-.75-.75v-3a2.25 2.25 0 010-4.5v-3a.75.75 0 01.75-.75z" />
-                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5.25v13.5m6-13.5v13.5" />
-                                                            </svg>
-                                                            <span class="tracking-wide">{{ __('messages.total') }} {{ __('messages.tickets') }}: <span class="text-sm font-bold">{{ $totalTicketLabel }}</span></span>
-                                                        </span>
-                                                        <span class="{{ $remainingBadgeClasses }}">
-                                                            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                                            </svg>
-                                                            <span class="tracking-wide">{{ __('messages.remaining') }} {{ __('messages.tickets') }}: <span class="text-sm font-bold">{{ $remainingTicketLabel }}</span></span>
-                                                        </span>
-                                                    </div>
-                                                @endif
-                                            </td>
-                                            <td class="px-6 py-4 align-top">
-                                                <div class="text-sm text-gray-700 dark:text-gray-200">
-                                                    {{ $event->getVenueDisplayName() ?: __('messages.none') }}
-                                                </div>
-                                            </td>
-                                            <td class="px-6 py-4 align-top">
-                                                <div class="text-sm text-gray-700 dark:text-gray-200">
-                                                    {{ $talentList ?: __('messages.none') }}
-                                                </div>
-                                            </td>
-                                            <td class="px-6 py-4 align-top">
-                                                <div class="text-sm text-gray-700 dark:text-gray-200">
-                                                    {{ $curatorList ?: __('messages.none') }}
-                                                </div>
-                                            </td>
-                                            <td class="px-6 py-4 align-top">
-                                                <div class="flex items-center justify-end space-x-3">
-                                                    @php
-                                                        $eventGuestUrl = rescue(
-                                                            fn () => $event->getGuestUrl(false, null, null, true),
-                                                            null,
-                                                            false
-                                                        );
-                                                    @endphp
-
-                                                    @if ($canEdit)
-                                                        <a href="{{ route('events.view', ['hash' => $hashedId]) }}" target="_blank" rel="noopener noreferrer"
-                                                           class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">{{ __('messages.view_event') }}</a>
-                                                    @elseif ($eventGuestUrl)
-                                                        <a href="{{ $eventGuestUrl }}" target="_blank" rel="noopener noreferrer"
-                                                           class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">{{ __('messages.view_event') }}</a>
-                                                    @endif
-                                                    @if ($canEdit)
-                                                        <a href="{{ route('event.edit_admin', ['hash' => $hashedId]) }}"
-                                                           class="inline-flex items-center rounded-md bg-[#4E81FA] px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-[#3A6BE0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4E81FA]">
-                                                            {{ __('messages.edit') }}
-                                                        </a>
-                                                        <form method="POST" action="{{ route('events.destroy', ['hash' => $hashedId]) }}" onsubmit="return confirm('{{ __('messages.are_you_sure') }}');">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit" class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">{{ __('messages.delete') }}</button>
-                                                        </form>
-                                                    @endif
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-                        @if (method_exists($events, 'hasPages') && $events->hasPages())
-                            <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-                                {{ $events->links() }}
-                            </div>
-                        @endif
-                    @else
-                        <div class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
-                            {{ __('messages.no_events_found') }}
-                        </div>
-                    @endif
-                </div>
-            </div>
-        </div>
+        {{-- Events panel merged into list view below (to simplify UI) --}}
 
         <div class="flex flex-col gap-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -333,6 +191,149 @@
                         ];
                     });
                 @endphp
+
+                {{-- Merged Events list (moved from top) --}}
+                <div class="mb-6 bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg">
+                    <div class="px-6 py-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">{{ __('messages.events') }}</h2>
+                        </div>
+                        @if ($canCreateEvent)
+                            <x-primary-button type="button" x-data="" x-on:click="$dispatch('open-modal', 'create-event')">
+                                {{ __('messages.add_event') }}
+                            </x-primary-button>
+                        @endif
+                    </div>
+
+                    <div class="border-t border-gray-200 dark:border-gray-700">
+                        @if (count($events))
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                    <thead class="bg-gray-50 dark:bg-gray-900/60 text-gray-700 dark:text-gray-200">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 text-left font-medium">{{ __('messages.event_details') }}</th>
+                                            <th scope="col" class="px-6 py-3 text-left font-medium">{{ __('messages.venue') }}</th>
+                                            <th scope="col" class="px-6 py-3 text-left font-medium">{{ \Illuminate\Support\Str::plural(__('messages.talent')) }}</th>
+                                            <th scope="col" class="px-6 py-3 text-left font-medium">{{ \Illuminate\Support\Str::plural(__('messages.curator')) }}</th>
+                                            <th scope="col" class="px-6 py-3 text-right font-medium">{{ __('messages.actions') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                                        @foreach ($events as $event)
+                                            @php
+                                                $startAt = $event->starts_at ? $event->getStartDateTime(null, true) : null;
+                                                $dateDisplay = $startAt ? $startAt->locale(app()->getLocale())->translatedFormat('M j, Y • g:i A') : __('messages.unscheduled');
+                                                $talentList = $event->roles->filter(fn($role) => $role->isTalent())->map->translatedName()->implode(', ');
+                                                $curatorList = $event->roles->filter(fn($role) => $role->isCurator())->map->translatedName()->implode(', ');
+                                                $hashedId = \App\Utils\UrlUtils::encodeId($event->id);
+                                                $canEdit = auth()->user()->canEditEvent($event);
+                                            @endphp
+                                            <tr class="text-gray-700 dark:text-gray-200">
+                                                <td class="px-6 py-4 align-top">
+                                                    <div class="font-medium text-gray-900 dark:text-gray-100">{{ $event->translatedName() }}</div>
+                                                    <div class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                                                        {{ $dateDisplay }}
+                                                        @if ($event->days_of_week)
+                                                            <span class="ml-2 inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-200">{{ __('messages.recurring') }}</span>
+                                                        @endif
+                                                    </div>
+                                                    @if ($event->tickets_enabled && $event->tickets->isNotEmpty())
+                                                        @php
+                                                            $hasLimitedTickets = $event->hasLimitedTickets();
+                                                            $totalTicketCount = $hasLimitedTickets ? $event->getTotalTicketQuantity() : null;
+                                                            $remainingTicketCount = $event->getRemainingTicketQuantity();
+                                                            $remainingTicketValue = $hasLimitedTickets ? max($remainingTicketCount ?? 0, 0) : null;
+                                                            $totalTicketLabel = $hasLimitedTickets ? number_format($totalTicketCount) : __('messages.unlimited');
+                                                            $remainingTicketLabel = $hasLimitedTickets ? number_format($remainingTicketValue) : __('messages.unlimited');
+                                                            $remainingBadgeClasses = 'inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200';
+
+                                                            if ($hasLimitedTickets) {
+                                                                if ($remainingTicketValue === 0) {
+                                                                    $remainingBadgeClasses = 'inline-flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-red-700 dark:bg-red-900/40 dark:text-red-200';
+                                                                } elseif ($remainingTicketValue <= 5) {
+                                                                    $remainingBadgeClasses = 'inline-flex items-center gap-2 rounded-full bg-amber-50 px-3 py-1 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200';
+                                                                }
+                                                            }
+                                                        @endphp
+                                                        <div class="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold">
+                                                            <span class="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+                                                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 5.25h16.5a.75.75 0 01.75.75v3a2.25 2.25 0 010 4.5v3a.75.75 0 01-.75.75H3.75a.75.75 0 01-.75-.75v-3a2.25 2.25 0 010-4.5v-3a.75.75 0 01.75-.75z" />
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5.25v13.5m6-13.5v13.5" />
+                                                                </svg>
+                                                                <span class="tracking-wide">{{ __('messages.total') }} {{ __('messages.tickets') }}: <span class="text-sm font-bold">{{ $totalTicketLabel }}</span></span>
+                                                            </span>
+                                                            <span class="{{ $remainingBadgeClasses }}">
+                                                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                                                </svg>
+                                                                <span class="tracking-wide">{{ __('messages.remaining') }} {{ __('messages.tickets') }}: <span class="text-sm font-bold">{{ $remainingTicketLabel }}</span></span>
+                                                            </span>
+                                                        </div>
+                                                    @endif
+                                                </td>
+                                                <td class="px-6 py-4 align-top">
+                                                    <div class="text-sm text-gray-700 dark:text-gray-200">
+                                                        {{ $event->getVenueDisplayName() ?: __('messages.none') }}
+                                                    </div>
+                                                </td>
+                                                <td class="px-6 py-4 align-top">
+                                                    <div class="text-sm text-gray-700 dark:text-gray-200">
+                                                        {{ $talentList ?: __('messages.none') }}
+                                                    </div>
+                                                </td>
+                                                <td class="px-6 py-4 align-top">
+                                                    <div class="text-sm text-gray-700 dark:text-gray-200">
+                                                        {{ $curatorList ?: __('messages.none') }}
+                                                    </div>
+                                                </td>
+                                                <td class="px-6 py-4 align-top">
+                                                    <div class="flex items-center justify-end space-x-3">
+                                                        @php
+                                                            $eventGuestUrl = rescue(
+                                                                fn () => $event->getGuestUrl(false, null, null, true),
+                                                                null,
+                                                                false
+                                                            );
+                                                        @endphp
+
+                                                        @if ($canEdit)
+                                                            <a href="{{ route('events.view', ['hash' => $hashedId]) }}" target="_blank" rel="noopener noreferrer"
+                                                               class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">{{ __('messages.view_event') }}</a>
+                                                        @elseif ($eventGuestUrl)
+                                                            <a href="{{ $eventGuestUrl }}" target="_blank" rel="noopener noreferrer"
+                                                               class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">{{ __('messages.view_event') }}</a>
+                                                        @endif
+                                                        @if ($canEdit)
+                                                            <a href="{{ route('event.edit_admin', ['hash' => $hashedId]) }}"
+                                                               class="inline-flex items-center rounded-md bg-[#4E81FA] px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-[#3A6BE0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#4E81FA]">
+                                                                {{ __('messages.edit') }}
+                                                            </a>
+                                                            <form method="POST" action="{{ route('events.destroy', ['hash' => $hashedId]) }}" onsubmit="return confirm('{{ __('messages.are_you_sure') }}');">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <button type="submit" class="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300">{{ __('messages.delete') }}</button>
+                                                            </form>
+                                                        @endif
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                            @if (method_exists($events, 'hasPages') && $events->hasPages())
+                                <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+                                    {{ $events->links() }}
+                                </div>
+                            @endif
+                        @else
+                            <div class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                                {{ __('messages.no_events_found') }}
+                            </div>
+                        @endif
+                    </div>
+                </div>
 
                 <div class="flex flex-col gap-4 rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-800/40">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
