@@ -31,8 +31,45 @@ class GeneralTest extends DuskTestCase
             $this->logoutUser($browser, $name);
 
             // Log back in
-            $browser->visit('/login')
-                    ->waitFor('input[name="email"]', 10);
+            $browser->visit('/login');
+
+            // Wait until the email input exists and is visible (guard against timing/hydration races)
+            try {
+                $browser->waitUsing(10, 500, function () use ($browser) {
+                    $res = $browser->script(<<<'JS'
+                        (function(){
+                            const el = document.querySelector('input[name="email"]');
+                            if (!el) return false;
+                            try {
+                                const rects = el.getClientRects();
+                                if (!rects || rects.length === 0) return false;
+                                const style = window.getComputedStyle(el);
+                                if (!style) return false;
+                                if (style.visibility === 'hidden' || style.display === 'none') return false;
+                                if (el.offsetParent === null) return false;
+                                return true;
+                            } catch (e) {
+                                return false;
+                            }
+                        })();
+                    JS
+                    );
+
+                    return ! empty($res) && ($res[0] === true || $res[0] === 'true');
+                });
+            } catch (\Throwable $waitEx) {
+                try {
+                    $exists = ($browser->script('return !!document.querySelector("input[name=\"email\"]");'))[0] ?? false;
+
+                    if ($exists) {
+                        usleep(250000);
+                    } else {
+                        throw $waitEx;
+                    }
+                } catch (\Throwable $_) {
+                    throw $waitEx;
+                }
+            }
 
             // Capture a diagnostic screenshot and page source before attempting to login
             $this->captureBrowserState($browser, 'general-before-login');

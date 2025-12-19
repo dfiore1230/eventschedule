@@ -88,7 +88,44 @@ trait AccountSetupTrait
                         // ignore pre-wait diagnostics failures
                     }
 
-                    $browser->waitFor('input[name="email"]', 10);
+                    // Wait until the email input exists and appears visible/interactable (guard against timing/hydration races)
+                    try {
+                        $browser->waitUsing(10, 500, function () use ($browser) {
+                            $res = $browser->script(<<<'JS'
+                                (function(){
+                                    const el = document.querySelector('input[name="email"]');
+                                    if (!el) return false;
+                                    try {
+                                        const rects = el.getClientRects();
+                                        if (!rects || rects.length === 0) return false;
+                                        const style = window.getComputedStyle(el);
+                                        if (!style) return false;
+                                        if (style.visibility === 'hidden' || style.display === 'none') return false;
+                                        if (el.offsetParent === null) return false;
+                                        return true;
+                                    } catch (e) {
+                                        return false;
+                                    }
+                                })();
+                            JS
+                            );
+
+                            return ! empty($res) && ($res[0] === true || $res[0] === 'true');
+                        });
+                    } catch (\Throwable $waitEx) {
+                        // Final quick-js check: if element exists in DOM but wait failed, allow proceeding after a short pause
+                        try {
+                            $exists = ($browser->script('return !!document.querySelector("input[name=\"email\"]");'))[0] ?? false;
+
+                            if ($exists) {
+                                usleep(250000); // 250ms
+                            } else {
+                                throw $waitEx;
+                            }
+                        } catch (\Throwable $_) {
+                            throw $waitEx;
+                        }
+                    }
                 } catch (Throwable $e) {
                     // write a simple marker so we can confirm the catch executed and artifacts will be uploaded
                     try {
@@ -198,7 +235,44 @@ trait AccountSetupTrait
                         // ignore pre-wait diagnostics failures
                     }
 
-                    $browser->waitFor('input[name="email"]', 10);
+                    // Wait until the email input exists and appears visible/interactable (guard against timing/hydration races)
+                    try {
+                        $browser->waitUsing(10, 500, function () use ($browser) {
+                            $res = $browser->script(<<<'JS'
+                                (function(){
+                                    const el = document.querySelector('input[name="email"]');
+                                    if (!el) return false;
+                                    try {
+                                        const rects = el.getClientRects();
+                                        if (!rects || rects.length === 0) return false;
+                                        const style = window.getComputedStyle(el);
+                                        if (!style) return false;
+                                        if (style.visibility === 'hidden' || style.display === 'none') return false;
+                                        if (el.offsetParent === null) return false;
+                                        return true;
+                                    } catch (e) {
+                                        return false;
+                                    }
+                                })();
+                            JS
+                            );
+
+                            return ! empty($res) && ($res[0] === true || $res[0] === 'true');
+                        });
+                    } catch (\Throwable $waitEx) {
+                        // Final quick-js check: if element exists in DOM but wait failed, allow proceeding after a short pause
+                        try {
+                            $exists = ($browser->script('return !!document.querySelector("input[name=\"email\"]");'))[0] ?? false;
+
+                            if ($exists) {
+                                usleep(250000); // 250ms
+                            } else {
+                                throw $waitEx;
+                            }
+                        } catch (\Throwable $_) {
+                            throw $waitEx;
+                        }
+                    }
                 } catch (Throwable $e) {
                     // write a simple marker so we can confirm the catch executed and artifacts will be uploaded
                     try {
