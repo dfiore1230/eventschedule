@@ -42,21 +42,57 @@ trait AccountSetupTrait
         try {
             $currentPath = $this->waitForAnyLocation($browser, ['/events', '/login', '/'], 20);
         } catch (Throwable $exception) {
+            // Capture diagnostic info if the post-signup redirect doesn't appear
+            if (method_exists($this, 'captureBrowserState')) {
+                try {
+                    $this->captureBrowserState($browser, 'signup-waitforlocation-failed');
+                } catch (\Throwable $_) {
+                    // ignore diagnostic failures
+                }
+            }
+
             $currentPath = $this->currentPath($browser);
         }
 
         if (! $currentPath || ! Str::startsWith($currentPath, '/events')) {
             // If we're already on the login page, assert and submit; otherwise visit it first
             if ($currentPath === '/login') {
-                $browser->assertPathIs('/login')
-                        ->waitFor('input[name="email"]', 10)
-                        ->type('email', $email)
+                try {
+                    $browser->assertPathIs('/login')
+                            ->waitFor('input[name="email"]', 10);
+                } catch (Throwable $e) {
+                    if (method_exists($this, 'captureBrowserState')) {
+                        try {
+                            $this->captureBrowserState($browser, 'signup-login-wait-failed');
+                        } catch (\Throwable $_) {
+                            // ignore diagnostic failures
+                        }
+                    }
+
+                    throw $e;
+                }
+
+                $browser->type('email', $email)
                         ->type('password', $password)
                         ->click('@log-in-button');
             } else {
-                $browser->visit('/login')
-                        ->waitFor('input[name="email"]', 10)
-                        ->type('email', $email)
+                $browser->visit('/login');
+
+                try {
+                    $browser->waitFor('input[name="email"]', 10);
+                } catch (Throwable $e) {
+                    if (method_exists($this, 'captureBrowserState')) {
+                        try {
+                            $this->captureBrowserState($browser, 'signup-login-wait-failed');
+                        } catch (\Throwable $_) {
+                            // ignore diagnostic failures
+                        }
+                    }
+
+                    throw $e;
+                }
+
+                $browser->type('email', $email)
                         ->type('password', $password)
                         ->click('@log-in-button');
             }
