@@ -62,12 +62,12 @@ class TestHelpersController extends Controller
                 try { $recurring->venue_id = $venue->id; $recurring->save(); } catch (\Throwable $_) {}
             }
 
-            // create an admin user for admin flow tests
+            // create an admin user for admin flow tests (use firstOrCreate to be idempotent in CI)
             $adminPassword = 'password';
-            $admin = \App\Models\User::factory()->create([
-                'email' => 'e2e-admin@example.test',
-                'password' => bcrypt($adminPassword),
-            ]);
+            $admin = \App\Models\User::firstOrCreate(
+                ['email' => 'e2e-admin@example.test'],
+                ['name' => 'E2E Admin', 'password' => bcrypt($adminPassword), 'timezone' => config('app.timezone', 'UTC')]
+            );
 
             // assign ownership of first few events to admin so admin can manage them
             if (! empty($createdEventObjects)) {
@@ -77,8 +77,28 @@ class TestHelpersController extends Controller
                 }
             }
 
-            $sale = Sale::factory()->create(['secret' => 'sale-secret-ABC', 'event_id' => $createdEventObjects[0]->id]);
-            $entry = SaleTicketEntry::factory()->create(['secret' => 'entry-secret-123', 'sale_id' => $sale->id]);
+            // Create a sale & entry when possible; skip gracefully if factories are not present
+            try {
+                if (method_exists(Sale::class, 'factory')) {
+                    $sale = Sale::factory()->create(['secret' => 'sale-secret-ABC', 'event_id' => $createdEventObjects[0]->id]);
+                } else {
+                    // create a minimal ticket and sale manually
+                    $ticket = \App\Models\Ticket::create(['event_id' => $createdEventObjects[0]->id, 'type' => 'general', 'quantity' => 100, 'price' => 0]);
+                    $sale = Sale::create(['ticket_id' => $ticket->id, 'event_id' => $createdEventObjects[0]->id, 'name' => 'E2E Buyer', 'email' => 'e2e-buyer@example.test', 'secret' => 'sale-secret-ABC', 'quantity' => 1]);
+                }
+
+                if (method_exists(SaleTicketEntry::class, 'factory')) {
+                    $entry = SaleTicketEntry::factory()->create(['secret' => 'entry-secret-123', 'sale_id' => $sale->id]);
+                } else {
+                    // fallback manual entry
+                    $entry = \App\Models\SaleTicketEntry::create(['sale_id' => $sale->id, 'secret' => 'entry-secret-123']);
+                }
+            } catch (\Throwable $e) {
+                // make seed tolerant to missing factories or schema differences
+                $sale = null;
+                $entry = null;
+                \Log::warning('E2E seed: could not create sale/entry', ['exception' => $e]);
+            }
 
             // compute next few occurrences for the recurring event
             $occurrences = [];
