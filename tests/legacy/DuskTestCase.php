@@ -171,11 +171,33 @@ abstract class DuskTestCase extends BaseTestCase
 
             if (method_exists($browser->driver, 'takeScreenshot')) {
                 try {
-                    // php-webdriver's takeScreenshot() returns a base64 string; write it to disk explicitly
+                    // php-webdriver's takeScreenshot() may return a base64 string or raw PNG data.
                     $screenshotData = $browser->driver->takeScreenshot();
 
                     if (is_string($screenshotData) && strlen($screenshotData) > 0) {
-                        file_put_contents($screenshotPath, base64_decode($screenshotData));
+                        // Try decoding as base64 first. If that fails, write raw data as-is.
+                        $decoded = @base64_decode($screenshotData, true);
+
+                        if ($decoded !== false && strlen($decoded) > 0) {
+                            file_put_contents($screenshotPath, $decoded);
+                        } else {
+                            // Not valid base64; assume it's raw PNG data
+                            file_put_contents($screenshotPath, $screenshotData);
+                        }
+                    }
+
+                    if (! is_file($screenshotPath) && method_exists($browser->driver, 'executeCdpCommand')) {
+                        // Try Chrome DevTools Protocol as a stronger fallback
+                        try {
+                            $cdp = $browser->driver->executeCdpCommand('Page.captureScreenshot', []);
+
+                            if (is_array($cdp) && array_key_exists('data', $cdp) && strlen($cdp['data']) > 0) {
+                                file_put_contents($screenshotPath, base64_decode($cdp['data']));
+                                @file_put_contents('php://stderr', "DUSK: screenshot captured via CDP for {$name}\n");
+                            }
+                        } catch (\Throwable $_cdp) {
+                            @file_put_contents('php://stderr', "DUSK: CDP screenshot failed for {$name}: {$_cdp->getMessage()}\n");
+                        }
                     }
 
                     if (is_file($screenshotPath)) {
@@ -232,6 +254,49 @@ abstract class DuskTestCase extends BaseTestCase
         } catch (\Throwable $e) {
             // ignore page source errors
             @file_put_contents('php://stderr', "DUSK: html capture failed for {$name}: {$e->getMessage()}\n");
+        }
+
+        // Attempt to capture a raw DOM snapshot via JS in case getPageSource doesn't reflect the live DOM
+        try {
+            $dom = $browser->driver->executeScript('return document.documentElement.outerHTML;');
+            $domPath = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-dom.html';
+
+            if (is_string($dom) && strlen($dom) > 0) {
+                file_put_contents($domPath, $dom);
+
+                if (is_file($domPath)) {
+                    $size = filesize($domPath);
+                    file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-dom-saved.txt', date('c') . " - saved ({$size} bytes)\n", FILE_APPEND);
+                    @file_put_contents('php://stderr', "DUSK: dom saved {$domPath} ({$size} bytes)\n");
+                }
+            }
+        } catch (\Throwable $e) {
+            @file_put_contents('php://stderr', "DUSK: dom capture failed for {$name}: {$e->getMessage()}\n");
+        }
+
+        // Final enumeration of artifacts for easy CI parsing
+        try {
+            $artifacts = [];
+
+            foreach (glob($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '*') as $f) {
+                if (! is_file($f)) {
+                    continue;
+                }
+
+                $artifacts[] = [
+                    'path' => $f,
+                    'size' => filesize($f),
+                ];
+            }
+
+            $summaryPath = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-artifacts.json';
+            file_put_contents($summaryPath, json_encode($artifacts, JSON_PRETTY_PRINT) . PHP_EOL);
+
+            if (is_file($summaryPath)) {
+                @file_put_contents('php://stderr', "DUSK: wrote artifact summary to {$summaryPath} size=" . filesize($summaryPath) . "\n");
+            }
+        } catch (\Throwable $_) {
+            // ignore
         }
     }
 
