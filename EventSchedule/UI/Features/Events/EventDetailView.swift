@@ -253,6 +253,7 @@ struct EventDetailView: View {
                     .cornerRadius(10)
                     .padding()
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .accessibilityIdentifier("ScanToast")
                     .onTapGesture {
                         withAnimation { showingScanToast = false }
                         isProcessingScan = false

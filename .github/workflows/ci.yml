@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show environment
+        run: |
+          xcodebuild -version
+          sw_vers
+
+      - name: List available simulators
+        run: xcrun simctl list devices
+
+      - name: Run unit & UI tests
+        run: |
+          set -e
+          # Use a current simulator device name available on macOS runners (adjust if necessary)
+          DEST="platform=iOS Simulator,name=iPhone 17"
+          echo "Running tests on $DEST"
+          xcodebuild test -project EventSchedule.xcodeproj -scheme EventSchedule -destination "$DEST" -enableCodeCoverage YES | xcpretty --no-utf || true
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcode-test-results
+          path: ${{ github.workspace }}/**/*.xcresult

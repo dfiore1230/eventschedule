@@ -55,6 +55,22 @@ struct QRScannerView: View {
                     scanner.scannedCode = nil
                 }
             }
+            // UITest hook: when running with --uitesting, expose a hidden button
+            // that will inject the scan code from the launch environment.
+            .overlay(alignment: .bottomLeading) {
+                if ProcessInfo.processInfo.arguments.contains("--uitesting") {
+                    Button(action: {
+                        if let code = ProcessInfo.processInfo.environment["UITEST_SCAN_CODE"] {
+                            DispatchQueue.main.async {
+                                scanner.scannedCode = code
+                            }
+                        }
+                    }) {
+                        Color.clear.frame(width: 44, height: 44)
+                    }
+                    .accessibilityIdentifier("UITestInjectScanButton")
+                }
+            }
         }
     }
 }
@@ -103,7 +119,7 @@ class QRScanner: NSObject, ObservableObject {
     private var lastScanTime: Date?
     private let scanCooldown: TimeInterval = 2.0
     
-    nonisolated deinit {
+    deinit {
         // Perform best-effort synchronous cleanup here to avoid creating weak
         // references to self while it's being deallocated (which can crash).
         if session.isRunning { session.stopRunning() }
@@ -141,14 +157,23 @@ class QRScanner: NSObject, ObservableObject {
     private func setupCamera() async {
         // Request camera permission
         let status = AVCaptureDevice.authorizationStatus(for: .video)
-        
+
+        // UITest simulation: if the tester set `UITEST_SIMULATE_CAMERA_DENIED=1` in the
+        // launch environment, simulate a permission denial so we can assert UI guidance
+        // without toggling simulator privacy settings.
+        if ProcessInfo.processInfo.arguments.contains("--uitesting"),
+           ProcessInfo.processInfo.environment["UITEST_SIMULATE_CAMERA_DENIED"] == "1" {
+            error = "Camera access denied. Please enable in Settings."
+            return
+        }
+
         let hasAccess: Bool
         if status == .authorized {
             hasAccess = true
         } else {
             hasAccess = await requestCameraAccess()
         }
-        
+
         guard hasAccess else {
             error = "Camera access denied. Please enable in Settings."
             return

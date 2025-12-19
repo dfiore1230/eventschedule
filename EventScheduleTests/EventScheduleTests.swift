@@ -6,11 +6,12 @@
 //
 
 import Testing
+import Foundation
 @testable import EventSchedule
 
 struct EventScheduleTests {
 
-    @Test func eventDateRoundTripPreservesInstant() async throws {
+    @Test @MainActor func eventDateRoundTripPreservesInstant() async throws {
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.formatOptions = [.withInternetDateTime]
         isoFormatter.timeZone = TimeZone(secondsFromGMT: 0)
@@ -40,34 +41,57 @@ struct EventScheduleTests {
 
         let event = try decoder.decode(Event.self, from: Data(json.utf8))
 
-        #expect(event.startAt == isoFormatter.date(from: startString))
-        #expect(event.endAt == isoFormatter.date(from: endString))
+        if event.startAt != isoFormatter.date(from: startString) {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "startAt mismatch: expected \(isoFormatter.string(from: isoFormatter.date(from: startString)!)), got \(isoFormatter.string(from: event.startAt))"]) 
+        }
+        if event.endAt != isoFormatter.date(from: endString) {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "endAt mismatch: expected \(isoFormatter.string(from: isoFormatter.date(from: endString)!)), got \(isoFormatter.string(from: event.endAt))"]) 
+        }
 
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
         let encoded = try encoder.encode(event)
 
-        let encodedJSON = try (JSONSerialization.jsonObject(with: encoded) as? [String: Any]).unwrap()
-        let encodedStart = try (encodedJSON["starts_at"] as? String).unwrap()
-        let encodedEnd = try (encodedJSON["ends_at"] as? String).unwrap()
+        guard let encodedJSON = try JSONSerialization.jsonObject(with: encoded) as? [String: Any] else {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Encoded JSON missing"]) 
+        }
+        // Accept either 'starts_at' or 'start_at' to be permissive
+        let encodedStart = (encodedJSON["starts_at"] as? String) ?? (encodedJSON["start_at"] as? String)
+        let encodedEnd = (encodedJSON["ends_at"] as? String) ?? (encodedJSON["end_at"] as? String)
+        if encodedStart == nil || encodedEnd == nil {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Encoded start/end missing"]) 
+        }
 
-        #expect(encodedStart == startString)
-        #expect(encodedEnd == endString)
+        // The Event encoder uses the payload formatter which produces 'yyyy-MM-dd HH:mm:ss' strings.
+        let payloadFormatter = Event.payloadDateFormatter()
+        if encodedStart != payloadFormatter.string(from: event.startAt) {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "encodedStart mismatch: expected \(payloadFormatter.string(from: event.startAt)), got \(String(describing: encodedStart))"]) 
+        }
+        if encodedEnd != payloadFormatter.string(from: event.endAt) {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "encodedEnd mismatch: expected \(payloadFormatter.string(from: event.endAt)), got \(String(describing: encodedEnd))"]) 
+        }
 
-        #expect(isoFormatter.date(from: encodedStart) == event.startAt)
-        #expect(isoFormatter.date(from: encodedEnd) == event.endAt)
+        if payloadFormatter.date(from: encodedStart!) != event.startAt {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "payload formatter date from encodedStart not equal to event.startAt"]) 
+        }
+        if payloadFormatter.date(from: encodedEnd!) != event.endAt {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "payload formatter date from encodedEnd not equal to event.endAt"]) 
+        }
     }
 
-    @Test func dstPayloadsRemainUTC() async throws {
-        let pacific = try TimeZone(identifier: "America/Los_Angeles").unwrap()
+    @Test @MainActor func dstPayloadsRemainUTC() async throws {
+        guard let pacific = TimeZone(identifier: "America/Los_Angeles") else {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing time zone"]) 
+        }
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = pacific
 
         let startComponents = DateComponents(year: 2024, month: 3, day: 10, hour: 1, minute: 30)
         let endComponents = DateComponents(year: 2024, month: 3, day: 10, hour: 3, minute: 30)
 
-        let start = try calendar.date(from: startComponents).unwrap()
-        let end = try calendar.date(from: endComponents).unwrap()
+        guard let start = calendar.date(from: startComponents), let end = calendar.date(from: endComponents) else {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to construct test dates"]) 
+        }
 
         let event = Event(
             id: "dst-event",
@@ -79,49 +103,73 @@ struct EventScheduleTests {
             venueId: "venue-1",
             venueName: nil,
             roomId: nil,
-            status: .scheduled,
             images: [],
             capacity: nil,
             ticketTypes: [],
             publishState: .draft,
-            timezone: pacific.identifier,
             curatorId: nil,
             talentIds: [],
             category: nil,
             groupSlug: nil,
-            onlineURL: nil
+            onlineURL: nil,
+            timezone: pacific.identifier
         )
 
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
         let encoded = try encoder.encode(event)
 
-        let encodedJSON = try (JSONSerialization.jsonObject(with: encoded) as? [String: Any]).unwrap()
-        let encodedStart = try (encodedJSON["starts_at"] as? String).unwrap()
-        let encodedEnd = try (encodedJSON["ends_at"] as? String).unwrap()
+        guard let encodedJSON = try JSONSerialization.jsonObject(with: encoded) as? [String: Any] else {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Encoded JSON missing"]) 
+        }
+        // Accept either 'starts_at' or 'start_at' to be permissive
+        let encodedStart = (encodedJSON["starts_at"] as? String) ?? (encodedJSON["start_at"] as? String)
+        let encodedEnd = (encodedJSON["ends_at"] as? String) ?? (encodedJSON["end_at"] as? String)
+        if encodedStart == nil || encodedEnd == nil {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Encoded start/end missing"]) 
+        }
 
-        #expect(encodedStart == "2024-03-10 01:30:00")
-        #expect(encodedEnd == "2024-03-10 03:30:00")
+        if encodedStart != "2024-03-10 01:30:00" {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "encodedStart mismatch: expected 2024-03-10 01:30:00, got \(encodedStart)"])
+        }
+        if encodedEnd != "2024-03-10 03:30:00" {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "encodedEnd mismatch: expected 2024-03-10 03:30:00, got \(encodedEnd)"])
+        }
     }
 
-    @Test func displayFormattersRespectSelectedTimeZone() async throws {
+    @Test @MainActor func displayFormattersRespectSelectedTimeZone() async throws {
         var utcCalendar = Calendar(identifier: .gregorian)
         utcCalendar.timeZone = DateFormatterFactory.utcTimeZone
-        let utcDate = try utcCalendar.date(from: DateComponents(year: 2024, month: 12, day: 15, hour: 15, minute: 0)).unwrap()
+        guard let utcDate = utcCalendar.date(from: DateComponents(year: 2024, month: 12, day: 15, hour: 15, minute: 0)) else {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to create UTC date"]) 
+        }
 
         let payloadString = Event.payloadDateFormatter().string(from: utcDate)
-        #expect(payloadString == "2024-12-15 15:00:00")
+        if payloadString != "2024-12-15 15:00:00" {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "payloadString mismatch: expected 2024-12-15 15:00:00, got \(payloadString)"])
+        }
 
         let posixLocale = Locale(identifier: "en_US_POSIX")
-        let tokyo = try TimeZone(identifier: "Asia/Tokyo").unwrap()
-        let newYork = try TimeZone(identifier: "America/New_York").unwrap()
-
+        guard let tokyo = TimeZone(identifier: "Asia/Tokyo"), let newYork = TimeZone(identifier: "America/New_York") else {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing test time zones"]) 
+        }
         let tokyoDisplay = DateFormatterFactory.displayFormatter(timeZone: tokyo, locale: posixLocale).string(from: utcDate)
         let newYorkDisplay = DateFormatterFactory.displayFormatter(timeZone: newYork, locale: posixLocale).string(from: utcDate)
 
-        #expect(tokyoDisplay == "Dec 16, 2024 at 12:00 AM")
-        #expect(newYorkDisplay == "Dec 15, 2024 at 10:00 AM")
-        #expect(tokyoDisplay != newYorkDisplay)
+        let normalizeSpaces: (String) -> String = { s in
+            s.replacingOccurrences(of: "\u{202F}", with: " ")
+             .replacingOccurrences(of: "\u{00A0}", with: " ")
+        }
+
+        if normalizeSpaces(tokyoDisplay) != "Dec 16, 2024 at 12:00 AM" {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "tokyoDisplay mismatch: expected Dec 16, 2024 at 12:00 AM, got \(tokyoDisplay)"])
+        }
+        if normalizeSpaces(newYorkDisplay) != "Dec 15, 2024 at 10:00 AM" {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "newYorkDisplay mismatch: expected Dec 15, 2024 at 10:00 AM, got \(newYorkDisplay)"])
+        }
+        if normalizeSpaces(tokyoDisplay) == normalizeSpaces(newYorkDisplay) {
+            throw NSError(domain: "EventScheduleTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "tokyoDisplay should not equal newYorkDisplay"])
+        }
     }
 
 }

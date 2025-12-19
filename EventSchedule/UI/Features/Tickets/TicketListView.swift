@@ -65,14 +65,18 @@ struct TicketListView: View {
             }
             .overlay(alignment: .bottom) {
                 if let toast = toastMessage {
-                    Text(toast)
-                        .font(.subheadline)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(10)
-                        .padding(.bottom, 24)
-                        .transition(.opacity)
+                    Button(action: { withAnimation { toastMessage = nil } }) {
+                        Text(toast)
+                            .font(.subheadline)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(10)
+                            .padding(.bottom, 24)
+                            .transition(.opacity)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("ScanToast")
                 }
             }
             .toolbar {
@@ -85,6 +89,7 @@ struct TicketListView: View {
                                 Image(systemName: "qrcode.viewfinder")
                             }
                             .padding(.trailing, 8)
+                            .accessibilityIdentifier("TicketsScanButton")
 
                         Menu {
                             Picker("Sort By", selection: $sortBy) {
@@ -301,7 +306,20 @@ struct TicketListView: View {
         do {
             let result = try await checkInRepo.scanTicket(code: code, eventId: "", gateId: nil, deviceId: UIDevice.current.identifierForVendor?.uuidString, instance: instance)
             await MainActor.run {
-                toastMessage = result.status.isSuccess ? ("✅ \(result.status.displayName) - \(result.holder ?? "Unknown")") : ("⚠️ \(result.status.displayName)")
+                if result.status.isSuccess {
+                    // Prefer server-provided message when present (e.g., fallback generic success)
+                    if let msg = result.message, !msg.isEmpty {
+                        toastMessage = "✅ \(result.status.displayName) - \(msg)"
+                    } else {
+                        toastMessage = "✅ \(result.status.displayName) - \(result.holder ?? "Unknown")"
+                    }
+                } else {
+                    var msg = "⚠️ \(result.status.displayName)"
+                    if let extra = result.message, !extra.isEmpty {
+                        msg += ": \(extra)"
+                    }
+                    toastMessage = msg
+                }
             }
             // Refresh tickets list to reflect updated status
             await searchTickets()
@@ -559,6 +577,7 @@ private struct TicketRow: View {
             }
         }
         .padding(.vertical, 4)
+        .accessibilityIdentifier("TicketRow_\(ticket.id)")
     }
     
     @ViewBuilder
