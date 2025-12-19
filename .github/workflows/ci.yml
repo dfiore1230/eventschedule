@@ -21,13 +21,13 @@ jobs:
           php-version: '8.3'
           extensions: mbstring, bcmath, xml, intl
 
-      - name: Install Composer dependencies
-        run: composer install --no-progress --no-suggest --prefer-dist --no-interaction
-
       - name: Create .env
         run: |
           cp .env.example .env
           php artisan key:generate
+
+      - name: Install Composer dependencies
+        run: composer install --no-progress --no-suggest --prefer-dist --no-interaction
 
       - name: Prepare database
         run: |
