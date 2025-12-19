@@ -73,7 +73,20 @@ class TestHelpersController extends Controller
             } catch (\Throwable $e) {
                 // In case of race conditions, attempt to fetch existing user before failing
                 \Log::warning('E2E seed: create admin failed, attempting to fetch existing user', ['exception' => $e]);
-                $admin = \App\Models\User::where('email', 'e2e-admin@example.test')->first();
+
+                // Retry a few times to tolerate a concurrent insert from another process
+                $admin = null;
+                $attempts = 0;
+                while ($attempts < 6 && ! $admin) {
+                    $admin = \App\Models\User::where('email', 'e2e-admin@example.test')->first();
+                    if ($admin) {
+                        break;
+                    }
+
+                    usleep(100000); // sleep 100ms
+                    $attempts++;
+                }
+
                 if (! $admin) {
                     throw $e;
                 }

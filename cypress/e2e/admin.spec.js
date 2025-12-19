@@ -20,13 +20,20 @@ describe('Admin flows', () => {
     cy.visit('/login');
     cy.get('input[name="email"]').type(seed.admin_email);
     cy.get('input[name="password"]').type(seed.admin_password);
-    // click the explicit login button to avoid colliding with disabled signup button
-    // prefer clicking the explicit login button; if it's not present, press Enter in the password field as a fallback
-    cy.get('button[dusk="log-in-button"]').then($btn => {
-      if ($btn.length) {
-        cy.wrap($btn).click();
+    // Prefer explicit dusk login button; fall back to common submit patterns, button text, or pressing Enter
+    cy.get('button[dusk="log-in-button"], button[type="submit"]', { timeout: 10000 }).then($btns => {
+      if ($btns.length) {
+        cy.wrap($btns.first()).should('not.be.disabled').click();
       } else {
-        cy.get('input[name="password"]').type('{enter}');
+        // try matching common text labels (Log in / Sign in)
+        cy.contains('button', /log ?in|sign ?in/i, { matchCase: false }).then($textBtn => {
+          if ($textBtn && $textBtn.length) {
+            cy.wrap($textBtn).click();
+          } else {
+            // final fallback: press Enter in the password field
+            cy.get('input[name="password"]').type('{enter}');
+          }
+        });
       }
     });
 
