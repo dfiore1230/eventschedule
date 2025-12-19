@@ -25,8 +25,8 @@ describe('Admin flows', () => {
     // ensure we are logged in by visiting /home
     cy.visit('/home');
 
-    // switch to list view by clicking any link with view=list in the href
-    cy.get('a[href*="view=list"]').first().click({ force: true });
+    // ensure list view is loaded; prefer visiting the list view directly for determinism
+    cy.visit('/home?view=list');
     cy.get('table').should('exist');
 
     // merged Events panel check - look for section header

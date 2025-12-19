@@ -14,8 +14,8 @@ describe('Landing mobile flows', () => {
     const seed = Cypress.env('seedData');
     cy.viewport(375, 812);
     cy.visit('/');
-    // mobile toggle should be visible
-    cy.get('.mb-4.flex.items-center.justify-end.md:hidden').should('exist');
+    // mobile events list should be present on a mobile viewport
+    cy.get('#mobileEventsList').should('exist');
     // open mobile list by checking presence of mobile events list or by ensuring recurring event is visible
     if (seed.recurring_name) {
       cy.contains(seed.recurring_name).should('exist');
