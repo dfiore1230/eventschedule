@@ -161,6 +161,7 @@ abstract class DuskTestCase extends BaseTestCase
         // write a small marker that capture started (helps CI confirm invocation)
         try {
             file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-capture-attempt.txt', date('c') . " - capture started\n", FILE_APPEND);
+            file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-capture-invoked.txt', date('c') . " - invoked\n", FILE_APPEND);
             @file_put_contents('php://stderr', "DUSK: capture start {$name} to {$dir}\n");
         } catch (\Throwable $_) {
             // ignore marker errors
@@ -363,6 +364,12 @@ abstract class DuskTestCase extends BaseTestCase
             if (is_file($summaryPath)) {
                 @file_put_contents('php://stderr', "DUSK: wrote artifact summary to {$summaryPath} size=" . filesize($summaryPath) . "\n");
             }
+        } catch (\Throwable $_) {
+            // ignore
+        }
+
+        try {
+            file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-capture-complete.txt', date('c') . " - complete\n", FILE_APPEND);
         } catch (\Throwable $_) {
             // ignore
         }
