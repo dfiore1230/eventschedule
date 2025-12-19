@@ -25,8 +25,8 @@ describe('Admin flows', () => {
     // ensure we are logged in by visiting /home
     cy.visit('/home');
 
-    // switch to list view and check events table exists
-    cy.get('button').contains(/list/i).click({ force: true });
+    // switch to list view (anchor or button) and check events table exists
+    cy.contains(/list/i).click({ force: true });
     cy.get('table').should('exist');
 
     // merged Events panel check - look for section header

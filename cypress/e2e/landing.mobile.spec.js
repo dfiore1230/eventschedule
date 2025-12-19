@@ -4,7 +4,8 @@ describe('Landing mobile flows', () => {
       const seed = Cypress.env('seedData') || {};
       // guard: ensure recurring fields exist
       expect(seed, 'seedData.recurring').to.have.property('recurring_name');
-      expect(seed, 'seedData.recurring_occurrences').to.have.property('length');
+      expect(seed, 'seedData').to.have.property('recurring_occurrences');
+      expect(seed.recurring_occurrences, 'seedData.recurring_occurrences').to.be.an('array').and('have.length.greaterThan', 0);
     });
   });
 
