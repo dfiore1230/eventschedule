@@ -22,7 +22,8 @@ class AuthorizationServiceTest extends TestCase
             'description' => 'Create and update venues, talent, and curators within scope',
         ]);
 
-        $role = SystemRole::factory()->create(['slug' => 'admin']);
+        // Ensure system role exists (avoid duplicate slug on MySQL where seed ran)
+        $role = SystemRole::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
         $role->permissions()->attach($permission);
 
         $user = User::factory()->create();
