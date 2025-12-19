@@ -94,13 +94,22 @@ trait AccountSetupTrait
                                 'window_handle' => $windowHandle,
                             ];
 
-                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-diagnostics.json', json_encode($diag, JSON_PRETTY_PRINT) . "\n", FILE_APPEND);
+                            $diagPath = $markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-diagnostics.json';
+
+                            @file_put_contents($diagPath, json_encode($diag, JSON_PRETTY_PRINT) . "\n", FILE_APPEND);
                             @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - diagnostics: " . json_encode($diag) . "\n", FILE_APPEND);
 
                             @file_put_contents('php://stderr', "DUSK: diagnostics readyState={$readyState} element_exists=" . ($elementExists ? 'true' : 'false') . " url={$currentUrl}\n");
 
-                        } catch (\Throwable $_) {
-                            // ignore
+                            if (file_exists($diagPath)) {
+                                @file_put_contents('php://stderr', "DUSK: wrote diagnostics to $diagPath size=" . filesize($diagPath) . "\n");
+                            } else {
+                                @file_put_contents('php://stderr', "DUSK: diagnostics file not written\n");
+                            }
+
+                        } catch (\Throwable $diagEx) {
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-diagnostics-failed.txt', date('c') . " - diagnostics script failed: " . $diagEx->getMessage() . "\n", FILE_APPEND);
+                            @file_put_contents('php://stderr', "DUSK: diagnostics script failed: " . $diagEx->getMessage() . "\n");
                         }
 
                         // also emit a short log so we can see this in workflow logs
@@ -166,13 +175,22 @@ trait AccountSetupTrait
                                 'window_handle' => $windowHandle,
                             ];
 
-                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-diagnostics.json', json_encode($diag, JSON_PRETTY_PRINT) . "\n", FILE_APPEND);
+                            $diagPath = $markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-diagnostics.json';
+
+                            @file_put_contents($diagPath, json_encode($diag, JSON_PRETTY_PRINT) . "\n", FILE_APPEND);
                             @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - diagnostics: " . json_encode($diag) . "\n", FILE_APPEND);
 
                             @file_put_contents('php://stderr', "DUSK: diagnostics readyState={$readyState} element_exists=" . ($elementExists ? 'true' : 'false') . " url={$currentUrl}\n");
 
-                        } catch (\Throwable $_) {
-                            // ignore
+                            if (file_exists($diagPath)) {
+                                @file_put_contents('php://stderr', "DUSK: wrote diagnostics to $diagPath size=" . filesize($diagPath) . "\n");
+                            } else {
+                                @file_put_contents('php://stderr', "DUSK: diagnostics file not written\n");
+                            }
+
+                        } catch (\Throwable $diagEx) {
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-diagnostics-failed.txt', date('c') . " - diagnostics script failed: " . $diagEx->getMessage() . "\n", FILE_APPEND);
+                            @file_put_contents('php://stderr', "DUSK: diagnostics script failed: " . $diagEx->getMessage() . "\n");
                         }
 
                         // also emit a short log so we can see this in workflow logs
