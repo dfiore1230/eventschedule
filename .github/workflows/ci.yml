@@ -74,7 +74,7 @@ jobs:
       - name: Install npm dependencies and build assets (for Dusk)
         if: always()
         run: |
-          npm ci
+          npm install --no-audit --no-fund --prefer-offline
           npm run build
         env:
           LARAVEL_BYPASS_ENV_CHECK: 1
@@ -87,7 +87,7 @@ jobs:
         if: always()
         run: |
           mkdir -p tests/legacy/Browser/screenshots
-          npm ci --prefer-offline --no-audit
+          npm install --no-audit --no-fund --prefer-offline
           node scripts/capture-login-screenshot.js || true
 
       - name: Run Laravel Dusk tests (always-run)
