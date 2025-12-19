@@ -87,6 +87,12 @@ struct MediaLibraryPicker: View {
                     }
                     .disabled(selectedItem == nil)
                 }
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Debug: Log IDs") {
+                        DebugLogger.log("Media items count=\(mediaItems.count) IDs=\(mediaItems.map { String($0.id) }.joined(separator: ", "))")
+                    }
+                    .accessibilityIdentifier("MediaDebugLogButton")
+                }
             }
         }
         .task {

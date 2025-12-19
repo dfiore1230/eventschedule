@@ -65,14 +65,18 @@ struct TicketListView: View {
             }
             .overlay(alignment: .bottom) {
                 if let toast = toastMessage {
-                    Text(toast)
-                        .font(.subheadline)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 8)
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(10)
-                        .padding(.bottom, 24)
-                        .transition(.opacity)
+                    Button(action: { withAnimation { toastMessage = nil } }) {
+                        Text(toast)
+                            .font(.subheadline)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(10)
+                            .padding(.bottom, 24)
+                            .transition(.opacity)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("ScanToast")
                 }
             }
             .toolbar {
@@ -85,6 +89,7 @@ struct TicketListView: View {
                                 Image(systemName: "qrcode.viewfinder")
                             }
                             .padding(.trailing, 8)
+                            .accessibilityIdentifier("TicketsScanButton")
 
                         Menu {
                             Picker("Sort By", selection: $sortBy) {
@@ -559,6 +564,7 @@ private struct TicketRow: View {
             }
         }
         .padding(.vertical, 4)
+        .accessibilityIdentifier("TicketRow_\(ticket.id)")
     }
     
     @ViewBuilder

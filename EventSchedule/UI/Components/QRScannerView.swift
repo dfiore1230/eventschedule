@@ -55,6 +55,22 @@ struct QRScannerView: View {
                     scanner.scannedCode = nil
                 }
             }
+            // UITest hook: when running with --uitesting, expose a hidden button
+            // that will inject the scan code from the launch environment.
+            .overlay(alignment: .bottomLeading) {
+                if ProcessInfo.processInfo.arguments.contains("--uitesting") {
+                    Button(action: {
+                        if let code = ProcessInfo.processInfo.environment["UITEST_SCAN_CODE"] {
+                            DispatchQueue.main.async {
+                                scanner.scannedCode = code
+                            }
+                        }
+                    }) {
+                        Color.clear.frame(width: 44, height: 44)
+                    }
+                    .accessibilityIdentifier("UITestInjectScanButton")
+                }
+            }
         }
     }
 }
