@@ -78,7 +78,11 @@ trait AccountSetupTrait
 
                     if (method_exists($this, 'captureBrowserState')) {
                         try {
+                            @file_put_contents('php://stderr', "DUSK: invoking capture signup-login-wait-failed\n");
+
                             $this->captureBrowserState($browser, 'signup-login-wait-failed');
+
+                            @file_put_contents('php://stderr', "DUSK: capture returned signup-login-wait-failed\n");
                         } catch (\Throwable $_) {
                             // ignore diagnostic failures
                         }
@@ -113,7 +117,11 @@ trait AccountSetupTrait
 
                     if (method_exists($this, 'captureBrowserState')) {
                         try {
+                            @file_put_contents('php://stderr', "DUSK: invoking capture signup-login-wait-failed\n");
+
                             $this->captureBrowserState($browser, 'signup-login-wait-failed');
+
+                            @file_put_contents('php://stderr', "DUSK: capture returned signup-login-wait-failed\n");
                         } catch (\Throwable $_) {
                             // ignore diagnostic failures
                         }
