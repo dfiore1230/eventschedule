@@ -49,11 +49,13 @@ trait AccountSetupTrait
             // If we're already on the login page, assert and submit; otherwise visit it first
             if ($currentPath === '/login') {
                 $browser->assertPathIs('/login')
+                        ->waitFor('input[name="email"]', 10)
                         ->type('email', $email)
                         ->type('password', $password)
                         ->click('@log-in-button');
             } else {
                 $browser->visit('/login')
+                        ->waitFor('input[name="email"]', 10)
                         ->type('email', $email)
                         ->type('password', $password)
                         ->click('@log-in-button');

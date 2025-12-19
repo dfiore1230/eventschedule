@@ -32,7 +32,12 @@ class GeneralTest extends DuskTestCase
 
             // Log back in
             $browser->visit('/login')
-                    ->type('email', $email)
+                    ->waitFor('input[name="email"]', 10);
+
+            // Capture a diagnostic screenshot and page source before attempting to login
+            $this->captureBrowserState($browser, 'general-before-login');
+
+            $browser->type('email', $email)
                     ->type('password', $password)
                     ->click('@log-in-button');
 

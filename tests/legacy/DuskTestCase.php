@@ -142,6 +142,37 @@ abstract class DuskTestCase extends BaseTestCase
         }
     }
 
+    /**
+     * Capture browser screenshot and page source for diagnostics.
+     */
+    protected function captureBrowserState(?\Laravel\Dusk\Browser $browser, string $name): void
+    {
+        if (! $browser) {
+            return;
+        }
+
+        try {
+            $browser->screenshot($name);
+        } catch (\Throwable $e) {
+            // ignore screenshot errors
+        }
+
+        try {
+            $source = $browser->driver->getPageSource();
+            $path = __DIR__ . DIRECTORY_SEPARATOR . 'Browser' . DIRECTORY_SEPARATOR . 'screenshots' . DIRECTORY_SEPARATOR . 'dusk-' . $name . '.html';
+
+            $dir = dirname($path);
+
+            if (! is_dir($dir)) {
+                @mkdir($dir, 0777, true);
+            }
+
+            file_put_contents($path, $source);
+        } catch (\Throwable $e) {
+            // ignore page source errors
+        }
+    }
+
     private static function browserTestingFlagPath(): string
     {
         return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage'
