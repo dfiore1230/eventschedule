@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-### 2025-12-18 — Stabilize tests & add E2E tests + CI
+## v0.9.0 - 2025-12-18
 
 - Added deterministic XCUITests for ticket scanning flows and negative scenarios (404, 419, malformed 2xx, camera permission denied).
 - Hardened ticket scan handling: permissive decoding for 2xx responses and JSON fallback; avoid exposing raw server bodies in the UI (console-only logs).
@@ -12,3 +12,7 @@ All notable changes to this project will be documented in this file.
 - Added GitHub Actions CI workflow to run unit tests and XCUITests on macOS simulators.
 
 (See merged PR #101 for details.)
+
+## Unreleased
+
+
