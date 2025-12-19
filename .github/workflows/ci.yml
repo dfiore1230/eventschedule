@@ -59,7 +59,7 @@ jobs:
           php artisan db:seed --force || true
 
       - name: Run PHP tests
-        run: php artisan test --verbose
+        run: php artisan test
 
       - name: Set up Node
         uses: actions/setup-node@v4
