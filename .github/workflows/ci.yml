@@ -22,12 +22,13 @@ jobs:
           extensions: mbstring, bcmath, xml, intl
 
       - name: Create .env
-        run: |
-          cp .env.example .env
-          php artisan key:generate
+        run: cp .env.example .env
 
       - name: Install Composer dependencies
         run: composer install --no-progress --no-suggest --prefer-dist --no-interaction
+
+      - name: Generate application key
+        run: php artisan key:generate
 
       - name: Prepare database
         run: |
