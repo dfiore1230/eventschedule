@@ -15,7 +15,13 @@ class AuthorizationServiceTest extends TestCase
 
     public function test_permissions_are_warmed_and_cached_per_user(): void
     {
-        $permission = Permission::factory()->create(['key' => 'resources.manage']);
+        // Use firstOrCreate to avoid duplicate key errors if default permissions are present
+        $permission = Permission::query()->firstOrCreate([
+            'key' => 'resources.manage'
+        ], [
+            'description' => 'Create and update venues, talent, and curators within scope',
+        ]);
+
         $role = SystemRole::factory()->create(['slug' => 'admin']);
         $role->permissions()->attach($permission);
 
