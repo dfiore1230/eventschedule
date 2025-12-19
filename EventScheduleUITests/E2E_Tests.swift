@@ -134,6 +134,31 @@ final class E2E_Tests: XCTestCase {
         toastButton.tap()
     }
 
+    func testCameraPermissionDenied() throws {
+        // Simulate camera permission denial via launch env var
+        app.launchEnvironment["UITEST_SIMULATE_CAMERA_DENIED"] = "1"
+        app.launch()
+
+        // Navigate to Tickets
+        let ticketsButton = app.buttons["Tickets"]
+        XCTAssertTrue(ticketsButton.waitForExistence(timeout: 5))
+        ticketsButton.tap()
+
+        // Tap scan toolbar button
+        let scanButton = app.buttons["TicketsScanButton"]
+        XCTAssertTrue(scanButton.waitForExistence(timeout: 5))
+        scanButton.tap()
+
+        // Expect an on-screen error containing 'Camera access denied' (case-insensitive)
+        let errorPredicate = NSPredicate(format: "label CONTAINS[c] 'camera access denied'")
+        let errorElement = app.staticTexts.containing(errorPredicate).element
+        XCTAssertTrue(errorElement.waitForExistence(timeout: 6), "Expected a camera access denied message to appear")
+
+        // Dismiss the scanner using the Cancel button
+        let cancelButton = app.buttons["Cancel"]
+        if cancelButton.waitForExistence(timeout: 3) { cancelButton.tap() }
+    }
+
     func testMediaLibraryDisplaysAllItems() throws {
         app.launch()
         let eventsButton = app.buttons["Events"]
