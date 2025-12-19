@@ -81,8 +81,17 @@ trait AccountSetupTrait
                         // Driver-level diagnostics: readyState, element presence/visibility, computed styles, window handle
                         try {
                             $readyState = $browser->driver->executeScript('return document.readyState;');
-                            $elementExists = $browser->driver->executeScript('return !!document.querySelector("input[name=\"email\"]");');
-                            $elementInfo = $browser->driver->executeScript('var el = document.querySelector("input[name=\\\"email\\\"]"); if (!el) return null; var s = window.getComputedStyle(el); return {display: s.display, visibility: s.visibility, offsetWidth: el.offsetWidth, offsetHeight: el.offsetHeight, type: el.type};');
+                            $elementExists = $browser->driver->executeScript(<<<'JS'
+                                return !!document.querySelector('input[name="email"]');
+                            JS
+                            );');
+                            $elementInfo = $browser->driver->executeScript(<<<'JS'
+                                var el = document.querySelector('input[name="email"]');
+                                if (!el) return null;
+                                var s = window.getComputedStyle(el);
+                                return {display: s.display, visibility: s.visibility, offsetWidth: el.offsetWidth, offsetHeight: el.offsetHeight, type: el.type};
+                            JS
+                            ); if (!el) return null; var s = window.getComputedStyle(el); return {display: s.display, visibility: s.visibility, offsetWidth: el.offsetWidth, offsetHeight: el.offsetHeight, type: el.type};');
                             $currentUrl = $browser->driver->getCurrentURL();
                             $windowHandle = $browser->driver->getWindowHandle();
 
@@ -162,8 +171,17 @@ trait AccountSetupTrait
                         // Driver-level diagnostics: readyState, element presence/visibility, computed styles, window handle
                         try {
                             $readyState = $browser->driver->executeScript('return document.readyState;');
-                            $elementExists = $browser->driver->executeScript('return !!document.querySelector("input[name=\"email\"]");');
-                            $elementInfo = $browser->driver->executeScript('var el = document.querySelector("input[name=\\\"email\\\"]"); if (!el) return null; var s = window.getComputedStyle(el); return {display: s.display, visibility: s.visibility, offsetWidth: el.offsetWidth, offsetHeight: el.offsetHeight, type: el.type};');
+                            $elementExists = $browser->driver->executeScript(<<<'JS'
+                                return !!document.querySelector('input[name="email"]');
+                            JS
+                            );');
+                            $elementInfo = $browser->driver->executeScript(<<<'JS'
+                                var el = document.querySelector('input[name="email"]');
+                                if (!el) return null;
+                                var s = window.getComputedStyle(el);
+                                return {display: s.display, visibility: s.visibility, offsetWidth: el.offsetWidth, offsetHeight: el.offsetHeight, type: el.type};
+                            JS
+                            ); if (!el) return null; var s = window.getComputedStyle(el); return {display: s.display, visibility: s.visibility, offsetWidth: el.offsetWidth, offsetHeight: el.offsetHeight, type: el.type};');
                             $currentUrl = $browser->driver->getCurrentURL();
                             $windowHandle = $browser->driver->getWindowHandle();
 
