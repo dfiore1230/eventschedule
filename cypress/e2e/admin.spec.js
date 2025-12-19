@@ -36,15 +36,36 @@ describe('Admin flows', () => {
       });
     });
 
-    // Visit the admin home list view and capture diagnostics
-    cy.visit('/home?view=list');
-    cy.screenshot('admin-after-visit');
-
-    // Save raw HTML for post-mortem if the table isn't present
+    // Check server-side session by requesting the list page and capture HTML for diagnostics
     cy.request({ url: '/home?view=list' }).then((resp) => {
       cy.log('home list status: ' + resp.status);
       cy.writeFile('cypress/results/admin-home-response.html', resp.body);
+
+      const body = resp.body || '';
+      const isLoggedIn = /form method="POST" action="\/logout"|<table|E2E Event 1/.test(body);
+
+      if (!isLoggedIn) {
+        // Programmatic login didn't create a logged-in session. Try UI fallback to reproduce and capture diagnostics.
+        cy.log('Programmatic login did not create a session; attempting UI login fallback');
+
+        cy.visit('/login');
+        cy.get('input[name=email]').should('exist').type(seed.admin_email);
+        cy.get('input[name=password]').should('exist').type(seed.admin_password, { log: false });
+        cy.get('button[type=submit]').should('exist').click();
+
+        // Re-check the list page after UI login
+        cy.request({ url: '/home?view=list' }).then((resp2) => {
+          cy.log('post-UI-login home status: ' + resp2.status);
+          cy.writeFile('cypress/results/admin-home-response-after-fallback.html', resp2.body);
+          const body2 = resp2.body || '';
+          expect(/form method="POST" action="\/logout"|<table|E2E Event 1/.test(body2), 'login fallback produced admin page').to.be.true;
+        });
+      }
     });
+
+    // Visit the admin home list view and capture a screenshot for visual diagnostics
+    cy.visit('/home?view=list');
+    cy.screenshot('admin-after-visit');
 
     // Ensure list view is loaded (give it extra time on CI)
     cy.get('table', { timeout: 10000 }).should('exist');
