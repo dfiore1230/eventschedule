@@ -38,7 +38,9 @@ class EventFactory extends Factory
             'tickets_enabled' => false,
             // New schema restricts this to ['individual','combined']
             'total_tickets_mode' => 'individual',
-            'payment_method' => 'free',
+            // payment_method enum changed in recent migrations to ['cash','stripe','invoiceninja','payment_url']
+            // Use a valid default to avoid enum truncation warnings in CI
+            'payment_method' => 'cash',
         ];
 
         $this->afterCreating(function (Event $event) use ($role, $venue) {
