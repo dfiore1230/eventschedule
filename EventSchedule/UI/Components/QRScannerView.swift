@@ -119,7 +119,7 @@ class QRScanner: NSObject, ObservableObject {
     private var lastScanTime: Date?
     private let scanCooldown: TimeInterval = 2.0
     
-    nonisolated deinit {
+    deinit {
         // Perform best-effort synchronous cleanup here to avoid creating weak
         // references to self while it's being deallocated (which can crash).
         if session.isRunning { session.stopRunning() }
