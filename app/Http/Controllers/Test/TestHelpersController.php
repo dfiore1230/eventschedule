@@ -118,10 +118,10 @@ class TestHelpersController extends Controller
                 'recurring_id' => $recurring->id,
                 'recurring_name' => $recurring->translatedName(),
                 'recurring_occurrences' => $occurrences,
-                'sale_secret' => $sale->secret,
-                'entry_secret' => $entry->secret,
+                'sale_secret' => $sale ? $sale->secret : null,
+                'entry_secret' => $entry ? $entry->secret : null,
                 'created_event_ids' => array_map(fn($e) => $e['id'], $events),
-                'created_sale_ids' => [$sale->id],
+                'created_sale_ids' => $sale ? [$sale->id] : [],
             ];
 
             $response['admin_email'] = $admin->email;
