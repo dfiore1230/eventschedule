@@ -90,6 +90,26 @@ class TestHelpersController extends Controller
                 }
             }
 
+            // ensure admin email is verified so tests do not hit the verify-email flow
+            try {
+                if (! $admin->email_verified_at) {
+                    $admin->email_verified_at = now();
+                    $admin->save();
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('E2E seed: could not mark admin as email_verified', ['exception' => $e]);
+            }
+
+            // attempt to grant the admin the 'superadmin' system role if roles are available
+            try {
+                $superRole = \App\Models\SystemRole::where('slug', 'superadmin')->first();
+                if ($superRole) {
+                    $admin->systemRoles()->syncWithoutDetaching([$superRole->id]);
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('E2E seed: could not attach system role to admin', ['exception' => $e]);
+            }
+
             // continue to return the dynamic email/password to the caller
             $responseEmail = $admin->email;
 
