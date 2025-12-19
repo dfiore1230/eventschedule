@@ -36,7 +36,8 @@ class EventFactory extends Factory
             'description' => fake()->sentence(),
             'description_html' => '<p>' . fake()->sentence() . '</p>',
             'tickets_enabled' => false,
-            'total_tickets_mode' => 'unlimited',
+            // New schema restricts this to ['individual','combined']
+            'total_tickets_mode' => 'individual',
             'payment_method' => 'free',
         ];
 
