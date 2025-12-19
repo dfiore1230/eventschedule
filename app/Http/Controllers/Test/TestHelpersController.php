@@ -62,28 +62,26 @@ class TestHelpersController extends Controller
                 try { $recurring->venue_id = $venue->id; $recurring->save(); } catch (\Throwable $_) {}
             }
 
-            // create an admin user for admin flow tests (use firstOrCreate to be idempotent in CI)
+            // create an admin user for admin flow tests
+            // Use a unique email per-seed run to avoid duplicate-key races across concurrent CI runs
             $adminPassword = 'password';
-            // Ensure idempotent admin creation: remove any stale test user then create.
-            // This avoids unique constraint insert failures in CI where previous runs may leave the user behind.
-            \App\Models\User::where('email', 'e2e-admin@example.test')->delete();
+            $adminEmail = 'e2e-admin+' . substr(bin2hex(random_bytes(6)), 0, 8) . '@example.test';
 
             try {
-                $admin = \App\Models\User::create(['email' => 'e2e-admin@example.test', 'name' => 'E2E Admin', 'password' => bcrypt($adminPassword), 'timezone' => config('app.timezone', 'UTC')]);
+                $admin = \App\Models\User::create(['email' => $adminEmail, 'name' => 'E2E Admin', 'password' => bcrypt($adminPassword), 'timezone' => config('app.timezone', 'UTC')]);
             } catch (\Throwable $e) {
-                // In case of race conditions, attempt to fetch existing user before failing
+                // In the unlikely case this collisions, attempt to fetch existing user and retry a couple of times
                 \Log::warning('E2E seed: create admin failed, attempting to fetch existing user', ['exception' => $e]);
 
-                // Retry a few times to tolerate a concurrent insert from another process
                 $admin = null;
                 $attempts = 0;
                 while ($attempts < 6 && ! $admin) {
-                    $admin = \App\Models\User::where('email', 'e2e-admin@example.test')->first();
+                    $admin = \App\Models\User::where('email', $adminEmail)->first();
                     if ($admin) {
                         break;
                     }
 
-                    usleep(100000); // sleep 100ms
+                    usleep(100000);
                     $attempts++;
                 }
 
@@ -91,6 +89,9 @@ class TestHelpersController extends Controller
                     throw $e;
                 }
             }
+
+            // continue to return the dynamic email/password to the caller
+            $responseEmail = $admin->email;
 
             // assign ownership of first few events to admin so admin can manage them
             if (! empty($createdEventObjects)) {
@@ -147,7 +148,7 @@ class TestHelpersController extends Controller
                 'created_sale_ids' => $sale ? [$sale->id] : [],
             ];
 
-            $response['admin_email'] = $admin->email;
+            $response['admin_email'] = $responseEmail ?? $admin->email;
             $response['admin_password'] = $adminPassword;
             $response['created_user_ids'] = [$admin->id];
 

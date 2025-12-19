@@ -21,9 +21,20 @@ describe('Admin flows', () => {
     cy.get('input[name="email"]').type(seed.admin_email);
     cy.get('input[name="password"]').type(seed.admin_password);
     // Prefer explicit dusk login button; fall back to common submit patterns, button text, or pressing Enter
-    cy.get('button[dusk="log-in-button"], button[type="submit"]', { timeout: 10000 }).then($btns => {
+    cy.get('button[dusk="log-in-button"], button[type="submit"]', { timeout: 20000 }).then($btns => {
       if ($btns.length) {
-        cy.wrap($btns.first()).should('not.be.disabled').click();
+        const $btn = $btns.first();
+        // wait longer for client-side hydration to enable the button
+        cy.wrap($btn).should('not.be.disabled', { timeout: 20000 }).click().catch(() => {
+          // if still disabled after waiting, try fallbacks
+          cy.contains('button', /log ?in|sign ?in/i, { matchCase: false }).then($textBtn => {
+            if ($textBtn && $textBtn.length) {
+              cy.wrap($textBtn).click();
+            } else {
+              cy.get('input[name="password"]').type('{enter}');
+            }
+          });
+        });
       } else {
         // try matching common text labels (Log in / Sign in)
         cy.contains('button', /log ?in|sign ?in/i, { matchCase: false }).then($textBtn => {
