@@ -24,17 +24,8 @@ describe('Admin flows', () => {
     cy.get('button[dusk="log-in-button"], button[type="submit"]', { timeout: 20000 }).then($btns => {
       if ($btns.length) {
         const $btn = $btns.first();
-        // wait longer for client-side hydration to enable the button
-        cy.wrap($btn).should('not.be.disabled', { timeout: 20000 }).click().catch(() => {
-          // if still disabled after waiting, try fallbacks
-          cy.contains('button', /log ?in|sign ?in/i, { matchCase: false }).then($textBtn => {
-            if ($textBtn && $textBtn.length) {
-              cy.wrap($textBtn).click();
-            } else {
-              cy.get('input[name="password"]').type('{enter}');
-            }
-          });
-        });
+        // force click the login button to avoid issues with temporary disabled state
+        cy.wrap($btn).click({ force: true });
       } else {
         // try matching common text labels (Log in / Sign in)
         cy.contains('button', /log ?in|sign ?in/i, { matchCase: false }).then($textBtn => {

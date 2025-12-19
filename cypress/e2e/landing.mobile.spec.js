@@ -18,13 +18,12 @@ describe('Landing mobile flows', () => {
     cy.get('#mobileEventsList').should('exist');
     // open mobile list by checking presence of mobile events list or by ensuring recurring event is visible
     if (seed.recurring_name) {
-      cy.contains(seed.recurring_name).should('exist');
+      // ensure the recurring event is present in the mobile list (may not be first)
+      cy.get('#mobileEventsList').contains(seed.recurring_name).should('exist');
 
-      // assert the mobile list item has an image or time text for the event
+      // assert at least one list item contains the recurring name
       cy.get('#mobileEventsList').within(() => {
-        cy.get('li').first().should('exist').and(($li) => {
-          expect($li.text()).to.include(seed.recurring_name);
-        });
+        cy.get('li').should('contain.text', seed.recurring_name);
       });
     }
   });
