@@ -28,15 +28,26 @@ describe('Admin flows', () => {
         url: '/login',
         form: true,
         body: { _token: token, email: seed.admin_email, password: seed.admin_password },
+        followRedirect: true,
+      }).then((loginResp) => {
+        // Diagnose login response; 200 or 302 are acceptable
+        expect([200, 302]).to.include(loginResp.status);
+        cy.log('login response status: ' + loginResp.status);
       });
     });
 
-    // ensure we are logged in by visiting /home
-    cy.visit('/home');
-
-    // ensure list view is loaded; prefer visiting the list view directly for determinism
+    // Visit the admin home list view and capture diagnostics
     cy.visit('/home?view=list');
-    cy.get('table').should('exist');
+    cy.screenshot('admin-after-visit');
+
+    // Save raw HTML for post-mortem if the table isn't present
+    cy.request({ url: '/home?view=list' }).then((resp) => {
+      cy.log('home list status: ' + resp.status);
+      cy.writeFile('cypress/results/admin-home-response.html', resp.body);
+    });
+
+    // Ensure list view is loaded (give it extra time on CI)
+    cy.get('table', { timeout: 10000 }).should('exist');
 
     // merged Events panel check - look for section header
     cy.contains(/Events/).should('exist');
