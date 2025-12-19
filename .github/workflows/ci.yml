@@ -83,6 +83,13 @@ jobs:
         if: always()
         run: php artisan serve --port 8000 > /dev/null 2>&1 &
 
+      - name: Capture /login via Puppeteer (fallback PNG)
+        if: always()
+        run: |
+          mkdir -p tests/legacy/Browser/screenshots
+          npm ci --prefer-offline --no-audit
+          node scripts/capture-login-screenshot.js || true
+
       - name: Run Laravel Dusk tests (always-run)
         if: always()
         run: |
