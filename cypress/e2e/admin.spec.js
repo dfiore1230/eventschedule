@@ -83,8 +83,22 @@ describe('Admin flows', () => {
     cy.visit('/home?view=list');
     cy.screenshot('admin-after-visit');
 
-    // Ensure list view is loaded (give it extra time on CI)
-    cy.get('table', { timeout: 10000 }).should('exist');
+    // Also fetch the raw HTML of the list page and save it for post-mortem
+    cy.request({ url: '/home?view=list' }).then((finalResp) => {
+      cy.writeFile('cypress/results/admin-home-response-final.html', finalResp.body || '');
+      cy.log('admin final page snippet: ' + (finalResp.body ? finalResp.body.substr(0, 800) : '[empty]'));
+
+      // capture session cookie for diagnostics
+      cy.getCookie('laravel_session').then((cookie) => {
+        cy.writeFile('cypress/results/session-cookie.json', cookie || {});
+        cy.log('session cookie: ' + JSON.stringify(cookie || {}));
+      });
+
+      // explicitly assert on the HTML body to fail with a helpful message when table is missing
+      const body = finalResp.body || '';
+      const ok = /form method="POST" action="\/logout"|<table|E2E Event 1/.test(body);
+      expect(ok, 'admin home contains logout/table/E2E Event 1').to.equal(true);
+    });
 
     // merged Events panel check - look for section header
     cy.contains(/Events/).should('exist');
