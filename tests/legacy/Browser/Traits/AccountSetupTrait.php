@@ -46,10 +46,18 @@ trait AccountSetupTrait
         }
 
         if (! $currentPath || ! Str::startsWith($currentPath, '/events')) {
-            $browser->assertPathIs('/login')
-                    ->type('email', $email)
-                    ->type('password', $password)
-                    ->click('@log-in-button');
+            // If we're already on the login page, assert and submit; otherwise visit it first
+            if ($currentPath === '/login') {
+                $browser->assertPathIs('/login')
+                        ->type('email', $email)
+                        ->type('password', $password)
+                        ->click('@log-in-button');
+            } else {
+                $browser->visit('/login')
+                        ->type('email', $email)
+                        ->type('password', $password)
+                        ->click('@log-in-button');
+            }
 
             try {
                 $currentPath = $this->waitForAnyLocation($browser, ['/events', '/login', '/'], 20);
