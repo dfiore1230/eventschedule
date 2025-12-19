@@ -5,7 +5,8 @@ describe('Landing mobile flows', () => {
       // guard: ensure recurring fields exist
       expect(seed, 'seedData.recurring').to.have.property('recurring_name');
       expect(seed, 'seedData').to.have.property('recurring_occurrences');
-      expect(seed.recurring_occurrences, 'seedData.recurring_occurrences').to.be.an('array').and('have.length.greaterThan', 0);
+      expect(seed.recurring_occurrences, 'seedData.recurring_occurrences').to.be.an('array');
+      expect(seed.recurring_occurrences.length, 'seedData.recurring_occurrences.length').to.be.greaterThan(0);
     });
   });
 
