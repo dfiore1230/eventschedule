@@ -237,9 +237,14 @@ final class RemoteCheckInRepository: CheckInRepositoryProtocol {
         // UITest helper: allow injecting specific server responses by using special test codes.
         // When running with --uitesting, a code starting with "UITEST_404" will simulate a 404 Not Found
         // so we can deterministically exercise the client-side handling without hitting the network.
+        // Also support a 419/unauthorized simulation via a code starting with "UITEST_419" which throws
+        // an .unauthorized APIError to exercise the unauthorized handling path.
         if ProcessInfo.processInfo.arguments.contains("--uitesting") {
             if ticketCode.starts(with: "UITEST_404") {
                 throw APIError.serverError(statusCode: 404, message: "Ticket not found (UITest)")
+            }
+            if ticketCode.starts(with: "UITEST_419") {
+                throw APIError.unauthorized
             }
         }
 

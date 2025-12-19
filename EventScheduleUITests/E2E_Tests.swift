@@ -72,6 +72,36 @@ final class E2E_Tests: XCTestCase {
         toastButton.tap()
     }
 
+    func testScanTicketUnauthorized419() throws {
+        // Use a deterministic UITest-only code to simulate an unauthorized/419 response
+        let testCode = "UITEST_419_UNAUTHORIZED"
+        app.launchEnvironment["UITEST_SCAN_CODE"] = testCode
+        app.launch()
+
+        // Navigate to Tickets
+        let ticketsButton = app.buttons["Tickets"]
+        XCTAssertTrue(ticketsButton.waitForExistence(timeout: 5))
+        ticketsButton.tap()
+
+        // Tap scan toolbar button
+        let scanButton = app.buttons["TicketsScanButton"]
+        XCTAssertTrue(scanButton.waitForExistence(timeout: 5))
+        scanButton.tap()
+
+        // Inject the test scan
+        let injectButton = app.buttons["UITestInjectScanButton"]
+        XCTAssertTrue(injectButton.waitForExistence(timeout: 5))
+        injectButton.tap()
+
+        // Expect a toast containing 'unauthor' (case-insensitive)
+        let toastButton = app.buttons["ScanToast"]
+        XCTAssertTrue(toastButton.waitForExistence(timeout: 6), "Expected a scan result toast to appear")
+        XCTAssertTrue(toastButton.label.lowercased().contains("unauthor"), "Expected toast to contain an unauthorized message for 419 response")
+
+        // Dismiss the toast
+        toastButton.tap()
+    }
+
     func testMediaLibraryDisplaysAllItems() throws {
         app.launch()
         let eventsButton = app.buttons["Events"]
