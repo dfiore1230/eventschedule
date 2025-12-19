@@ -26,6 +26,19 @@ jobs:
         with:
           php-version: 8.3
 
+      - name: Create minimal .env for composer scripts
+        run: |
+          cp .env.example .env || true
+          # Ensure DB credentials match debug MySQL container
+          sed -i -e "s/^DB_HOST=.*/DB_HOST=127.0.0.1/" .env || true
+          sed -i -e "s/^DB_PORT=.*/DB_PORT=3307/" .env || true
+          sed -i -e "s/^DB_DATABASE=.*/DB_DATABASE=laravel_test/" .env || true
+          sed -i -e "s/^DB_USERNAME=.*/DB_USERNAME=root/" .env || true
+          sed -i -e "s/^DB_PASSWORD=.*/DB_PASSWORD=password/" .env || true
+          if ! grep -q '^APP_KEY=' .env; then
+            printf 'APP_KEY=base64:%s\n' "$(php -r 'echo base64_encode(random_bytes(32));')" >> .env
+          fi
+
       - name: Install Composer dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
 
