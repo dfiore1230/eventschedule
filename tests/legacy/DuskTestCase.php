@@ -151,21 +151,42 @@ abstract class DuskTestCase extends BaseTestCase
             return;
         }
 
+        $dir = __DIR__ . DIRECTORY_SEPARATOR . 'Browser' . DIRECTORY_SEPARATOR . 'screenshots';
+
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0777, true);
+        }
+
+        // Prefer using the WebDriver's takeScreenshot method so we can write directly
         try {
-            $browser->screenshot($name);
+            $screenshotPath = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '.png';
+
+            if (method_exists($browser->driver, 'takeScreenshot')) {
+                try {
+                    $browser->driver->takeScreenshot($screenshotPath);
+                } catch (\Throwable $_) {
+                    // fallback to $browser->screenshot
+                    try {
+                        $browser->screenshot($name);
+                    } catch (\Throwable $__) {
+                        // ignore screenshot errors
+                    }
+                }
+            } else {
+                // fallback to the Dusk helper
+                try {
+                    $browser->screenshot($name);
+                } catch (\Throwable $__) {
+                    // ignore screenshot errors
+                }
+            }
         } catch (\Throwable $e) {
             // ignore screenshot errors
         }
 
         try {
             $source = $browser->driver->getPageSource();
-            $path = __DIR__ . DIRECTORY_SEPARATOR . 'Browser' . DIRECTORY_SEPARATOR . 'screenshots' . DIRECTORY_SEPARATOR . 'dusk-' . $name . '.html';
-
-            $dir = dirname($path);
-
-            if (! is_dir($dir)) {
-                @mkdir($dir, 0777, true);
-            }
+            $path = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '.html';
 
             file_put_contents($path, $source);
         } catch (\Throwable $e) {
