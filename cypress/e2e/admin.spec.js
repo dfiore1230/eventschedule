@@ -20,7 +20,8 @@ describe('Admin flows', () => {
     cy.visit('/login');
     cy.get('input[name="email"]').type(seed.admin_email);
     cy.get('input[name="password"]').type(seed.admin_password);
-    cy.get('button[type="submit"]').click();
+    // click the explicit login button to avoid colliding with disabled signup button
+    cy.get('button[dusk="log-in-button"]').click();
 
     // ensure we are logged in by visiting /home
     cy.visit('/home');

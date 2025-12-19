@@ -64,10 +64,19 @@ class TestHelpersController extends Controller
 
             // create an admin user for admin flow tests (use firstOrCreate to be idempotent in CI)
             $adminPassword = 'password';
-            $admin = \App\Models\User::firstOrCreate(
-                ['email' => 'e2e-admin@example.test'],
-                ['name' => 'E2E Admin', 'password' => bcrypt($adminPassword), 'timezone' => config('app.timezone', 'UTC')]
-            );
+            try {
+                $admin = \App\Models\User::firstOrCreate(
+                    ['email' => 'e2e-admin@example.test'],
+                    ['name' => 'E2E Admin', 'password' => bcrypt($adminPassword), 'timezone' => config('app.timezone', 'UTC')]
+                );
+            } catch (\Throwable $e) {
+                // Be tolerant of race conditions or duplicate insert errors in CI; fall back to fetching existing user
+                \Log::warning('E2E seed: firstOrCreate for admin failed, attempting to fetch existing user', ['exception' => $e]);
+                $admin = \App\Models\User::where('email', 'e2e-admin@example.test')->first();
+                if (! $admin) {
+                    throw $e;
+                }
+            }
 
             // assign ownership of first few events to admin so admin can manage them
             if (! empty($createdEventObjects)) {
