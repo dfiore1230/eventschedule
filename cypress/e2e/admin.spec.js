@@ -54,8 +54,9 @@ describe('Admin flows', () => {
           cy.log('login page snippet: ' + (loginBody ? loginBody.substr(0, 500) : '[empty]'));
 
           if (!/name="email"/.test(loginBody) || !/name="_token"/.test(loginBody)) {
-            // Login page does not contain expected form controls — fail with diagnostics captured
-            throw new Error('Login page missing expected form elements; cannot perform UI fallback. See cypress/results/login-page-response.html');
+            // Login page does not contain expected form controls — fail with diagnostic snippet for CI logs
+            const snippet = loginBody ? loginBody.substr(0, 500) : '[empty]';
+            throw new Error('Login page missing expected form elements; login page snippet: ' + snippet);
           }
 
           // If login page looks OK, proceed with UI fallback
