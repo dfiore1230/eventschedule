@@ -58,8 +58,37 @@ trait AccountSetupTrait
             // If we're already on the login page, assert and submit; otherwise visit it first
             if ($currentPath === '/login') {
                 try {
-                    $browser->assertPathIs('/login')
-                            ->waitFor('input[name="email"]', 10);
+                    $browser->assertPathIs('/login');
+
+                    // Pre-wait diagnostics: log readyState and do a short quick-poll for the input to detect timing races
+                    try {
+                        $markerDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'screenshots';
+
+                        if (! is_dir($markerDir)) {
+                            @mkdir($markerDir, 0777, true);
+                        }
+
+                        $readyState = ($browser->script('return typeof document !== "undefined" ? document.readyState : null;'))[0] ?? null;
+                        $elementPresent = ($browser->script('return !!document.querySelector("input[name=\"email\"]");'))[0] ?? false;
+
+                        @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-prewait.txt', date('c') . " - readyState={$readyState} element_present=" . ($elementPresent ? 'true' : 'false') . "\n", FILE_APPEND);
+
+                        try {
+                            $browser->waitUsing(3, 500, function () use ($browser) {
+                                $res = $browser->script('return !!document.querySelector("input[name=\"email\"]");');
+
+                                return ! empty($res) && ($res[0] === true || $res[0] === 'true');
+                            });
+
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-prewait.txt', date('c') . " - quick poll found=true\n", FILE_APPEND);
+                        } catch (\Throwable $_) {
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-prewait.txt', date('c') . " - quick poll found=false\n", FILE_APPEND);
+                        }
+                    } catch (\Throwable $_) {
+                        // ignore pre-wait diagnostics failures
+                    }
+
+                    $browser->waitFor('input[name="email"]', 10);
                 } catch (Throwable $e) {
                     // write a simple marker so we can confirm the catch executed and artifacts will be uploaded
                     try {
@@ -141,6 +170,34 @@ trait AccountSetupTrait
                 $browser->visit('/login');
 
                 try {
+                    // Pre-wait diagnostics: log readyState and do a short quick-poll for the input to detect timing races
+                    try {
+                        $markerDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'screenshots';
+
+                        if (! is_dir($markerDir)) {
+                            @mkdir($markerDir, 0777, true);
+                        }
+
+                        $readyState = ($browser->script('return typeof document !== "undefined" ? document.readyState : null;'))[0] ?? null;
+                        $elementPresent = ($browser->script('return !!document.querySelector("input[name=\"email\"]");'))[0] ?? false;
+
+                        @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-prewait.txt', date('c') . " - readyState={$readyState} element_present=" . ($elementPresent ? 'true' : 'false') . "\n", FILE_APPEND);
+
+                        try {
+                            $browser->waitUsing(3, 500, function () use ($browser) {
+                                $res = $browser->script('return !!document.querySelector("input[name=\"email\"]");');
+
+                                return ! empty($res) && ($res[0] === true || $res[0] === 'true');
+                            });
+
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-prewait.txt', date('c') . " - quick poll found=true\n", FILE_APPEND);
+                        } catch (\Throwable $_) {
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-prewait.txt', date('c') . " - quick poll found=false\n", FILE_APPEND);
+                        }
+                    } catch (\Throwable $_) {
+                        // ignore pre-wait diagnostics failures
+                    }
+
                     $browser->waitFor('input[name="email"]', 10);
                 } catch (Throwable $e) {
                     // write a simple marker so we can confirm the catch executed and artifacts will be uploaded
