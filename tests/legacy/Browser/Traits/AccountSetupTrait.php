@@ -78,6 +78,31 @@ trait AccountSetupTrait
                             // ignore
                         }
 
+                        // Driver-level diagnostics: readyState, element presence/visibility, computed styles, window handle
+                        try {
+                            $readyState = $browser->driver->executeScript('return document.readyState;');
+                            $elementExists = $browser->driver->executeScript('return !!document.querySelector("input[name=\"email\"]");');
+                            $elementInfo = $browser->driver->executeScript('var el = document.querySelector("input[name=\\\"email\\\"]"); if (!el) return null; var s = window.getComputedStyle(el); return {display: s.display, visibility: s.visibility, offsetWidth: el.offsetWidth, offsetHeight: el.offsetHeight, type: el.type};');
+                            $currentUrl = $browser->driver->getCurrentURL();
+                            $windowHandle = $browser->driver->getWindowHandle();
+
+                            $diag = [
+                                'readyState' => $readyState,
+                                'element_exists' => $elementExists,
+                                'element_info' => $elementInfo,
+                                'current_url' => $currentUrl,
+                                'window_handle' => $windowHandle,
+                            ];
+
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-diagnostics.json', json_encode($diag, JSON_PRETTY_PRINT) . "\n", FILE_APPEND);
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - diagnostics: " . json_encode($diag) . "\n", FILE_APPEND);
+
+                            @file_put_contents('php://stderr', "DUSK: diagnostics readyState={$readyState} element_exists=" . ($elementExists ? 'true' : 'false') . " url={$currentUrl}\n");
+
+                        } catch (\Throwable $_) {
+                            // ignore
+                        }
+
                         // also emit a short log so we can see this in workflow logs
                         @file_put_contents('php://stderr', "DUSK: capture attempted signup-login-wait-failed\n");
                     } catch (\Throwable $_) {
@@ -121,6 +146,31 @@ trait AccountSetupTrait
                         // append browser path/URL for more diagnostics
                         try {
                             @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - browser path: " . $this->currentPath($browser) . " - url: " . $browser->driver->getCurrentURL() . "\n", FILE_APPEND);
+                        } catch (\Throwable $_) {
+                            // ignore
+                        }
+
+                        // Driver-level diagnostics: readyState, element presence/visibility, computed styles, window handle
+                        try {
+                            $readyState = $browser->driver->executeScript('return document.readyState;');
+                            $elementExists = $browser->driver->executeScript('return !!document.querySelector("input[name=\"email\"]");');
+                            $elementInfo = $browser->driver->executeScript('var el = document.querySelector("input[name=\\\"email\\\"]"); if (!el) return null; var s = window.getComputedStyle(el); return {display: s.display, visibility: s.visibility, offsetWidth: el.offsetWidth, offsetHeight: el.offsetHeight, type: el.type};');
+                            $currentUrl = $browser->driver->getCurrentURL();
+                            $windowHandle = $browser->driver->getWindowHandle();
+
+                            $diag = [
+                                'readyState' => $readyState,
+                                'element_exists' => $elementExists,
+                                'element_info' => $elementInfo,
+                                'current_url' => $currentUrl,
+                                'window_handle' => $windowHandle,
+                            ];
+
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-diagnostics.json', json_encode($diag, JSON_PRETTY_PRINT) . "\n", FILE_APPEND);
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - diagnostics: " . json_encode($diag) . "\n", FILE_APPEND);
+
+                            @file_put_contents('php://stderr', "DUSK: diagnostics readyState={$readyState} element_exists=" . ($elementExists ? 'true' : 'false') . " url={$currentUrl}\n");
+
                         } catch (\Throwable $_) {
                             // ignore
                         }
