@@ -70,6 +70,8 @@ trait AccountSetupTrait
                         }
 
                         @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - capture attempted\n", FILE_APPEND);
+                        // also emit a short log so we can see this in workflow logs
+                        @file_put_contents('php://stderr', "DUSK: capture attempted signup-login-wait-failed\n");
                     } catch (\Throwable $_) {
                         // ignore
                     }
@@ -103,6 +105,8 @@ trait AccountSetupTrait
                         }
 
                         @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - capture attempted\n", FILE_APPEND);
+                        // also emit a short log so we can see this in workflow logs
+                        @file_put_contents('php://stderr', "DUSK: capture attempted signup-login-wait-failed\n");
                     } catch (\Throwable $_) {
                         // ignore
                     }
