@@ -10,6 +10,13 @@ jobs:
   debug-cypress:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      DB_CONNECTION: mysql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3307
+      DB_DATABASE: laravel_test
+      DB_USERNAME: root
+      DB_PASSWORD: password
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,11 +32,31 @@ jobs:
       - name: Prepare database (MySQL)
         run: |
           docker run --name mysql-debug -e MYSQL_ROOT_PASSWORD=password -e MYSQL_DATABASE=laravel_test -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -d -p 3307:3306 mysql:8 || true
-          sleep 10
+          # Wait for MySQL to be ready (timeout ~30s)
+          for i in {1..30}; do
+            if docker exec mysql-debug mysqladmin ping -u root -ppassword --silent >/dev/null 2>&1; then
+              echo "MySQL is up";
+              break;
+            fi;
+            echo "Waiting for MySQL... ($i)";
+            sleep 1;
+          done
+          if ! docker exec mysql-debug mysqladmin ping -u root -ppassword --silent >/dev/null 2>&1; then
+            echo "MySQL failed to start" >&2;
+            docker logs mysql-debug || true;
+            exit 1;
+          fi
 
       - name: Create .env and migrate
         run: |
           cp .env.example .env
+          # Ensure DB credentials match the debug MySQL container
+          sed -i -e "s/^DB_CONNECTION=.*/DB_CONNECTION=mysql/" .env || true
+          sed -i -e "s/^DB_HOST=.*/DB_HOST=127.0.0.1/" .env || true
+          sed -i -e "s/^DB_PORT=.*/DB_PORT=3307/" .env || true
+          sed -i -e "s/^DB_DATABASE=.*/DB_DATABASE=laravel_test/" .env || true
+          sed -i -e "s/^DB_USERNAME=.*/DB_USERNAME=root/" .env || true
+          sed -i -e "s/^DB_PASSWORD=.*/DB_PASSWORD=password/" .env || true
           php artisan key:generate --ansi
           php artisan migrate:fresh --seed --env=testing -- --database=mysql
 
