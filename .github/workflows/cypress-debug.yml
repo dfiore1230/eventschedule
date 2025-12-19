@@ -71,7 +71,7 @@ jobs:
           sed -i -e "s/^DB_USERNAME=.*/DB_USERNAME=root/" .env || true
           sed -i -e "s/^DB_PASSWORD=.*/DB_PASSWORD=password/" .env || true
           php artisan key:generate --ansi
-          php artisan migrate:fresh --seed --env=testing -- --database=mysql
+          php artisan migrate:fresh --seed --database=mysql --env=testing
 
       - name: Run package discovery and optimize autoload
         run: |
