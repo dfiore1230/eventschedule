@@ -83,8 +83,10 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Install npm dependencies
-        run: npm ci --no-audit --no-fund
+      - name: Install npm dependencies (ci with fallback)
+        run: |
+          # Prefer a clean install from lockfile, but fall back to `npm install`
+          npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 
       - name: Build assets
         run: npm run build --silent || true
