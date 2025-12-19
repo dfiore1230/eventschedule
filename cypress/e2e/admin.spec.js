@@ -7,6 +7,9 @@ describe('Admin flows', () => {
       // fail fast if expected admin credentials are not present
       expect(seed, 'seedData from /__test/seed').to.have.property('admin_email');
       expect(seed, 'seedData from /__test/seed').to.have.property('admin_password');
+      // ensure the seed marked the admin as verified to avoid the verify-email flow
+      expect(seed, 'seedData includes admin_email_verified').to.have.property('admin_email_verified');
+      expect(seed.admin_email_verified, 'admin email is verified by seed').to.equal(true);
     });
   });
 

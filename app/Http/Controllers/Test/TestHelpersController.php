@@ -170,6 +170,8 @@ class TestHelpersController extends Controller
 
             $response['admin_email'] = $responseEmail ?? $admin->email;
             $response['admin_password'] = $adminPassword;
+            // indicate whether the admin's email was marked verified during seeding
+            $response['admin_email_verified'] = (bool) $admin->email_verified_at;
             $response['created_user_ids'] = [$admin->id];
 
             return response()->json($response);
