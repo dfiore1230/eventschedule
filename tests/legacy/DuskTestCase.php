@@ -174,29 +174,60 @@ abstract class DuskTestCase extends BaseTestCase
                     // php-webdriver's takeScreenshot() may return a base64 string or raw PNG data.
                     $screenshotData = $browser->driver->takeScreenshot();
 
+                    // Log raw screenshot return for debugging (may be base64 or raw PNG)
+                    try {
+                        $rawInfoPath = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-raw-screenshot-info.txt';
+                        file_put_contents($rawInfoPath, "len=" . (is_string($screenshotData) ? strlen($screenshotData) : 0) . "\n", FILE_APPEND);
+                        @file_put_contents('php://stderr', "DUSK: takeScreenshot returned length=" . (is_string($screenshotData) ? strlen($screenshotData) : 0) . " for {$name}\n");
+                    } catch (\Throwable $_) {
+                        // ignore
+                    }
+
                     if (is_string($screenshotData) && strlen($screenshotData) > 0) {
                         // Try decoding as base64 first. If that fails, write raw data as-is.
                         $decoded = @base64_decode($screenshotData, true);
 
                         if ($decoded !== false && strlen($decoded) > 0) {
                             file_put_contents($screenshotPath, $decoded);
+                            file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-raw-decode-succeeded.txt', date('c') . "\n", FILE_APPEND);
                         } else {
                             // Not valid base64; assume it's raw PNG data
                             file_put_contents($screenshotPath, $screenshotData);
+                            file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-raw-wrote-raw-data.txt', date('c') . "\n", FILE_APPEND);
                         }
                     }
 
                     if (! is_file($screenshotPath) && method_exists($browser->driver, 'executeCdpCommand')) {
                         // Try Chrome DevTools Protocol as a stronger fallback
                         try {
-                            $cdp = $browser->driver->executeCdpCommand('Page.captureScreenshot', []);
+                            // Use explicit options for CDP to ensure a rasterized capture
+                            $cdp = $browser->driver->executeCdpCommand('Page.captureScreenshot', ['format' => 'png', 'quality' => 90, 'fromSurface' => true]);
+
+                            // Write raw CDP JSON for debugging
+                            try {
+                                $cdpRawPath = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-cdp-raw.json';
+                                file_put_contents($cdpRawPath, json_encode($cdp, JSON_PRETTY_PRINT));
+                            } catch (\Throwable $_write) {
+                                // ignore
+                            }
 
                             if (is_array($cdp) && array_key_exists('data', $cdp) && strlen($cdp['data']) > 0) {
                                 file_put_contents($screenshotPath, base64_decode($cdp['data']));
                                 @file_put_contents('php://stderr', "DUSK: screenshot captured via CDP for {$name}\n");
+                            } else {
+                                try {
+                                    file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-cdp-empty.txt', date('c') . "\n", FILE_APPEND);
+                                } catch (\Throwable $_) {
+                                    // ignore
+                                }
                             }
                         } catch (\Throwable $_cdp) {
                             @file_put_contents('php://stderr', "DUSK: CDP screenshot failed for {$name}: {$_cdp->getMessage()}\n");
+                            try {
+                                file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-cdp-error.txt', $_cdp->getMessage() . PHP_EOL, FILE_APPEND);
+                            } catch (\Throwable $_) {
+                                // ignore
+                            }
                         }
                     }
 
