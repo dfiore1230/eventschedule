@@ -80,6 +80,14 @@ jobs:
           APP_ENV: local
           APP_URL: http://127.0.0.1:8000
 
+      - name: Dump /login page HTML (diagnostic)
+        if: always()
+        run: |
+          mkdir -p tests/legacy/Browser/screenshots
+          curl -sS http://127.0.0.1:8000/login -o tests/legacy/Browser/screenshots/login-page-after-dusk.html || true
+          echo "Wrote login page HTML to tests/legacy/Browser/screenshots/login-page-after-dusk.html" >&2
+          head -n 200 tests/legacy/Browser/screenshots/login-page-after-dusk.html || true
+
       - name: List screenshots directory (diagnostic)
         if: always()
         run: |
