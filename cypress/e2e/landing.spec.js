@@ -1,7 +1,14 @@
 describe('Landing page flows', () => {
   before(() => {
     // Seed test data via our CSRF-aware helper
-    cy.seedData();
+    cy.seedData().then(() => {
+      const seed = Cypress.env('seedData') || {};
+      // guard: ensure seeded events and secrets are present
+      expect(seed, 'seedData.events').to.have.property('events');
+      expect(seed.events, 'seedData.events').to.be.an('array').that.is.not.empty;
+      expect(seed, 'seedData.secrets').to.have.property('entry_secret');
+      expect(seed, 'seedData.secrets').to.have.property('sale_secret');
+    });
   });
 
   after(() => {

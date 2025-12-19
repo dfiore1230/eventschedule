@@ -4,6 +4,9 @@ describe('Admin flows', () => {
   before(() => {
     cy.seedData().then(() => {
       seed = Cypress.env('seedData') || {};
+      // fail fast if expected admin credentials are not present
+      expect(seed, 'seedData from /__test/seed').to.have.property('admin_email');
+      expect(seed, 'seedData from /__test/seed').to.have.property('admin_password');
     });
   });
 

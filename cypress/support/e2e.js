@@ -15,7 +15,19 @@ Cypress.Commands.add('seedData', () => {
       headers: { 'X-CSRF-TOKEN': token, Accept: 'application/json' },
       failOnStatusCode: false,
     }).then((resp) => {
+      // store both payload and status for diagnostics
       Cypress.env('seedData', resp.body || {});
+      Cypress.env('seedStatus', resp.status);
+
+      // If seed endpoint did not respond with success, fail early with a helpful message
+      if (resp.status !== 200) {
+        // Attach the response payload to the test runner logs and fail the command
+        // so that before() hooks fail fast with a clear error instead of producing
+        // obscure downstream failures (like `cy.type()` receiving undefined).
+        const details = typeof resp.body === 'object' ? JSON.stringify(resp.body) : String(resp.body);
+        throw new Error(`E2E seed failed (status ${resp.status}): ${details}`);
+      }
+
       return resp;
     });
   });

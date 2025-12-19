@@ -1,6 +1,11 @@
 describe('Landing mobile flows', () => {
   beforeEach(() => {
-    cy.seedData();
+    cy.seedData().then(() => {
+      const seed = Cypress.env('seedData') || {};
+      // guard: ensure recurring fields exist
+      expect(seed, 'seedData.recurring').to.have.property('recurring_name');
+      expect(seed, 'seedData.recurring_occurrences').to.have.property('length');
+    });
   });
 
   it('shows mobile list and toggle', () => {
