@@ -204,6 +204,10 @@ abstract class DuskTestCase extends BaseTestCase
                         $size = filesize($screenshotPath);
                         file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-screenshot-saved.txt', date('c') . " - saved ({$size} bytes)\n", FILE_APPEND);
                         @file_put_contents('php://stderr', "DUSK: screenshot saved {$screenshotPath} ({$size} bytes)\n");
+                    } else {
+                        // Write a missing marker so CI artifacts clearly indicate the screenshot was not produced
+                        file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-screenshot-missing.txt', date('c') . " - missing\n", FILE_APPEND);
+                        @file_put_contents('php://stderr', "DUSK: screenshot missing for {$name}\n");
                     }
                 } catch (\Throwable $e) {
                     // fallback to $browser->screenshot
@@ -238,6 +242,39 @@ abstract class DuskTestCase extends BaseTestCase
         } catch (\Throwable $e) {
             // ignore screenshot errors
             @file_put_contents('php://stderr', "DUSK: screenshot top-level error for {$name}: {$e->getMessage()}\n");
+        }
+
+        // Final attempt: if no screenshot file exists yet, try CDP again and then write a short path file + stderr summary
+        try {
+            if (! is_file($screenshotPath) && method_exists($browser->driver, 'executeCdpCommand')) {
+                try {
+                    $cdp = $browser->driver->executeCdpCommand('Page.captureScreenshot', []);
+
+                    if (is_array($cdp) && array_key_exists('data', $cdp) && strlen($cdp['data']) > 0) {
+                        file_put_contents($screenshotPath, base64_decode($cdp['data']));
+                        @file_put_contents('php://stderr', "DUSK: final CDP screenshot saved {$screenshotPath} size=" . filesize($screenshotPath) . "\n");
+                    }
+                } catch (\Throwable $_finalcdp) {
+                    @file_put_contents('php://stderr', "DUSK: final CDP screenshot failed for {$name}: " . $_finalcdp->getMessage() . "\n");
+                }
+            }
+        } catch (\Throwable $_) {
+            // best-effort; ignore
+        }
+
+        // Emit explicit screenshot path file for quick CI parsing (so workflow logs can show presence/size)
+        try {
+            $sPathFile = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-screenshot-path.txt';
+
+            if (is_file($screenshotPath)) {
+                file_put_contents($sPathFile, $screenshotPath . ' ' . filesize($screenshotPath) . PHP_EOL, FILE_APPEND);
+                @file_put_contents('php://stderr', "DUSK: screenshot path file written {$sPathFile}\n");
+            } else {
+                file_put_contents($sPathFile, 'MISSING' . PHP_EOL, FILE_APPEND);
+                @file_put_contents('php://stderr', "DUSK: screenshot missing for {$name}; path file written {$sPathFile}\n");
+            }
+        } catch (\Throwable $_) {
+            // ignore
         }
 
         try {
