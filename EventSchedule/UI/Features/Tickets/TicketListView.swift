@@ -307,7 +307,12 @@ struct TicketListView: View {
             let result = try await checkInRepo.scanTicket(code: code, eventId: "", gateId: nil, deviceId: UIDevice.current.identifierForVendor?.uuidString, instance: instance)
             await MainActor.run {
                 if result.status.isSuccess {
-                    toastMessage = "✅ \(result.status.displayName) - \(result.holder ?? "Unknown")"
+                    // Prefer server-provided message when present (e.g., fallback generic success)
+                    if let msg = result.message, !msg.isEmpty {
+                        toastMessage = "✅ \(result.status.displayName) - \(msg)"
+                    } else {
+                        toastMessage = "✅ \(result.status.displayName) - \(result.holder ?? "Unknown")"
+                    }
                 } else {
                     var msg = "⚠️ \(result.status.displayName)"
                     if let extra = result.message, !extra.isEmpty {

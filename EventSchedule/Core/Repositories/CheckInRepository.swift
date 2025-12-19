@@ -239,12 +239,20 @@ final class RemoteCheckInRepository: CheckInRepositoryProtocol {
         // so we can deterministically exercise the client-side handling without hitting the network.
         // Also support a 419/unauthorized simulation via a code starting with "UITEST_419" which throws
         // an .unauthorized APIError to exercise the unauthorized handling path.
+        // Support a "UITEST_2XX_MALFORMED" prefix to simulate a successful (2xx) response that
+        // contains an unexpected/malformed body; the client should fall back to a generic success
+        // result and log the decode issue to the console (UI must not show raw bodies).
         if ProcessInfo.processInfo.arguments.contains("--uitesting") {
             if ticketCode.starts(with: "UITEST_404") {
                 throw APIError.serverError(statusCode: 404, message: "Ticket not found (UITest)")
             }
             if ticketCode.starts(with: "UITEST_419") {
                 throw APIError.unauthorized
+            }
+            if ticketCode.starts(with: "UITEST_2XX_MALFORMED") {
+                // Simulate the fallback path: log an error and return a generic admitted result.
+                DebugLogger.error("UITest: Simulating malformed 2xx response for code \(ticketCode)")
+                return ScanResult(status: .admitted, message: "Ticket scanned (server confirmed).")
             }
         }
 
