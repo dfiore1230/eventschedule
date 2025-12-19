@@ -62,6 +62,65 @@ jobs:
         continue-on-error: true
         run: php artisan test || true
 
+      - name: Set up Dusk environment (always-run)
+        if: always()
+        run: |
+          cp .env .env.dusk.local || true
+          php artisan dusk:install || true
+          php artisan dusk:chrome-driver --detect || true
+          php artisan storage:link || true
+          php artisan migrate --env=testing --force || true
+
+      - name: Install npm dependencies and build assets (for Dusk)
+        if: always()
+        run: |
+          npm ci
+          npm run build
+        env:
+          LARAVEL_BYPASS_ENV_CHECK: 1
+
+      - name: Start Laravel server in background (for Dusk)
+        if: always()
+        run: php artisan serve --port 8000 > /dev/null 2>&1 &
+
+      - name: Run Laravel Dusk tests (always-run)
+        if: always()
+        run: |
+          cp .env .env.dusk.local || true
+          php artisan dusk tests/legacy/Browser/GeneralTest.php || true
+          php artisan dusk tests/legacy/Browser/TicketTest.php || true
+          php artisan dusk tests/legacy/Browser/CuratorEventTest.php || true
+          php artisan dusk tests/legacy/Browser/ApiTest.php || true
+          php artisan dusk tests/legacy/Browser/GroupsTest.php || true
+        env:
+          APP_ENV: local
+          APP_URL: http://127.0.0.1:8000
+
+      - name: Dump /login page HTML (diagnostic)
+        if: always()
+        run: |
+          mkdir -p tests/legacy/Browser/screenshots
+          curl -sS http://127.0.0.1:8000/login -o tests/legacy/Browser/screenshots/login-page-after-dusk.html || true
+          echo "Wrote login page HTML to tests/legacy/Browser/screenshots/login-page-after-dusk.html" >&2
+          head -n 200 tests/legacy/Browser/screenshots/login-page-after-dusk.html || true
+
+      - name: List screenshots directory (diagnostic)
+        if: always()
+        run: |
+          echo "Listing screenshots dir:"
+          ls -la tests/legacy/Browser/screenshots || true
+          echo "Listing text/html and txt files (first 200 lines):"
+          for f in tests/legacy/Browser/screenshots/*.{txt,html}; do
+            [ -f "$f" ] && echo "---- $f ----" && head -n 200 "$f" || true
+          done
+
+      - name: Upload Dusk Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dusk-screenshots
+          path: tests/legacy/Browser/screenshots
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
