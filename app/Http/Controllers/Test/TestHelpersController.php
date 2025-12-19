@@ -28,9 +28,20 @@ class TestHelpersController extends Controller
                 $dt = $baseDate->copy()->addDays($i % 28);
                 $ev = Event::factory()->create([
                     'starts_at' => $dt,
-                    'venue_id' => $venue->id,
                     'name' => "E2E Event {$i}",
                 ]);
+
+                // Attach the venue relationship via the event_role pivot (migrations
+                // may remove the `venue_id` column from `events`). This keeps the
+                // seeding compatible with either schema.
+                try {
+                    $ev->roles()->attach($venue->id, ['is_accepted' => true]);
+                } catch (\Throwable $e) {
+                    // If attaching fails (older schema that still has columns), set
+                    // the column directly as a fallback.
+                    try { $ev->venue_id = $venue->id; $ev->save(); } catch (\Throwable $_) {}
+                }
+
                 $createdEventObjects[] = $ev;
                 $events[] = [
                     'id' => $ev->id,
@@ -42,9 +53,14 @@ class TestHelpersController extends Controller
 
             $recurring = Event::factory()->create([
                 'days_of_week' => '0100000', // Monday
-                'venue_id' => $venue->id,
                 'name' => 'E2E Recurring',
             ]);
+
+            try {
+                $recurring->roles()->attach($venue->id, ['is_accepted' => true]);
+            } catch (\Throwable $e) {
+                try { $recurring->venue_id = $venue->id; $recurring->save(); } catch (\Throwable $_) {}
+            }
 
             // create an admin user for admin flow tests
             $adminPassword = 'password';
