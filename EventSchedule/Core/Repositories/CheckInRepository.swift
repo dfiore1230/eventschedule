@@ -234,6 +234,15 @@ final class RemoteCheckInRepository: CheckInRepositoryProtocol {
             let usage_status: String
         }
         
+        // UITest helper: allow injecting specific server responses by using special test codes.
+        // When running with --uitesting, a code starting with "UITEST_404" will simulate a 404 Not Found
+        // so we can deterministically exercise the client-side handling without hitting the network.
+        if ProcessInfo.processInfo.arguments.contains("--uitesting") {
+            if ticketCode.starts(with: "UITEST_404") {
+                throw APIError.serverError(statusCode: 404, message: "Ticket not found (UITest)")
+            }
+        }
+
         // Try to pre-fetch sale_ticket_id to assist backend scan resolution (optional)
         var resolvedSaleTicketId: Int? = nil
         do {

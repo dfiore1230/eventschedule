@@ -306,7 +306,15 @@ struct TicketListView: View {
         do {
             let result = try await checkInRepo.scanTicket(code: code, eventId: "", gateId: nil, deviceId: UIDevice.current.identifierForVendor?.uuidString, instance: instance)
             await MainActor.run {
-                toastMessage = result.status.isSuccess ? ("✅ \(result.status.displayName) - \(result.holder ?? "Unknown")") : ("⚠️ \(result.status.displayName)")
+                if result.status.isSuccess {
+                    toastMessage = "✅ \(result.status.displayName) - \(result.holder ?? "Unknown")"
+                } else {
+                    var msg = "⚠️ \(result.status.displayName)"
+                    if let extra = result.message, !extra.isEmpty {
+                        msg += ": \(extra)"
+                    }
+                    toastMessage = msg
+                }
             }
             // Refresh tickets list to reflect updated status
             await searchTickets()

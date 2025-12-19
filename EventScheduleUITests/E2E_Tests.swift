@@ -42,6 +42,36 @@ final class E2E_Tests: XCTestCase {
         XCTAssertTrue(usedElement.waitForExistence(timeout: 8), "Expected ticket to show as used after scan")
     }
 
+    func testScanTicketNotFound404() throws {
+        // Use a deterministic UITest-only code to simulate server 404
+        let testCode = "UITEST_404_NOTFOUND"
+        app.launchEnvironment["UITEST_SCAN_CODE"] = testCode
+        app.launch()
+
+        // Navigate to Tickets
+        let ticketsButton = app.buttons["Tickets"]
+        XCTAssertTrue(ticketsButton.waitForExistence(timeout: 5))
+        ticketsButton.tap()
+
+        // Tap scan toolbar button
+        let scanButton = app.buttons["TicketsScanButton"]
+        XCTAssertTrue(scanButton.waitForExistence(timeout: 5))
+        scanButton.tap()
+
+        // Inject the test scan
+        let injectButton = app.buttons["UITestInjectScanButton"]
+        XCTAssertTrue(injectButton.waitForExistence(timeout: 5))
+        injectButton.tap()
+
+        // Expect a toast containing 'Ticket not found' (case-insensitive)
+        let toastButton = app.buttons["ScanToast"]
+        XCTAssertTrue(toastButton.waitForExistence(timeout: 6), "Expected a scan result toast to appear")
+        XCTAssertTrue(toastButton.label.lowercased().contains("ticket not found"), "Expected toast to contain 'Ticket not found' for 404 response")
+
+        // Dismiss the toast
+        toastButton.tap()
+    }
+
     func testMediaLibraryDisplaysAllItems() throws {
         app.launch()
         let eventsButton = app.buttons["Events"]
