@@ -1,8 +1,6 @@
 describe('Landing mobile flows', () => {
   beforeEach(() => {
-    cy.request({ method: 'POST', url: '/__test/seed', failOnStatusCode: false }).then((resp) => {
-      Cypress.env('seedData', resp.body || {});
-    });
+    cy.seedData();
   });
 
   it('shows mobile list and toggle', () => {

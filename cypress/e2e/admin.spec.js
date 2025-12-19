@@ -2,20 +2,13 @@ describe('Admin flows', () => {
   let seed;
 
   before(() => {
-    cy.request({ method: 'POST', url: '/__test/seed', failOnStatusCode: false }).then((resp) => {
-      seed = resp.body || {};
-      Cypress.env('seedData', seed);
+    cy.seedData().then(() => {
+      seed = Cypress.env('seedData') || {};
     });
   });
 
   after(() => {
-    const seed = Cypress.env('seedData') || {};
-    cy.request({
-      method: 'POST',
-      url: '/__test/teardown',
-      body: { event_ids: seed.created_event_ids || [], sale_ids: seed.created_sale_ids || [], user_ids: seed.created_user_ids || [] },
-      failOnStatusCode: false,
-    });
+    cy.teardownData();
   });
 
   it('can log in as admin and see merged Events panel and list view', () => {
