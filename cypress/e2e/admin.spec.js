@@ -16,27 +16,19 @@ describe('Admin flows', () => {
 
   it('can log in as admin and see merged Events panel and list view', () => {
     const seed = Cypress.env('seedData');
-    // visit login and perform UI login
-    cy.visit('/login');
-    cy.get('input[name="email"]').type(seed.admin_email);
-    cy.get('input[name="password"]').type(seed.admin_password);
-    // Prefer explicit dusk login button; fall back to common submit patterns, button text, or pressing Enter
-    cy.get('button[dusk="log-in-button"], button[type="submit"]', { timeout: 20000 }).then($btns => {
-      if ($btns.length) {
-        const $btn = $btns.first();
-        // force click the login button to avoid issues with temporary disabled state
-        cy.wrap($btn).click({ force: true });
-      } else {
-        // try matching common text labels (Log in / Sign in)
-        cy.contains('button', /log ?in|sign ?in/i, { matchCase: false }).then($textBtn => {
-          if ($textBtn && $textBtn.length) {
-            cy.wrap($textBtn).click();
-          } else {
-            // final fallback: press Enter in the password field
-            cy.get('input[name="password"]').type('{enter}');
-          }
-        });
-      }
+    // Programmatic login for determinism: fetch CSRF token then post credentials
+    cy.request('/login').then((resp) => {
+      const body = resp.body || '';
+      const m = body.match(/name="_token" value="([^"]+)"/);
+      const token = m ? m[1] : null;
+      expect(token, 'csrf token from /login').to.be.a('string');
+
+      cy.request({
+        method: 'POST',
+        url: '/login',
+        form: true,
+        body: { _token: token, email: seed.admin_email, password: seed.admin_password },
+      });
     });
 
     // ensure we are logged in by visiting /home
