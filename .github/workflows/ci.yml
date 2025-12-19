@@ -152,9 +152,9 @@ jobs:
       - name: Run Cypress tests
         uses: cypress-io/github-action@v5
         with:
-          start: php artisan serve --port 8000
+          # The server is already started earlier in this job (for Dusk); do not attempt to start a second one
           wait-on: 'http://127.0.0.1:8000'
-          run: npm run cypress:run
+          runTests: npm run cypress:run
 
   e2e:
     needs: tests
@@ -179,6 +179,6 @@ jobs:
       - name: Run Cypress for ${{ matrix.viewport.name }}
         uses: cypress-io/github-action@v5
         with:
-          start: php artisan serve --port 8000
+          # The server is already started earlier in the 'tests' job; do not attempt to start another instance here
           wait-on: 'http://127.0.0.1:8000'
-          run: npm run cypress:run -- --config viewportWidth=${{ matrix.viewport.width }},viewportHeight=${{ matrix.viewport.height }}
+          runTests: npm run cypress:run -- --config viewportWidth=${{ matrix.viewport.width }},viewportHeight=${{ matrix.viewport.height }}
