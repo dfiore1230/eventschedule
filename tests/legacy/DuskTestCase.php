@@ -158,30 +158,64 @@ abstract class DuskTestCase extends BaseTestCase
         }
 
         // Prefer using the WebDriver's takeScreenshot method so we can write directly
+        // write a small marker that capture started (helps CI confirm invocation)
+        try {
+            file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-capture-attempt.txt', date('c') . " - capture started\n", FILE_APPEND);
+            @file_put_contents('php://stderr', "DUSK: capture start {$name} to {$dir}\n");
+        } catch (\Throwable $_) {
+            // ignore marker errors
+        }
+
         try {
             $screenshotPath = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '.png';
 
             if (method_exists($browser->driver, 'takeScreenshot')) {
                 try {
-                    $browser->driver->takeScreenshot($screenshotPath);
-                } catch (\Throwable $_) {
+                    // php-webdriver's takeScreenshot() returns a base64 string; write it to disk explicitly
+                    $screenshotData = $browser->driver->takeScreenshot();
+
+                    if (is_string($screenshotData) && strlen($screenshotData) > 0) {
+                        file_put_contents($screenshotPath, base64_decode($screenshotData));
+                    }
+
+                    if (is_file($screenshotPath)) {
+                        $size = filesize($screenshotPath);
+                        file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-screenshot-saved.txt', date('c') . " - saved ({$size} bytes)\n", FILE_APPEND);
+                        @file_put_contents('php://stderr', "DUSK: screenshot saved {$screenshotPath} ({$size} bytes)\n");
+                    }
+                } catch (\Throwable $e) {
                     // fallback to $browser->screenshot
                     try {
                         $browser->screenshot($name);
+
+                        if (is_file($screenshotPath)) {
+                            $size = filesize($screenshotPath);
+                            file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-screenshot-saved.txt', date('c') . " - saved via fallback ({$size} bytes)\n", FILE_APPEND);
+                            @file_put_contents('php://stderr', "DUSK: screenshot fallback saved {$screenshotPath} ({$size} bytes)\n");
+                        }
                     } catch (\Throwable $__) {
                         // ignore screenshot errors
+                        @file_put_contents('php://stderr', "DUSK: screenshot failed for {$name}: {$e->getMessage()}\n");
                     }
                 }
             } else {
                 // fallback to the Dusk helper
                 try {
                     $browser->screenshot($name);
+
+                    if (is_file($screenshotPath)) {
+                        $size = filesize($screenshotPath);
+                        file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-screenshot-saved.txt', date('c') . " - saved via helper ({$size} bytes)\n", FILE_APPEND);
+                        @file_put_contents('php://stderr', "DUSK: screenshot helper saved {$screenshotPath} ({$size} bytes)\n");
+                    }
                 } catch (\Throwable $__) {
                     // ignore screenshot errors
+                    @file_put_contents('php://stderr', "DUSK: screenshot helper failed for {$name}: {$__->getMessage()}\n");
                 }
             }
         } catch (\Throwable $e) {
             // ignore screenshot errors
+            @file_put_contents('php://stderr', "DUSK: screenshot top-level error for {$name}: {$e->getMessage()}\n");
         }
 
         try {
@@ -189,8 +223,15 @@ abstract class DuskTestCase extends BaseTestCase
             $path = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '.html';
 
             file_put_contents($path, $source);
+
+            if (is_file($path)) {
+                $size = filesize($path);
+                file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-html-saved.txt', date('c') . " - saved ({$size} bytes)\n", FILE_APPEND);
+                @file_put_contents('php://stderr', "DUSK: html saved {$path} ({$size} bytes)\n");
+            }
         } catch (\Throwable $e) {
             // ignore page source errors
+            @file_put_contents('php://stderr', "DUSK: html capture failed for {$name}: {$e->getMessage()}\n");
         }
     }
 
