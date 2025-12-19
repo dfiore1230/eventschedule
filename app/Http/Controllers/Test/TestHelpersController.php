@@ -64,33 +64,18 @@ class TestHelpersController extends Controller
 
             // create an admin user for admin flow tests (use firstOrCreate to be idempotent in CI)
             $adminPassword = 'password';
-            try {
-                $admin = \App\Models\User::firstOrCreate(
-                    ['email' => 'e2e-admin@example.test'],
-                    ['name' => 'E2E Admin', 'password' => bcrypt($adminPassword), 'timezone' => config('app.timezone', 'UTC')]
-                );
-            } catch (\Throwable $e) {
-                // Be tolerant of race conditions or duplicate insert errors in CI; poll briefly for an existing user before failing
-                \Log::warning('E2E seed: firstOrCreate for admin failed, polling for existing user', ['exception' => $e]);
-                $admin = null;
-                $attempts = 0;
-                while ($attempts < 10 && ! $admin) {
-                    $admin = \App\Models\User::where('email', 'e2e-admin@example.test')->first();
-                    if ($admin) {
-                        break;
-                    }
-                    usleep(100 * 1000); // 100ms
-                    $attempts++;
-                }
+            // Ensure idempotent admin creation: remove any stale test user then create.
+            // This avoids unique constraint insert failures in CI where previous runs may leave the user behind.
+            \App\Models\User::where('email', 'e2e-admin@example.test')->delete();
 
+            try {
+                $admin = \App\Models\User::create(['email' => 'e2e-admin@example.test', 'name' => 'E2E Admin', 'password' => bcrypt($adminPassword), 'timezone' => config('app.timezone', 'UTC')]);
+            } catch (\Throwable $e) {
+                // In case of race conditions, attempt to fetch existing user before failing
+                \Log::warning('E2E seed: create admin failed, attempting to fetch existing user', ['exception' => $e]);
+                $admin = \App\Models\User::where('email', 'e2e-admin@example.test')->first();
                 if (! $admin) {
-                    // Last resort: try a direct insert ignoring exceptions to avoid flakiness in CI
-                    try {
-                        $admin = \App\Models\User::create(['email' => 'e2e-admin@example.test', 'name' => 'E2E Admin', 'password' => bcrypt($adminPassword), 'timezone' => config('app.timezone', 'UTC')]);
-                    } catch (\Throwable $_e) {
-                        \Log::error('E2E seed: unable to resolve admin user after duplicate error', ['exception' => $_e]);
-                        throw $e;
-                    }
+                    throw $e;
                 }
             }
 
