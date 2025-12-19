@@ -1,0 +1,65 @@
+name: Cypress debug (failing specs)
+
+on:
+  push:
+    branches:
+      - debug/cypress-failures
+  workflow_dispatch: {}
+
+jobs:
+  debug-cypress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.3
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Prepare database (MySQL)
+        run: |
+          docker run --name mysql-debug -e MYSQL_ROOT_PASSWORD=password -e MYSQL_DATABASE=laravel_test -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -d -p 3307:3306 mysql:8 || true
+          sleep 10
+
+      - name: Create .env and migrate
+        run: |
+          cp .env.example .env
+          php artisan key:generate --ansi
+          php artisan migrate:fresh --seed --env=testing -- --database=mysql
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install npm dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build assets
+        run: npm run build --silent || true
+
+      - name: Start Laravel server
+        run: php artisan serve --port 8000 &
+
+      - name: Run failing Cypress specs
+        run: |
+          mkdir -p cypress/screenshots cypress/videos
+          # Run only the failing specs we observed; keep cmd idempotent and non-blocking
+          npx cypress run --spec "cypress/e2e/admin.spec.js" || true
+          npx cypress run --spec "cypress/e2e/landing.mobile.spec.js" || true
+          npx cypress run --spec "cypress/e2e/landing.spec.js" || true
+
+      - name: Upload Cypress artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-debug-artifacts
+          path: |
+            cypress/screenshots
+            cypress/videos
+            cypress/results || true
