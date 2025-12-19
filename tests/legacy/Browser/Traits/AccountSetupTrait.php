@@ -61,6 +61,19 @@ trait AccountSetupTrait
                     $browser->assertPathIs('/login')
                             ->waitFor('input[name="email"]', 10);
                 } catch (Throwable $e) {
+                    // write a simple marker so we can confirm the catch executed and artifacts will be uploaded
+                    try {
+                        $markerDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'screenshots';
+
+                        if (! is_dir($markerDir)) {
+                            @mkdir($markerDir, 0777, true);
+                        }
+
+                        @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - capture attempted\n", FILE_APPEND);
+                    } catch (\Throwable $_) {
+                        // ignore
+                    }
+
                     if (method_exists($this, 'captureBrowserState')) {
                         try {
                             $this->captureBrowserState($browser, 'signup-login-wait-failed');
@@ -81,6 +94,19 @@ trait AccountSetupTrait
                 try {
                     $browser->waitFor('input[name="email"]', 10);
                 } catch (Throwable $e) {
+                    // write a simple marker so we can confirm the catch executed and artifacts will be uploaded
+                    try {
+                        $markerDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'screenshots';
+
+                        if (! is_dir($markerDir)) {
+                            @mkdir($markerDir, 0777, true);
+                        }
+
+                        @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - capture attempted\n", FILE_APPEND);
+                    } catch (\Throwable $_) {
+                        // ignore
+                    }
+
                     if (method_exists($this, 'captureBrowserState')) {
                         try {
                             $this->captureBrowserState($browser, 'signup-login-wait-failed');
