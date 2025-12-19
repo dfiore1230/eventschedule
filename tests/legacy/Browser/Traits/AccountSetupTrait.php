@@ -76,22 +76,14 @@ trait AccountSetupTrait
                             @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - browser path: " . $this->currentPath($browser) . " - url: " . $browser->driver->getCurrentURL() . "\n", FILE_APPEND);
                         } catch (\Throwable $_) {
                             // ignore
-                        }
-
-                        // Driver-level diagnostics: readyState, element presence/visibility, computed styles, window handle
+                        }                        // Driver-level diagnostics: readyState, element presence; keep scripts minimal to avoid JS parsing differences in CI
                         try {
-                            $readyState = $browser->driver->executeScript('return document.readyState;');
-                            $elementExists = $browser->driver->executeScript(<<<'JS'
-                                return !!document.querySelector('input[name="email"]');
-                            JS
-                            );');
-                            $elementInfo = $browser->driver->executeScript(<<<'JS'
-                                var el = document.querySelector('input[name="email"]');
-                                if (!el) return null;
-                                var s = window.getComputedStyle(el);
-                                return {display: s.display, visibility: s.visibility, offsetWidth: el.offsetWidth, offsetHeight: el.offsetHeight, type: el.type};
-                            JS
-                            ); if (!el) return null; var s = window.getComputedStyle(el); return {display: s.display, visibility: s.visibility, offsetWidth: el.offsetWidth, offsetHeight: el.offsetHeight, type: el.type};');
+                            $readyState = ($browser->script('return typeof document !== "undefined" ? document.readyState : null;'))[0] ?? null;
+
+                            $elementExists = ($browser->script('return !!document.querySelector("input[name=\"email\"]");'))[0] ?? false;
+
+                            $elementInfo = null;
+
                             $currentUrl = $browser->driver->getCurrentURL();
                             $windowHandle = $browser->driver->getWindowHandle();
 
@@ -166,22 +158,14 @@ trait AccountSetupTrait
                             @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - browser path: " . $this->currentPath($browser) . " - url: " . $browser->driver->getCurrentURL() . "\n", FILE_APPEND);
                         } catch (\Throwable $_) {
                             // ignore
-                        }
-
-                        // Driver-level diagnostics: readyState, element presence/visibility, computed styles, window handle
+                        }                        // Driver-level diagnostics: readyState, element presence; keep scripts minimal to avoid JS parsing differences in CI
                         try {
-                            $readyState = $browser->driver->executeScript('return document.readyState;');
-                            $elementExists = $browser->driver->executeScript(<<<'JS'
-                                return !!document.querySelector('input[name="email"]');
-                            JS
-                            );');
-                            $elementInfo = $browser->driver->executeScript(<<<'JS'
-                                var el = document.querySelector('input[name="email"]');
-                                if (!el) return null;
-                                var s = window.getComputedStyle(el);
-                                return {display: s.display, visibility: s.visibility, offsetWidth: el.offsetWidth, offsetHeight: el.offsetHeight, type: el.type};
-                            JS
-                            ); if (!el) return null; var s = window.getComputedStyle(el); return {display: s.display, visibility: s.visibility, offsetWidth: el.offsetWidth, offsetHeight: el.offsetHeight, type: el.type};');
+                            $readyState = ($browser->script('return typeof document !== "undefined" ? document.readyState : null;'))[0] ?? null;
+
+                            $elementExists = ($browser->script('return !!document.querySelector("input[name=\"email\"]");'))[0] ?? false;
+
+                            $elementInfo = null;
+
                             $currentUrl = $browser->driver->getCurrentURL();
                             $windowHandle = $browser->driver->getWindowHandle();
 
