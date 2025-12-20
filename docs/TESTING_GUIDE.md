@@ -24,6 +24,13 @@ A GitHub Actions workflow is included at `.github/workflows/ci.yml` which runs P
 - Open interactive runner: `npm run cypress:open`.
 - Run headless: `npm run cypress:run`.
 
+Debugging and diagnostics
+
+- A debug GitHub Actions workflow is available at `.github/workflows/cypress-debug.yml`. It is intended for focused troubleshooting — it runs only the failing specs and uploads `cypress/screenshots`, `cypress/videos`, and `cypress/results` as artifacts so you can download them and inspect HTML snapshots and recordings.
+- For on-demand local or CI debug output, set the env flag `CYPRESS_DEBUG=true` (Cypress exposes `CYPRESS_`-prefixed env vars to `Cypress.env()`). When set, tests write HTML snapshots and session cookie details to `cypress/results/` and capture screenshots for easier triage.
+- The seed endpoint `/__test/seed` is intentionally allowed only in `local` and `testing` environments; it now returns `admin_email_verified` and the seeded admin will have `email_verified_at` set so tests do not get routed to the verify-email flow.
+
+
 ### Postman
 - Import `docs/postman/ScanAPI.postman_collection.json` into Postman and run the requests against your `baseUrl`.
 
