@@ -17,81 +17,169 @@ class TestHelpersController extends Controller
             return response()->json(['error' => 'Not allowed'], 403);
         }
 
-        $venue = Role::factory()->create(['type' => 'venue']);
+        try {
+            $venue = Role::factory()->create(['type' => 'venue']);
 
-        // create a batch of events to support pagination tests
-        $events = [];
-        $createdEventObjects = [];
-        $baseDate = now()->startOfMonth()->addDays(1)->setTime(18, 0);
-        for ($i = 1; $i <= 15; $i++) {
-            $dt = $baseDate->copy()->addDays($i % 28);
-            $ev = Event::factory()->create([
-                'starts_at' => $dt,
-                'venue_id' => $venue->id,
-                'name' => "E2E Event {$i}",
+            // create a batch of events to support pagination tests
+            $events = [];
+            $createdEventObjects = [];
+            $baseDate = now()->startOfMonth()->addDays(1)->setTime(18, 0);
+            for ($i = 1; $i <= 15; $i++) {
+                $dt = $baseDate->copy()->addDays($i % 28);
+                $ev = Event::factory()->create([
+                    'starts_at' => $dt,
+                    'name' => "E2E Event {$i}",
+                ]);
+
+                // Attach the venue relationship via the event_role pivot (migrations
+                // may remove the `venue_id` column from `events`). This keeps the
+                // seeding compatible with either schema.
+                try {
+                    $ev->roles()->attach($venue->id, ['is_accepted' => true]);
+                } catch (\Throwable $e) {
+                    // If attaching fails (older schema that still has columns), set
+                    // the column directly as a fallback.
+                    try { $ev->venue_id = $venue->id; $ev->save(); } catch (\Throwable $_) {}
+                }
+
+                $createdEventObjects[] = $ev;
+                $events[] = [
+                    'id' => $ev->id,
+                    'name' => $ev->translatedName(),
+                    'starts_at' => $ev->starts_at ? $ev->getStartDateTime(null, true) : null,
+                    'guest_url' => $ev->getGuestUrl(false, true),
+                ];
+            }
+
+            $recurring = Event::factory()->create([
+                'days_of_week' => '0100000', // Monday
+                'name' => 'E2E Recurring',
             ]);
-            $createdEventObjects[] = $ev;
-            $events[] = [
-                'id' => $ev->id,
-                'name' => $ev->translatedName(),
-                'starts_at' => $ev->starts_at ? $ev->getStartDateTime(null, true) : null,
-                'guest_url' => $ev->getGuestUrl(false, true),
+
+            try {
+                $recurring->roles()->attach($venue->id, ['is_accepted' => true]);
+            } catch (\Throwable $e) {
+                try { $recurring->venue_id = $venue->id; $recurring->save(); } catch (\Throwable $_) {}
+            }
+
+            // create an admin user for admin flow tests
+            // Use a unique email per-seed run to avoid duplicate-key races across concurrent CI runs
+            $adminPassword = 'password';
+            $adminEmail = 'e2e-admin+' . substr(bin2hex(random_bytes(6)), 0, 8) . '@example.test';
+
+            try {
+                $admin = \App\Models\User::create(['email' => $adminEmail, 'name' => 'E2E Admin', 'password' => bcrypt($adminPassword), 'timezone' => config('app.timezone', 'UTC')]);
+            } catch (\Throwable $e) {
+                // In the unlikely case this collisions, attempt to fetch existing user and retry a couple of times
+                \Log::warning('E2E seed: create admin failed, attempting to fetch existing user', ['exception' => $e]);
+
+                $admin = null;
+                $attempts = 0;
+                while ($attempts < 6 && ! $admin) {
+                    $admin = \App\Models\User::where('email', $adminEmail)->first();
+                    if ($admin) {
+                        break;
+                    }
+
+                    usleep(100000);
+                    $attempts++;
+                }
+
+                if (! $admin) {
+                    throw $e;
+                }
+            }
+
+            // ensure admin email is verified so tests do not hit the verify-email flow
+            try {
+                if (! $admin->email_verified_at) {
+                    $admin->email_verified_at = now();
+                    $admin->save();
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('E2E seed: could not mark admin as email_verified', ['exception' => $e]);
+            }
+
+            // attempt to grant the admin the 'superadmin' system role if roles are available
+            try {
+                $superRole = \App\Models\SystemRole::where('slug', 'superadmin')->first();
+                if ($superRole) {
+                    $admin->systemRoles()->syncWithoutDetaching([$superRole->id]);
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('E2E seed: could not attach system role to admin', ['exception' => $e]);
+            }
+
+            // continue to return the dynamic email/password to the caller
+            $responseEmail = $admin->email;
+
+            // assign ownership of first few events to admin so admin can manage them
+            if (! empty($createdEventObjects)) {
+                foreach (array_slice($createdEventObjects, 0, 3) as $ev) {
+                    $ev->user_id = $admin->id;
+                    $ev->save();
+                }
+            }
+
+            // Create a sale & entry when possible; skip gracefully if factories are not present
+            try {
+                if (method_exists(Sale::class, 'factory')) {
+                    $sale = Sale::factory()->create(['secret' => 'sale-secret-ABC', 'event_id' => $createdEventObjects[0]->id]);
+                } else {
+                    // create a minimal ticket and sale manually
+                    $ticket = \App\Models\Ticket::create(['event_id' => $createdEventObjects[0]->id, 'type' => 'general', 'quantity' => 100, 'price' => 0]);
+                    $sale = Sale::create(['ticket_id' => $ticket->id, 'event_id' => $createdEventObjects[0]->id, 'name' => 'E2E Buyer', 'email' => 'e2e-buyer@example.test', 'secret' => 'sale-secret-ABC', 'quantity' => 1]);
+                }
+
+                if (method_exists(SaleTicketEntry::class, 'factory')) {
+                    $entry = SaleTicketEntry::factory()->create(['secret' => 'entry-secret-123', 'sale_id' => $sale->id]);
+                } else {
+                    // fallback manual entry
+                    $entry = \App\Models\SaleTicketEntry::create(['sale_id' => $sale->id, 'secret' => 'entry-secret-123']);
+                }
+            } catch (\Throwable $e) {
+                // make seed tolerant to missing factories or schema differences
+                $sale = null;
+                $entry = null;
+                \Log::warning('E2E seed: could not create sale/entry', ['exception' => $e]);
+            }
+
+            // compute next few occurrences for the recurring event
+            $occurrences = [];
+            $start = now()->startOfMonth();
+            $end = now()->endOfMonth();
+            $d = $start->copy();
+            while ($d->lte($end) && count($occurrences) < 5) {
+                if ($recurring->matchesDate($d)) {
+                    $occurrences[] = $d->format('Y-m-d');
+                }
+                $d->addDay();
+            }
+
+            $response = [
+                'venue_id' => $venue->id,
+                'events' => $events,
+                'recurring_id' => $recurring->id,
+                'recurring_name' => $recurring->translatedName(),
+                'recurring_occurrences' => $occurrences,
+                'sale_secret' => $sale ? $sale->secret : null,
+                'entry_secret' => $entry ? $entry->secret : null,
+                'created_event_ids' => array_map(fn($e) => $e['id'], $events),
+                'created_sale_ids' => $sale ? [$sale->id] : [],
             ];
+
+            $response['admin_email'] = $responseEmail ?? $admin->email;
+            $response['admin_password'] = $adminPassword;
+            // indicate whether the admin's email was marked verified during seeding
+            $response['admin_email_verified'] = (bool) $admin->email_verified_at;
+            $response['created_user_ids'] = [$admin->id];
+
+            return response()->json($response);
+        } catch (\Throwable $e) {
+            // Provide detailed error payload for debug runs in CI
+            \Log::error('E2E seed error', ['exception' => $e]);
+            return response()->json(['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()], 500);
         }
-
-        $recurring = Event::factory()->create([
-            'days_of_week' => '0100000', // Monday
-            'venue_id' => $venue->id,
-            'name' => 'E2E Recurring',
-        ]);
-
-        // create an admin user for admin flow tests
-        $adminPassword = 'password';
-        $admin = \App\Models\User::factory()->create([
-            'email' => 'e2e-admin@example.test',
-            'password' => bcrypt($adminPassword),
-        ]);
-
-        // assign ownership of first few events to admin so admin can manage them
-        if (! empty($createdEventObjects)) {
-            foreach (array_slice($createdEventObjects, 0, 3) as $ev) {
-                $ev->user_id = $admin->id;
-                $ev->save();
-            }
-        }
-
-        $sale = Sale::factory()->create(['secret' => 'sale-secret-ABC', 'event_id' => $createdEventObjects[0]->id]);
-        $entry = SaleTicketEntry::factory()->create(['secret' => 'entry-secret-123', 'sale_id' => $sale->id]);
-
-        // compute next few occurrences for the recurring event
-        $occurrences = [];
-        $start = now()->startOfMonth();
-        $end = now()->endOfMonth();
-        $d = $start->copy();
-        while ($d->lte($end) && count($occurrences) < 5) {
-            if ($recurring->matchesDate($d)) {
-                $occurrences[] = $d->format('Y-m-d');
-            }
-            $d->addDay();
-        }
-
-        $response = [
-            'venue_id' => $venue->id,
-            'events' => $events,
-            'recurring_id' => $recurring->id,
-            'recurring_name' => $recurring->translatedName(),
-            'recurring_occurrences' => $occurrences,
-            'sale_secret' => $sale->secret,
-            'entry_secret' => $entry->secret,
-            'created_event_ids' => array_map(fn($e) => $e['id'], $events),
-            'created_sale_ids' => [$sale->id],
-        ];
-
-        $response['admin_email'] = $admin->email;
-        $response['admin_password'] = $adminPassword;
-        $response['created_user_ids'] = [$admin->id];
-
-        return response()->json($response);
     }
 
     public function teardownE2eData(Request $request)

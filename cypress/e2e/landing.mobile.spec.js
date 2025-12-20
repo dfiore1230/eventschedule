@@ -1,7 +1,12 @@
 describe('Landing mobile flows', () => {
   beforeEach(() => {
-    cy.request({ method: 'POST', url: '/__test/seed', failOnStatusCode: false }).then((resp) => {
-      Cypress.env('seedData', resp.body || {});
+    cy.seedData().then(() => {
+      const seed = Cypress.env('seedData') || {};
+      // guard: ensure recurring fields exist
+      expect(seed, 'seedData.recurring').to.have.property('recurring_name');
+      expect(seed, 'seedData').to.have.property('recurring_occurrences');
+      expect(seed.recurring_occurrences, 'seedData.recurring_occurrences').to.be.an('array');
+      expect(seed.recurring_occurrences.length, 'seedData.recurring_occurrences.length').to.be.greaterThan(0);
     });
   });
 
@@ -9,17 +14,16 @@ describe('Landing mobile flows', () => {
     const seed = Cypress.env('seedData');
     cy.viewport(375, 812);
     cy.visit('/');
-    // mobile toggle should be visible
-    cy.get('.mb-4.flex.items-center.justify-end.md:hidden').should('exist');
+    // mobile events list should be present on a mobile viewport
+    cy.get('#mobileEventsList').should('exist');
     // open mobile list by checking presence of mobile events list or by ensuring recurring event is visible
     if (seed.recurring_name) {
-      cy.contains(seed.recurring_name).should('exist');
+      // ensure the recurring event is present in the mobile list (may not be first)
+      cy.get('#mobileEventsList').contains(seed.recurring_name).should('exist');
 
-      // assert the mobile list item has an image or time text for the event
+      // assert at least one list item contains the recurring name
       cy.get('#mobileEventsList').within(() => {
-        cy.get('li').first().should('exist').and(($li) => {
-          expect($li.text()).to.include(seed.recurring_name);
-        });
+        cy.get('li').should('contain.text', seed.recurring_name);
       });
     }
   });
