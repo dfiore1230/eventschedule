@@ -1,5 +1,6 @@
 describe('Admin flows', () => {
   let seed;
+  const DEBUG = !!(Cypress.env('CYPRESS_DEBUG') === true || Cypress.env('CYPRESS_DEBUG') === 'true' || Cypress.env('CYPRESS_DEBUG') === '1');
 
   before(() => {
     cy.seedData().then(() => {
@@ -42,9 +43,8 @@ describe('Admin flows', () => {
     // Check server-side session by requesting the list page and capture HTML for diagnostics
     cy.request({ url: '/home?view=list' }).then((resp) => {
       cy.log('home list status: ' + resp.status);
-      cy.writeFile('cypress/results/admin-home-response.html', resp.body);
-
       const body = resp.body || '';
+      if (DEBUG) { cy.writeFile('cypress/results/admin-home-response.html', resp.body); }
       cy.log('home snippet: ' + (body ? body.substr(0, 800) : '[empty]'));
       const isLoggedIn = /form method="POST" action="\/logout"|<table|E2E Event 1/.test(body);
 
@@ -52,7 +52,7 @@ describe('Admin flows', () => {
         // Programmatic login didn't create a logged-in session. Inspect /login HTML before doing UI fallback.
         cy.log('Programmatic login did not create a session; fetching /login HTML to decide fallback approach');
         cy.request({ url: '/login' }).then((loginPage) => {
-          cy.writeFile('cypress/results/login-page-response.html', loginPage.body);
+          if (DEBUG) { cy.writeFile('cypress/results/login-page-response.html', loginPage.body); }
           const loginBody = loginPage.body || '';
           cy.log('login page snippet: ' + (loginBody ? loginBody.substr(0, 500) : '[empty]'));
 
@@ -71,7 +71,7 @@ describe('Admin flows', () => {
           // Re-check the list page after UI login
           cy.request({ url: '/home?view=list' }).then((resp2) => {
             cy.log('post-UI-login home status: ' + resp2.status);
-            cy.writeFile('cypress/results/admin-home-response-after-fallback.html', resp2.body);
+            if (DEBUG) { cy.writeFile('cypress/results/admin-home-response-after-fallback.html', resp2.body); }
             const body2 = resp2.body || '';
             expect(/form method="POST" action="\/logout"|<table|E2E Event 1/.test(body2), 'login fallback produced admin page').to.be.true;
           });
@@ -81,16 +81,16 @@ describe('Admin flows', () => {
 
     // Visit the admin home list view and capture a screenshot for visual diagnostics
     cy.visit('/home?view=list');
-    cy.screenshot('admin-after-visit');
+    if (DEBUG) { cy.screenshot('admin-after-visit'); }
 
     // Also fetch the raw HTML of the list page and save it for post-mortem
     cy.request({ url: '/home?view=list' }).then((finalResp) => {
-      cy.writeFile('cypress/results/admin-home-response-final.html', finalResp.body || '');
+      if (DEBUG) { cy.writeFile('cypress/results/admin-home-response-final.html', finalResp.body || ''); }
       cy.log('admin final page snippet: ' + (finalResp.body ? finalResp.body.substr(0, 800) : '[empty]'));
 
       // capture session cookie for diagnostics
       cy.getCookie('laravel_session').then((cookie) => {
-        cy.writeFile('cypress/results/session-cookie.json', cookie || {});
+        if (DEBUG) { cy.writeFile('cypress/results/session-cookie.json', cookie || {}); }
         cy.log('session cookie: ' + JSON.stringify(cookie || {}));
       });
 
