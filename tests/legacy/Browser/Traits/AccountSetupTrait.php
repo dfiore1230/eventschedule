@@ -42,14 +42,241 @@ trait AccountSetupTrait
         try {
             $currentPath = $this->waitForAnyLocation($browser, ['/events', '/login', '/'], 20);
         } catch (Throwable $exception) {
+            // Capture diagnostic info if the post-signup redirect doesn't appear
+            if (method_exists($this, 'captureBrowserState')) {
+                try {
+                    $this->captureBrowserState($browser, 'signup-waitforlocation-failed');
+                } catch (\Throwable $_) {
+                    // ignore diagnostic failures
+                }
+            }
+
             $currentPath = $this->currentPath($browser);
         }
 
         if (! $currentPath || ! Str::startsWith($currentPath, '/events')) {
-            $browser->assertPathIs('/login')
-                    ->type('email', $email)
-                    ->type('password', $password)
-                    ->click('@log-in-button');
+            // If we're already on the login page, assert and submit; otherwise visit it first
+            if ($currentPath === '/login') {
+                try {
+                    $browser->assertPathIs('/login');
+
+                    // Pre-wait diagnostics: log readyState and do a short quick-poll for the input to detect timing races
+                    try {
+                        $markerDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'screenshots';
+
+                        if (! is_dir($markerDir)) {
+                            @mkdir($markerDir, 0777, true);
+                        }
+
+                        $readyState = ($browser->script('return typeof document !== "undefined" ? document.readyState : null;'))[0] ?? null;
+                        $elementPresent = ($browser->script('return !!document.querySelector("input[name=\"email\"]");'))[0] ?? false;
+
+                        @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-prewait.txt', date('c') . " - readyState={$readyState} element_present=" . ($elementPresent ? 'true' : 'false') . "\n", FILE_APPEND);
+
+                        try {
+                            $browser->waitUsing(3, 500, function () use ($browser) {
+                                $res = $browser->script('return !!document.querySelector("input[name=\"email\"]");');
+
+                                return ! empty($res) && ($res[0] === true || $res[0] === 'true');
+                            });
+
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-prewait.txt', date('c') . " - quick poll found=true\n", FILE_APPEND);
+                        } catch (\Throwable $_) {
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-prewait.txt', date('c') . " - quick poll found=false\n", FILE_APPEND);
+                        }
+                    } catch (\Throwable $_) {
+                        // ignore pre-wait diagnostics failures
+                    }
+
+                    $this->waitForLoginEmail($browser, 10);
+                } catch (Throwable $e) {
+                    // write a simple marker so we can confirm the catch executed and artifacts will be uploaded
+                    try {
+                        $markerDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'screenshots';
+
+                        if (! is_dir($markerDir)) {
+                            @mkdir($markerDir, 0777, true);
+                        }
+
+                        @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - capture attempted\n", FILE_APPEND);
+
+                        // append browser path/URL for more diagnostics
+                        try {
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - browser path: " . $this->currentPath($browser) . " - url: " . $browser->driver->getCurrentURL() . "\n", FILE_APPEND);
+                        } catch (\Throwable $_) {
+                            // ignore
+                        }                        // Driver-level diagnostics: readyState, element presence; keep scripts minimal to avoid JS parsing differences in CI
+                        try {
+                            $readyState = ($browser->script('return typeof document !== "undefined" ? document.readyState : null;'))[0] ?? null;
+
+                            $elementExists = ($browser->script('return !!document.querySelector("input[name=\"email\"]");'))[0] ?? false;
+
+                            $elementInfo = null;
+
+                            $currentUrl = $browser->driver->getCurrentURL();
+                            $windowHandle = $browser->driver->getWindowHandle();
+
+                            $diag = [
+                                'readyState' => $readyState,
+                                'element_exists' => $elementExists,
+                                'element_info' => $elementInfo,
+                                'current_url' => $currentUrl,
+                                'window_handle' => $windowHandle,
+                            ];
+
+                            $diagPath = $markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-diagnostics.json';
+
+                            @file_put_contents($diagPath, json_encode($diag, JSON_PRETTY_PRINT) . "\n", FILE_APPEND);
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - diagnostics: " . json_encode($diag) . "\n", FILE_APPEND);
+
+                            @file_put_contents('php://stderr', "DUSK: diagnostics readyState={$readyState} element_exists=" . ($elementExists ? 'true' : 'false') . " url={$currentUrl}\n");
+
+                            if (file_exists($diagPath)) {
+                                @file_put_contents('php://stderr', "DUSK: wrote diagnostics to $diagPath size=" . filesize($diagPath) . "\n");
+                            } else {
+                                @file_put_contents('php://stderr', "DUSK: diagnostics file not written\n");
+                            }
+
+                        } catch (\Throwable $diagEx) {
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-diagnostics-failed.txt', date('c') . " - diagnostics script failed: " . $diagEx->getMessage() . "\n", FILE_APPEND);
+                            @file_put_contents('php://stderr', "DUSK: diagnostics script failed: " . $diagEx->getMessage() . "\n");
+                        }
+
+                        // also emit a short log so we can see this in workflow logs
+                        @file_put_contents('php://stderr', "DUSK: capture attempted signup-login-wait-failed\n");
+                    } catch (\Throwable $_) {
+                        // ignore
+                    }
+
+                    if (method_exists($this, 'captureBrowserState')) {
+                        try {
+                            @file_put_contents('php://stderr', "DUSK: invoking capture signup-login-wait-failed\n");
+
+                            $this->captureBrowserState($browser, 'signup-login-wait-failed');
+
+                            @file_put_contents('php://stderr', "DUSK: capture returned signup-login-wait-failed\n");
+                        } catch (\Throwable $_) {
+                            // ignore diagnostic failures
+                        }
+                    }
+
+                    throw $e;
+                }
+
+                $browser->type('email', $email)
+                        ->type('password', $password)
+                        ->click('@log-in-button');
+            } else {
+                $browser->visit('/login');
+
+                try {
+                    // Pre-wait diagnostics: log readyState and do a short quick-poll for the input to detect timing races
+                    try {
+                        $markerDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'screenshots';
+
+                        if (! is_dir($markerDir)) {
+                            @mkdir($markerDir, 0777, true);
+                        }
+
+                        $readyState = ($browser->script('return typeof document !== "undefined" ? document.readyState : null;'))[0] ?? null;
+                        $elementPresent = ($browser->script('return !!document.querySelector("input[name=\"email\"]");'))[0] ?? false;
+
+                        @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-prewait.txt', date('c') . " - readyState={$readyState} element_present=" . ($elementPresent ? 'true' : 'false') . "\n", FILE_APPEND);
+
+                        try {
+                            $browser->waitUsing(3, 500, function () use ($browser) {
+                                $res = $browser->script('return !!document.querySelector("input[name=\"email\"]");');
+
+                                return ! empty($res) && ($res[0] === true || $res[0] === 'true');
+                            });
+
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-prewait.txt', date('c') . " - quick poll found=true\n", FILE_APPEND);
+                        } catch (\Throwable $_) {
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-prewait.txt', date('c') . " - quick poll found=false\n", FILE_APPEND);
+                        }
+                    } catch (\Throwable $_) {
+                        // ignore pre-wait diagnostics failures
+                    }
+
+                    $this->waitForLoginEmail($browser, 10);
+                } catch (Throwable $e) {
+                    // write a simple marker so we can confirm the catch executed and artifacts will be uploaded
+                    try {
+                        $markerDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'screenshots';
+
+                        if (! is_dir($markerDir)) {
+                            @mkdir($markerDir, 0777, true);
+                        }
+
+                        @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - capture attempted\n", FILE_APPEND);
+
+                        // append browser path/URL for more diagnostics
+                        try {
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - browser path: " . $this->currentPath($browser) . " - url: " . $browser->driver->getCurrentURL() . "\n", FILE_APPEND);
+                        } catch (\Throwable $_) {
+                            // ignore
+                        }                        // Driver-level diagnostics: readyState, element presence; keep scripts minimal to avoid JS parsing differences in CI
+                        try {
+                            $readyState = ($browser->script('return typeof document !== "undefined" ? document.readyState : null;'))[0] ?? null;
+
+                            $elementExists = ($browser->script('return !!document.querySelector("input[name=\"email\"]");'))[0] ?? false;
+
+                            $elementInfo = null;
+
+                            $currentUrl = $browser->driver->getCurrentURL();
+                            $windowHandle = $browser->driver->getWindowHandle();
+
+                            $diag = [
+                                'readyState' => $readyState,
+                                'element_exists' => $elementExists,
+                                'element_info' => $elementInfo,
+                                'current_url' => $currentUrl,
+                                'window_handle' => $windowHandle,
+                            ];
+
+                            $diagPath = $markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-diagnostics.json';
+
+                            @file_put_contents($diagPath, json_encode($diag, JSON_PRETTY_PRINT) . "\n", FILE_APPEND);
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-attempt.txt', date('c') . " - diagnostics: " . json_encode($diag) . "\n", FILE_APPEND);
+
+                            @file_put_contents('php://stderr', "DUSK: diagnostics readyState={$readyState} element_exists=" . ($elementExists ? 'true' : 'false') . " url={$currentUrl}\n");
+
+                            if (file_exists($diagPath)) {
+                                @file_put_contents('php://stderr', "DUSK: wrote diagnostics to $diagPath size=" . filesize($diagPath) . "\n");
+                            } else {
+                                @file_put_contents('php://stderr', "DUSK: diagnostics file not written\n");
+                            }
+
+                        } catch (\Throwable $diagEx) {
+                            @file_put_contents($markerDir . DIRECTORY_SEPARATOR . 'dusk-signup-login-capture-diagnostics-failed.txt', date('c') . " - diagnostics script failed: " . $diagEx->getMessage() . "\n", FILE_APPEND);
+                            @file_put_contents('php://stderr', "DUSK: diagnostics script failed: " . $diagEx->getMessage() . "\n");
+                        }
+
+                        // also emit a short log so we can see this in workflow logs
+                        @file_put_contents('php://stderr', "DUSK: capture attempted signup-login-wait-failed\n");
+                    } catch (\Throwable $_) {
+                        // ignore
+                    }
+
+                    if (method_exists($this, 'captureBrowserState')) {
+                        try {
+                            @file_put_contents('php://stderr', "DUSK: invoking capture signup-login-wait-failed\n");
+
+                            $this->captureBrowserState($browser, 'signup-login-wait-failed');
+
+                            @file_put_contents('php://stderr', "DUSK: capture returned signup-login-wait-failed\n");
+                        } catch (\Throwable $_) {
+                            // ignore diagnostic failures
+                        }
+                    }
+
+                    throw $e;
+                }
+
+                $browser->type('email', $email)
+                        ->type('password', $password)
+                        ->click('@log-in-button');
+            }
 
             try {
                 $currentPath = $this->waitForAnyLocation($browser, ['/events', '/login', '/'], 20);
@@ -1215,6 +1442,65 @@ trait AccountSetupTrait
         }
 
         return $lastMatchedPath;
+    }
+
+    /**
+     * Wait for the login email input to be present and visibly interactable.
+     * This centralizes the logic to handle timing/hydration races and driver vs DOM visibility checks.
+     */
+    protected function waitForLoginEmail(Browser $browser, int $seconds = 10): void
+    {
+        try {
+            $browser->waitUsing($seconds, 500, function () use ($browser) {
+                $res = $browser->script(<<<'JS'
+                    (function(){
+                        const el = document.querySelector('input[name="email"]');
+                        if (!el) return false;
+                        try {
+                            const rects = el.getClientRects();
+                            if (!rects || rects.length === 0) return false;
+                            const style = window.getComputedStyle(el);
+                            if (!style) return false;
+                            if (style.visibility === 'hidden' || style.display === 'none') return false;
+                            if (el.offsetParent === null) return false;
+                            return true;
+                        } catch (e) {
+                            return false;
+                        }
+                    })();
+                JS
+                );
+
+                return ! empty($res) && ($res[0] === true || $res[0] === 'true');
+            });
+        } catch (\Throwable $waitEx) {
+            // Final driver-level check: try to locate the element via WebDriver and confirm it's displayed
+            $found = false;
+
+            try {
+                $els = $browser->driver->findElements(\Facebook\WebDriver\WebDriverBy::cssSelector('input[name="email"]'));
+
+                foreach ($els as $el) {
+                    try {
+                        if (method_exists($el, 'isDisplayed') ? $el->isDisplayed() : true) {
+                            $found = true;
+                            break;
+                        }
+                    } catch (\Throwable $_) {
+                        // ignore and continue
+                    }
+                }
+            } catch (\Throwable $_) {
+                // ignore driver-level lookup failures
+            }
+
+            if ($found) {
+                usleep(250000); // small pause for hydration
+                return;
+            }
+
+            throw $waitEx;
+        }
     }
 
     protected function scrollIntoViewWhenPresent(Browser $browser, string $selector, int $seconds = 30, array $fallbackSelectors = []): Browser

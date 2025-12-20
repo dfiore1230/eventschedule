@@ -16,8 +16,15 @@ class UserResourceScopeTest extends TestCase
 
     protected function createScopedManager(array $attributes = []): User
     {
-        $permission = Permission::factory()->create(['key' => 'resources.manage']);
-        $systemRole = SystemRole::factory()->create(['slug' => 'admin']);
+        // Ensure the permission exists instead of blindly creating it (avoids MySQL unique errors when default seed ran)
+        $permission = Permission::query()->firstOrCreate([
+            'key' => 'resources.manage',
+        ], [
+            'description' => 'Create and update venues, talent, and curators within scope',
+        ]);
+
+        // Ensure system role exists (avoid duplicate slug on MySQL where seed ran)
+        $systemRole = SystemRole::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
         $systemRole->permissions()->attach($permission);
 
         $user = User::factory()->create($attributes);

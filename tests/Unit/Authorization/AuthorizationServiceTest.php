@@ -15,8 +15,15 @@ class AuthorizationServiceTest extends TestCase
 
     public function test_permissions_are_warmed_and_cached_per_user(): void
     {
-        $permission = Permission::factory()->create(['key' => 'resources.manage']);
-        $role = SystemRole::factory()->create(['slug' => 'admin']);
+        // Use firstOrCreate to avoid duplicate key errors if default permissions are present
+        $permission = Permission::query()->firstOrCreate([
+            'key' => 'resources.manage'
+        ], [
+            'description' => 'Create and update venues, talent, and curators within scope',
+        ]);
+
+        // Ensure system role exists (avoid duplicate slug on MySQL where seed ran)
+        $role = SystemRole::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
         $role->permissions()->attach($permission);
 
         $user = User::factory()->create();

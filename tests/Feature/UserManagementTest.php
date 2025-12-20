@@ -15,8 +15,15 @@ class UserManagementTest extends TestCase
 
     protected function createManagerWithPermission(string $permissionKey = 'users.manage'): User
     {
-        $permission = Permission::factory()->create(['key' => $permissionKey]);
-        $role = SystemRole::factory()->create(['slug' => 'admin']);
+        // Ensure permission exists (avoid duplicate inserts on MySQL where seed ran)
+        $permission = Permission::query()->firstOrCreate([
+            'key' => $permissionKey
+        ], [
+            'description' => 'User management permission',
+        ]);
+
+        // Ensure system role exists (avoid duplicate slug on MySQL where seed ran)
+        $role = SystemRole::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
         $role->permissions()->attach($permission);
 
         $user = User::factory()->create();

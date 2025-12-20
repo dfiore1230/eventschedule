@@ -142,6 +142,239 @@ abstract class DuskTestCase extends BaseTestCase
         }
     }
 
+    /**
+     * Capture browser screenshot and page source for diagnostics.
+     */
+    protected function captureBrowserState(?\Laravel\Dusk\Browser $browser, string $name): void
+    {
+        if (! $browser) {
+            return;
+        }
+
+        $dir = __DIR__ . DIRECTORY_SEPARATOR . 'Browser' . DIRECTORY_SEPARATOR . 'screenshots';
+
+        if (! is_dir($dir)) {
+            @mkdir($dir, 0777, true);
+        }
+
+        // Prefer using the WebDriver's takeScreenshot method so we can write directly
+        // write a small marker that capture started (helps CI confirm invocation)
+        try {
+            file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-capture-attempt.txt', date('c') . " - capture started\n", FILE_APPEND);
+            file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-capture-invoked.txt', date('c') . " - invoked\n", FILE_APPEND);
+            @file_put_contents('php://stderr', "DUSK: capture start {$name} to {$dir}\n");
+        } catch (\Throwable $_) {
+            // ignore marker errors
+        }
+
+        try {
+            $screenshotPath = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '.png';
+
+            if (method_exists($browser->driver, 'takeScreenshot')) {
+                try {
+                    // php-webdriver's takeScreenshot() may return a base64 string or raw PNG data.
+                    $screenshotData = $browser->driver->takeScreenshot();
+
+                    // Log raw screenshot return for debugging (may be base64 or raw PNG)
+                    try {
+                        $rawInfoPath = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-raw-screenshot-info.txt';
+                        file_put_contents($rawInfoPath, "len=" . (is_string($screenshotData) ? strlen($screenshotData) : 0) . "\n", FILE_APPEND);
+                        @file_put_contents('php://stderr', "DUSK: takeScreenshot returned length=" . (is_string($screenshotData) ? strlen($screenshotData) : 0) . " for {$name}\n");
+                    } catch (\Throwable $_) {
+                        // ignore
+                    }
+
+                    if (is_string($screenshotData) && strlen($screenshotData) > 0) {
+                        // Try decoding as base64 first. If that fails, write raw data as-is.
+                        $decoded = @base64_decode($screenshotData, true);
+
+                        if ($decoded !== false && strlen($decoded) > 0) {
+                            file_put_contents($screenshotPath, $decoded);
+                            file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-raw-decode-succeeded.txt', date('c') . "\n", FILE_APPEND);
+                        } else {
+                            // Not valid base64; assume it's raw PNG data
+                            file_put_contents($screenshotPath, $screenshotData);
+                            file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-raw-wrote-raw-data.txt', date('c') . "\n", FILE_APPEND);
+                        }
+                    }
+
+                    if (! is_file($screenshotPath) && method_exists($browser->driver, 'executeCdpCommand')) {
+                        // Try Chrome DevTools Protocol as a stronger fallback
+                        try {
+                            // Use explicit options for CDP to ensure a rasterized capture
+                            $cdp = $browser->driver->executeCdpCommand('Page.captureScreenshot', ['format' => 'png', 'quality' => 90, 'fromSurface' => true]);
+
+                            // Write raw CDP JSON for debugging
+                            try {
+                                $cdpRawPath = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-cdp-raw.json';
+                                file_put_contents($cdpRawPath, json_encode($cdp, JSON_PRETTY_PRINT));
+                            } catch (\Throwable $_write) {
+                                // ignore
+                            }
+
+                            if (is_array($cdp) && array_key_exists('data', $cdp) && strlen($cdp['data']) > 0) {
+                                file_put_contents($screenshotPath, base64_decode($cdp['data']));
+                                @file_put_contents('php://stderr', "DUSK: screenshot captured via CDP for {$name}\n");
+                            } else {
+                                try {
+                                    file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-cdp-empty.txt', date('c') . "\n", FILE_APPEND);
+                                } catch (\Throwable $_) {
+                                    // ignore
+                                }
+                            }
+                        } catch (\Throwable $_cdp) {
+                            @file_put_contents('php://stderr', "DUSK: CDP screenshot failed for {$name}: {$_cdp->getMessage()}\n");
+                            try {
+                                file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-cdp-error.txt', $_cdp->getMessage() . PHP_EOL, FILE_APPEND);
+                            } catch (\Throwable $_) {
+                                // ignore
+                            }
+                        }
+                    }
+
+                    if (is_file($screenshotPath)) {
+                        $size = filesize($screenshotPath);
+                        file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-screenshot-saved.txt', date('c') . " - saved ({$size} bytes)\n", FILE_APPEND);
+                        @file_put_contents('php://stderr', "DUSK: screenshot saved {$screenshotPath} ({$size} bytes)\n");
+                    } else {
+                        // Write a missing marker so CI artifacts clearly indicate the screenshot was not produced
+                        file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-screenshot-missing.txt', date('c') . " - missing\n", FILE_APPEND);
+                        @file_put_contents('php://stderr', "DUSK: screenshot missing for {$name}\n");
+                    }
+                } catch (\Throwable $e) {
+                    // fallback to $browser->screenshot
+                    try {
+                        $browser->screenshot($name);
+
+                        if (is_file($screenshotPath)) {
+                            $size = filesize($screenshotPath);
+                            file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-screenshot-saved.txt', date('c') . " - saved via fallback ({$size} bytes)\n", FILE_APPEND);
+                            @file_put_contents('php://stderr', "DUSK: screenshot fallback saved {$screenshotPath} ({$size} bytes)\n");
+                        }
+                    } catch (\Throwable $__) {
+                        // ignore screenshot errors
+                        @file_put_contents('php://stderr', "DUSK: screenshot failed for {$name}: {$e->getMessage()}\n");
+                    }
+                }
+            } else {
+                // fallback to the Dusk helper
+                try {
+                    $browser->screenshot($name);
+
+                    if (is_file($screenshotPath)) {
+                        $size = filesize($screenshotPath);
+                        file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-screenshot-saved.txt', date('c') . " - saved via helper ({$size} bytes)\n", FILE_APPEND);
+                        @file_put_contents('php://stderr', "DUSK: screenshot helper saved {$screenshotPath} ({$size} bytes)\n");
+                    }
+                } catch (\Throwable $__) {
+                    // ignore screenshot errors
+                    @file_put_contents('php://stderr', "DUSK: screenshot helper failed for {$name}: {$__->getMessage()}\n");
+                }
+            }
+        } catch (\Throwable $e) {
+            // ignore screenshot errors
+            @file_put_contents('php://stderr', "DUSK: screenshot top-level error for {$name}: {$e->getMessage()}\n");
+        }
+
+        // Final attempt: if no screenshot file exists yet, try CDP again and then write a short path file + stderr summary
+        try {
+            if (! is_file($screenshotPath) && method_exists($browser->driver, 'executeCdpCommand')) {
+                try {
+                    $cdp = $browser->driver->executeCdpCommand('Page.captureScreenshot', []);
+
+                    if (is_array($cdp) && array_key_exists('data', $cdp) && strlen($cdp['data']) > 0) {
+                        file_put_contents($screenshotPath, base64_decode($cdp['data']));
+                        @file_put_contents('php://stderr', "DUSK: final CDP screenshot saved {$screenshotPath} size=" . filesize($screenshotPath) . "\n");
+                    }
+                } catch (\Throwable $_finalcdp) {
+                    @file_put_contents('php://stderr', "DUSK: final CDP screenshot failed for {$name}: " . $_finalcdp->getMessage() . "\n");
+                }
+            }
+        } catch (\Throwable $_) {
+            // best-effort; ignore
+        }
+
+        // Emit explicit screenshot path file for quick CI parsing (so workflow logs can show presence/size)
+        try {
+            $sPathFile = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-screenshot-path.txt';
+
+            if (is_file($screenshotPath)) {
+                file_put_contents($sPathFile, $screenshotPath . ' ' . filesize($screenshotPath) . PHP_EOL, FILE_APPEND);
+                @file_put_contents('php://stderr', "DUSK: screenshot path file written {$sPathFile}\n");
+            } else {
+                file_put_contents($sPathFile, 'MISSING' . PHP_EOL, FILE_APPEND);
+                @file_put_contents('php://stderr', "DUSK: screenshot missing for {$name}; path file written {$sPathFile}\n");
+            }
+        } catch (\Throwable $_) {
+            // ignore
+        }
+
+        try {
+            $source = $browser->driver->getPageSource();
+            $path = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '.html';
+
+            file_put_contents($path, $source);
+
+            if (is_file($path)) {
+                $size = filesize($path);
+                file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-html-saved.txt', date('c') . " - saved ({$size} bytes)\n", FILE_APPEND);
+                @file_put_contents('php://stderr', "DUSK: html saved {$path} ({$size} bytes)\n");
+            }
+        } catch (\Throwable $e) {
+            // ignore page source errors
+            @file_put_contents('php://stderr', "DUSK: html capture failed for {$name}: {$e->getMessage()}\n");
+        }
+
+        // Attempt to capture a raw DOM snapshot via JS in case getPageSource doesn't reflect the live DOM
+        try {
+            $dom = $browser->driver->executeScript('return document.documentElement.outerHTML;');
+            $domPath = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-dom.html';
+
+            if (is_string($dom) && strlen($dom) > 0) {
+                file_put_contents($domPath, $dom);
+
+                if (is_file($domPath)) {
+                    $size = filesize($domPath);
+                    file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-dom-saved.txt', date('c') . " - saved ({$size} bytes)\n", FILE_APPEND);
+                    @file_put_contents('php://stderr', "DUSK: dom saved {$domPath} ({$size} bytes)\n");
+                }
+            }
+        } catch (\Throwable $e) {
+            @file_put_contents('php://stderr', "DUSK: dom capture failed for {$name}: {$e->getMessage()}\n");
+        }
+
+        // Final enumeration of artifacts for easy CI parsing
+        try {
+            $artifacts = [];
+
+            foreach (glob($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '*') as $f) {
+                if (! is_file($f)) {
+                    continue;
+                }
+
+                $artifacts[] = [
+                    'path' => $f,
+                    'size' => filesize($f),
+                ];
+            }
+
+            $summaryPath = $dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-artifacts.json';
+            file_put_contents($summaryPath, json_encode($artifacts, JSON_PRETTY_PRINT) . PHP_EOL);
+
+            if (is_file($summaryPath)) {
+                @file_put_contents('php://stderr', "DUSK: wrote artifact summary to {$summaryPath} size=" . filesize($summaryPath) . "\n");
+            }
+        } catch (\Throwable $_) {
+            // ignore
+        }
+
+        try {
+            file_put_contents($dir . DIRECTORY_SEPARATOR . 'dusk-' . $name . '-capture-complete.txt', date('c') . " - complete\n", FILE_APPEND);
+        } catch (\Throwable $_) {
+            // ignore
+        }
+    }
+
     private static function browserTestingFlagPath(): string
     {
         return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'storage'
