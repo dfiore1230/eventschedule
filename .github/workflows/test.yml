@@ -68,7 +68,20 @@ jobs:
 
       - name: Start Laravel server in background
         run: php artisan serve > /dev/null 2>&1 &
-
+      - name: Wait for application to be ready (avoid Dusk timing races)
+        run: |
+          for i in {1..60}; do
+            if curl -sS --fail http://127.0.0.1:8000/login >/dev/null 2>&1; then
+              echo "App is up";
+              break;
+            fi;
+            echo "Waiting for app... ($i)";
+            sleep 1;
+          done
+          if ! curl -sS --fail http://127.0.0.1:8000/login >/dev/null 2>&1; then
+            echo "App did not become ready" >&2;
+            exit 1;
+          fi
       - name: Run Laravel Dusk tests
         run: |
           cp .env .env.dusk.local
