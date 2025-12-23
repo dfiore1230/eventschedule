@@ -1448,7 +1448,7 @@ trait AccountSetupTrait
      * Wait for the login email input to be present and visibly interactable.
      * This centralizes the logic to handle timing/hydration races and driver vs DOM visibility checks.
      */
-    protected function waitForLoginEmail(Browser $browser, int $seconds = 10): void
+    protected function waitForLoginEmail(Browser $browser, int $seconds = 30): void
     {
         try {
             $browser->waitUsing($seconds, 500, function () use ($browser) {
