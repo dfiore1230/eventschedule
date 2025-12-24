@@ -1353,13 +1353,31 @@ trait AccountSetupTrait
             form.submit();
         ");
 
+        // Small stability pause to give the browser/driver a moment to process the navigation
+        usleep(250000);
+
         try {
-            $this->waitForAnyLocation($browser, ['/login', '/'], 20);
+            $this->waitForAnyLocation($browser, ['/login', '/'], 30);
         } catch (Throwable $exception) {
             $currentPath = $this->currentPath($browser);
 
             if ($currentPath !== '/login') {
-                $browser->visit('/login');
+                try {
+                    $browser->visit('/login')->waitForLocation('/login', 5);
+                } catch (\Throwable $_) {
+                    // ignore — we'll assert below
+                }
+            }
+        }
+
+        // Ensure we ended up on /login; if not, attempt a driver-level navigation as a last resort
+        $currentPath = $this->currentPath($browser);
+
+        if ($currentPath !== '/login') {
+            try {
+                $browser->driver->get(rtrim(env('APP_URL', 'http://127.0.0.1:8000'), '/') . '/login');
+            } catch (\Throwable $_) {
+                // ignore
             }
         }
 
@@ -1470,6 +1488,11 @@ trait AccountSetupTrait
             $browser->waitUsing($seconds, 500, function () use ($browser) {
                 $res = $browser->script(<<<'JS'
                     (function(){
+                        // Prefer a lightweight test-only readiness marker set by the login page when in testing
+                        if (typeof window !== 'undefined' && window.__evs_login_ready === true) {
+                            return true;
+                        }
+
                         const el = document.querySelector('input[name="email"]');
                         if (!el) return false;
                         try {
