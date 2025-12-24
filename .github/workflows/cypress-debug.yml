@@ -4,7 +4,14 @@ on:
   push:
     branches:
       - debug/cypress-failures
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      specs:
+        description: 'Comma-separated list of spec globs to run (example: "cypress/e2e/admin.spec.js,cypress/e2e/landing.spec.js")'
+        required: false
+        default: ''
+  schedule:
+    - cron: '0 0 * * 0' # weekly on Sunday UTC
 
 jobs:
   debug-cypress:
@@ -95,12 +102,23 @@ jobs:
         run: php artisan serve --port 8000 &
 
       - name: Run failing Cypress specs
+        env:
+          SPEC_INPUT: "${{ github.event.inputs.specs }}"
         run: |
           mkdir -p cypress/screenshots cypress/videos
-          # Run only the failing specs we observed; keep cmd idempotent and non-blocking
-          npx cypress run --spec "cypress/e2e/admin.spec.js" || true
-          npx cypress run --spec "cypress/e2e/landing.mobile.spec.js" || true
-          npx cypress run --spec "cypress/e2e/landing.spec.js" || true
+
+          # If `specs` input was provided, run those (comma-separated list); otherwise run the known failing specs
+          if [ -n "$SPEC_INPUT" ]; then
+            IFS=',' read -ra SPECS <<< "$SPEC_INPUT"
+            for s in "${SPECS[@]}"; do
+              echo "Running spec: $s"
+              npx cypress run --spec "$s" || true
+            done
+          else
+            npx cypress run --spec "cypress/e2e/admin.spec.js" || true
+            npx cypress run --spec "cypress/e2e/landing.mobile.spec.js" || true
+            npx cypress run --spec "cypress/e2e/landing.spec.js" || true
+          fi
 
       - name: Upload Cypress artifacts
         uses: actions/upload-artifact@v4
