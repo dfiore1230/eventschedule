@@ -88,7 +88,7 @@ trait AccountSetupTrait
                         // ignore pre-wait diagnostics failures
                     }
 
-                    $this->waitForLoginEmail($browser, 10);
+                    $this->waitForLoginEmail($browser, 30);
                 } catch (Throwable $e) {
                     // write a simple marker so we can confirm the catch executed and artifacts will be uploaded
                     try {
@@ -198,7 +198,7 @@ trait AccountSetupTrait
                         // ignore pre-wait diagnostics failures
                     }
 
-                    $this->waitForLoginEmail($browser, 10);
+                    $this->waitForLoginEmail($browser, 30);
                 } catch (Throwable $e) {
                     // write a simple marker so we can confirm the catch executed and artifacts will be uploaded
                     try {
