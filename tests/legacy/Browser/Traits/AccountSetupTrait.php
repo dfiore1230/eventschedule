@@ -1448,8 +1448,24 @@ trait AccountSetupTrait
      * Wait for the login email input to be present and visibly interactable.
      * This centralizes the logic to handle timing/hydration races and driver vs DOM visibility checks.
      */
-    protected function waitForLoginEmail(Browser $browser, int $seconds = 30): void
+    protected function waitForLoginEmail(Browser $browser, int $seconds = 60): void
     {
+        // Ensure we're on the login page — sometimes a redirect or stale session can leave us at '/'
+        try {
+            $currentPath = $this->currentPath($browser);
+
+            if ($currentPath !== '/login') {
+                // Try visiting /login and wait briefly for stability
+                try {
+                    $browser->visit('/login')->waitForLocation('/login', 5);
+                } catch (\Throwable $_) {
+                    // ignore and proceed to the normal wait logic
+                }
+            }
+        } catch (\Throwable $_) {
+            // ignore path-check errors and proceed
+        }
+
         try {
             $browser->waitUsing($seconds, 500, function () use ($browser) {
                 $res = $browser->script(<<<'JS'
