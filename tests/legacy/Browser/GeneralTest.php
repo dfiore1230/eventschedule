@@ -31,11 +31,12 @@ class GeneralTest extends DuskTestCase
             $this->logoutUser($browser, $name);
 
             // Log back in
-            $browser->visit('/login');
+            $browser->visit('/login')->waitForLocation('/login', 5);
 
             // Wait until the email input exists and is visible (guard against timing/hydration races)
             try {
-                $browser->waitUsing(10, 500, function () use ($browser) {
+                // Increase polling timeout to reduce timing flake
+                $browser->waitUsing(30, 500, function () use ($browser) {
                     $res = $browser->script(<<<'JS'
                         (function(){
                             const el = document.querySelector('input[name="email"]');

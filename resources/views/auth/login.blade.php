@@ -53,4 +53,43 @@
             </x-primary-button>
         </div>
     </form>
+
+    @if (config('app.is_testing'))
+    <script>
+        // Testing-only marker: expose a deterministic readiness flag when the login email input
+        // is present and visibly interactable to help Dusk tests avoid timing/hydration races.
+        (function () {
+            function checkReady() {
+                try {
+                    var el = document.querySelector('input[name="email"]');
+                    if (!el) return false;
+                    var rects = el.getClientRects();
+                    if (!rects || rects.length === 0) return false;
+                    var style = window.getComputedStyle(el);
+                    if (!style) return false;
+                    if (style.visibility === 'hidden' || style.display === 'none') return false;
+                    if (el.offsetParent === null) return false;
+                    window.__evs_login_ready = true;
+                    return true;
+                } catch (e) {
+                    return false;
+                }
+            }
+
+            if (!checkReady()) {
+                var attempts = 0;
+                var iv = setInterval(function () {
+                    attempts++;
+                    if (checkReady() || attempts > 60) {
+                        clearInterval(iv);
+                        if (!window.__evs_login_ready) {
+                            window.__evs_login_ready = false;
+                        }
+                    }
+                }, 500);
+            }
+        })();
+    </script>
+    @endif
+
 </x-auth-layout>
