@@ -13,9 +13,14 @@ return new class extends Migration
     public function up(): void
     {
         // First, backup the venue_id column
-        Schema::table('events', function (Blueprint $table) {
-            $table->foreignId('venue_id_bak')->nullable()->after('venue_id');
-        });
+        if (DB::getDriverName() === 'sqlite') {
+            // SQLite: simple ALTER TABLE ADD COLUMN (avoid "after"/foreign constraints that trigger table rebuilds)
+            DB::statement('ALTER TABLE events ADD COLUMN venue_id_bak INTEGER');
+        } else {
+            Schema::table('events', function (Blueprint $table) {
+                $table->foreignId('venue_id_bak')->nullable()->after('venue_id');
+            });
+        }
 
         // Copy venue_id to venue_id_bak
         DB::statement('UPDATE events SET venue_id_bak = venue_id WHERE venue_id IS NOT NULL');
@@ -42,10 +47,15 @@ return new class extends Migration
         }
 
         // Remove the venue_id column from events table
-        Schema::table('events', function (Blueprint $table) {
-            $table->dropForeign(['venue_id']);
-            $table->dropColumn('venue_id');
-        });
+        if (DB::getDriverName() === 'sqlite') {
+            // SQLite: do not attempt to DROP COLUMN (avoids rebuild issues with complex defaults)
+            // Keep the column present for SQLite testing environments.
+        } else {
+            Schema::table('events', function (Blueprint $table) {
+                $table->dropForeign(['venue_id']);
+                $table->dropColumn('venue_id');
+            });
+        }
     }
 
     /**

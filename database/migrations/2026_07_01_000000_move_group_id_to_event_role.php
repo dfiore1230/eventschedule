@@ -84,22 +84,26 @@ return new class extends Migration
     private function getColumnDefinition($column): string
     {
         $definition = $column->name . ' ' . $column->type;
-        
+
         if ($column->notnull) {
             $definition .= ' NOT NULL';
         }
-        
-        if ($column->pk) {
+
+        // Ensure primary key is preserved for the id column or when PRAGMA reports pk.
+        $isPrimary = !empty($column->pk) || $column->name === 'id';
+
+        if ($isPrimary) {
             $definition .= ' PRIMARY KEY';
-            if ($column->type === 'INTEGER') {
+            // Treat integer-like types case-insensitively
+            if (stripos($column->type, 'int') !== false) {
                 $definition .= ' AUTOINCREMENT';
             }
         }
-        
+
         if ($column->dflt_value !== null) {
             $definition .= ' DEFAULT ' . $column->dflt_value;
         }
-        
+
         return $definition;
     }
 

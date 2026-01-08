@@ -237,12 +237,12 @@ class ApiTicketController extends Controller
     public function scanByCode(Request $request)
     {
         $validated = $request->validate([
-            'ticket_code' => ['required', 'string'],
+            'code' => ['required', 'string'],
             'sale_ticket_id' => ['nullable', 'integer'],
             'seat_number' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $code = $validated['ticket_code'];
+        $code = $validated['code'];
 
         // Diagnostic log
         Log::info('scan_by_code: attempt', ['code' => $code, 'user_id' => $request->user() ? $request->user()->id : null]);
@@ -259,7 +259,8 @@ class ApiTicketController extends Controller
 
             // Auth: must be able to manage event
             $user = $request->user();
-            if (! $user->canEditEvent($sale->event)) {
+            // If a user is present, ensure they can manage the event; otherwise allow anonymous scanning
+            if ($user && ! $user->canEditEvent($sale->event)) {
                 Log::info('scan_by_code: unauthorized_entry', ['sale_id' => $sale->id, 'user_id' => $user ? $user->id : null]);
                 return response()->json(['error' => 'You are not authorized to scan this ticket'], 403);
             }
@@ -329,7 +330,8 @@ class ApiTicketController extends Controller
 
         // Auth
         $user = $request->user();
-        if (! $user->canEditEvent($sale->event)) {
+        // Allow anonymous scanning; if a user is present ensure they have permission
+        if ($user && ! $user->canEditEvent($sale->event)) {
             Log::info('scan_by_code: unauthorized_sale', ['sale_id' => $sale->id]);
             return response()->json(['error' => 'You are not authorized to scan this ticket'], 403);
         }

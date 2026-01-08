@@ -34,7 +34,22 @@ return [
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
-            'database' => env('DB_DATABASE', database_path('database.sqlite')),
+            // If DB_DATABASE is set to a plain name (like 'laravel_test') treat it as a path within database_path(),
+            // otherwise allow ':memory:' or an absolute path to be used directly.
+            'database' => (function () {
+                $db = env('DB_DATABASE', database_path('database.sqlite'));
+
+                if ($db === ':memory:') {
+                    return $db;
+                }
+
+                // If it doesn't look like a path (no slashes), assume it's a filename relative to the database_path()
+                if (strpos($db, '/') === false && strpos($db, '\\') === false) {
+                    return database_path($db);
+                }
+
+                return $db;
+            })(),
             'prefix' => '',
             'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
         ],

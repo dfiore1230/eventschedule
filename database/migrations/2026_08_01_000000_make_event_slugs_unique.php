@@ -46,9 +46,14 @@ return new class extends Migration
             }
         });
 
-        Schema::table('events', function (Blueprint $table) {
-            $table->dropIndex(['slug']);
-        });
+        // Drop existing index if present (some DBs may not have the index)
+        try {
+            Schema::table('events', function (Blueprint $table) {
+                $table->dropIndex(['slug']);
+            });
+        } catch (\Exception $e) {
+            // ignore if index does not exist
+        }
 
         Schema::table('events', function (Blueprint $table) {
             $table->unique('slug');
@@ -57,9 +62,13 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('events', function (Blueprint $table) {
-            $table->dropUnique('events_slug_unique');
-            $table->index('slug');
-        });
+        try {
+            Schema::table('events', function (Blueprint $table) {
+                $table->dropUnique('events_slug_unique');
+                $table->index('slug');
+            });
+        } catch (\Exception $e) {
+            // ignore if unique constraint doesn't exist
+        }
     }
 };

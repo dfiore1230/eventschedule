@@ -1,0 +1,35 @@
+version: "3.8"
+services:
+  workspace:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspace:cached
+    ports:
+      - "8000:8000"
+    command: ["tail", "-f", "/dev/null"]
+    environment:
+      - APP_ENV=local
+      - APP_URL=http://127.0.0.1:8000
+      - APP_TESTING=true
+      - DB_HOST=db
+      - DB_DATABASE=laravel_test
+      - DB_USERNAME=root
+      - DB_PASSWORD=password
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: laravel_test
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

@@ -11,7 +11,11 @@ class E2ESeedTest extends TestCase
 
     public function test_seed_marks_admin_verified_and_returns_expected_fields()
     {
-        $response = $this->postJson('/__test/seed');
+        // Ensure session and CSRF token are present
+        $this->get('/');
+        $token = session('_token');
+
+        $response = $this->withHeaders(['X-CSRF-TOKEN' => $token])->postJson('/__test/seed');
 
         $response->assertStatus(200);
         $response->assertJsonStructure(['admin_email', 'admin_password', 'created_user_ids', 'admin_email_verified']);

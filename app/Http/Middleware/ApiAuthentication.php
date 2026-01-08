@@ -12,7 +12,8 @@ class ApiAuthentication
 {
     public function handle(Request $request, Closure $next)
     {
-        $apiKey = $request->header('X-API-Key');
+        // Support X-API-Key header as well as Bearer tokens in Authorization header
+        $apiKey = $request->header('X-API-Key') ?? $request->bearerToken();
         $clientIp = $request->ip();
 
         if (!$apiKey) {

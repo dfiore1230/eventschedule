@@ -1,0 +1,14 @@
+{
+  "name": "EventSchedule Devcontainer",
+  "dockerComposeFile": ["docker-compose.yml"],
+  "service": "workspace",
+  "workspaceFolder": "/workspace",
+  "extensions": [
+    "ms-azuretools.vscode-docker",
+    "esbenp.prettier-vscode"
+  ],
+  "forwardPorts": [8010],
+  "postCreateCommand": "/workspace/.devcontainer/post-create.sh",
+  "remoteUser": "vscode",
+  "overrideCommand": false
+}

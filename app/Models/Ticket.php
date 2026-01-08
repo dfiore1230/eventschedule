@@ -3,10 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use App\Utils\UrlUtils;
 use App\Utils\MarkdownUtils;
 class Ticket extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'event_id',
         'type',

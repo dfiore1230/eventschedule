@@ -24,7 +24,8 @@ class AuthorizationServiceTest extends TestCase
 
         // Ensure system role exists (avoid duplicate slug on MySQL where seed ran)
         $role = SystemRole::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
-        $role->permissions()->attach($permission);
+        // Use syncWithoutDetaching to avoid duplicate entry errors on MySQL
+        $role->permissions()->syncWithoutDetaching([$permission->id]);
 
         $user = User::factory()->create();
         $user->systemRoles()->attach($role);
@@ -36,8 +37,19 @@ class AuthorizationServiceTest extends TestCase
         $this->assertContains('resources.manage', $warmed);
         $this->assertTrue($service->userHasPermission($user, 'resources.manage'));
 
-        $service->forgetUserPermissions($user);
+        // Detach role first then forget cache to ensure permissions reflect the DB state
         $user->systemRoles()->detach($role);
+        // Also detach superadmin if it was auto-attached during user creation
+        $user->systemRoles()->where('slug', 'superadmin')->detach();
+        $service->forgetUserPermissions($user);
+
+        // Ensure role detach persisted
+        $this->assertFalse($user->systemRoles()->where('slug', 'admin')->exists());
+        $this->assertFalse($user->systemRoles()->where('slug', 'superadmin')->exists());
+
+        // Recompute permissions and ensure the specific permission is not present
+        $recomputed = $service->warmUserPermissions($user);
+        $this->assertNotContains('resources.manage', $recomputed, 'resources.manage should not be present after detaching admin role');
 
         $this->assertFalse($service->userHasPermission($user, 'resources.manage'));
     }

@@ -120,50 +120,55 @@ class AppServiceProvider extends ServiceProvider
             ]);
         });
 
-        if (Schema::hasTable('settings')) {
-            $generalSettings = Setting::forGroup('general');
+        try {
+            if (Schema::hasTable('settings')) {
+                $generalSettings = Setting::forGroup('general');
 
-            $channel = ReleaseChannel::fromString($generalSettings['update_release_channel'] ?? config('self-update.release_channel'));
-            ReleaseChannelManager::apply($channel);
+                $channel = ReleaseChannel::fromString($generalSettings['update_release_channel'] ?? config('self-update.release_channel'));
+                ReleaseChannelManager::apply($channel);
 
-            UpdateConfigManager::apply($generalSettings['update_repository_url'] ?? null);
+                UpdateConfigManager::apply($generalSettings['update_repository_url'] ?? null);
 
-            if (array_key_exists('url_utils_verify_ssl', $generalSettings)) {
-                UrlUtilsConfigManager::apply($generalSettings['url_utils_verify_ssl']);
+                if (array_key_exists('url_utils_verify_ssl', $generalSettings)) {
+                    UrlUtilsConfigManager::apply($generalSettings['url_utils_verify_ssl']);
+                }
+
+                if (!empty($generalSettings['public_url'])) {
+                    config(['app.url' => $generalSettings['public_url']]);
+                    URL::forceRootUrl($generalSettings['public_url']);
+                }
+
+                $mailSettings = Setting::forGroup('mail');
+
+                if (!empty($mailSettings)) {
+                    MailConfigManager::apply($mailSettings);
+                }
+
+                $loggingSettings = Setting::forGroup('logging');
+
+                if (!empty($loggingSettings)) {
+                    LoggingConfigManager::apply($loggingSettings);
+                }
+
+                $appleWalletSettings = Setting::forGroup('wallet.apple');
+
+                if (!empty($appleWalletSettings)) {
+                    WalletConfigManager::applyApple($appleWalletSettings);
+                }
+
+                $googleWalletSettings = Setting::forGroup('wallet.google');
+
+                if (!empty($googleWalletSettings)) {
+                    WalletConfigManager::applyGoogle($googleWalletSettings);
+                }
+
+                $brandingSettings = Setting::forGroup('branding');
+
+                BrandingManager::apply($brandingSettings);
             }
-
-            if (!empty($generalSettings['public_url'])) {
-                config(['app.url' => $generalSettings['public_url']]);
-                URL::forceRootUrl($generalSettings['public_url']);
-            }
-
-            $mailSettings = Setting::forGroup('mail');
-
-            if (!empty($mailSettings)) {
-                MailConfigManager::apply($mailSettings);
-            }
-
-            $loggingSettings = Setting::forGroup('logging');
-
-            if (!empty($loggingSettings)) {
-                LoggingConfigManager::apply($loggingSettings);
-            }
-
-            $appleWalletSettings = Setting::forGroup('wallet.apple');
-
-            if (!empty($appleWalletSettings)) {
-                WalletConfigManager::applyApple($appleWalletSettings);
-            }
-
-            $googleWalletSettings = Setting::forGroup('wallet.google');
-
-            if (!empty($googleWalletSettings)) {
-                WalletConfigManager::applyGoogle($googleWalletSettings);
-            }
-
-            $brandingSettings = Setting::forGroup('branding');
-
-            BrandingManager::apply($brandingSettings);
+        } catch (\Exception $e) {
+            // Database may be unavailable during some test setups (e.g., sqlite file missing).
+            // Skip applying runtime settings in that case to avoid failing boot.
         }
 
         if (config('app.env') !== 'local') {

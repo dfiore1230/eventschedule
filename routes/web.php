@@ -105,6 +105,8 @@ Route::middleware(['auth', 'verified', 'active'])->group(function ()
     Route::post('/assets/images', [ImageController::class, 'store'])->name('images.store');
     Route::delete('/assets/images/{image}', [ImageController::class, 'destroy'])->name('images.destroy');
     Route::get('/events/{hash}/view', [EventController::class, 'view'])->name('events.view');
+    // Backwards-compatible named route expected by tests
+    Route::get('/events/{hash}/view', [EventController::class, 'view'])->name('event.view');
     Route::get('/events/{hash}/sales/export/{format}', [TicketController::class, 'exportEventSales'])
         ->whereIn('format', ['csv', 'xlsx'])
         ->name('events.sales.export');

@@ -10,7 +10,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::statement("ALTER TABLE `role_user` MODIFY `level` ENUM('owner','admin','viewer','follower') NOT NULL");
+        // Only run the raw MySQL ALTER statement when using MySQL - SQLite does not support MODIFY
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE `role_user` MODIFY `level` ENUM('owner','admin','viewer','follower') NOT NULL");
+        }
     }
 
     /**
@@ -18,6 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement("ALTER TABLE `role_user` MODIFY `level` ENUM('owner','admin','follower') NOT NULL");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE `role_user` MODIFY `level` ENUM('owner','admin','follower') NOT NULL");
+        }
     }
 };

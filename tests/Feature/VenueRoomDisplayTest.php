@@ -18,6 +18,7 @@ class VenueRoomDisplayTest extends TestCase
         $venue = Role::factory()->create([
             'type' => 'venue',
             'user_id' => $user->id,
+            'email_verified_at' => now(),
             'name' => 'Test Venue',
             'address1' => '123 Main St',
             'address2' => 'Room 501',
@@ -28,6 +29,7 @@ class VenueRoomDisplayTest extends TestCase
         $event = Event::factory()->create([
             'user_id' => $user->id,
             'name' => 'Test Event',
+            'is_in_person' => true,
         ]);
 
         $event->roles()->attach($venue->id, ['is_accepted' => true]);
@@ -47,6 +49,7 @@ class VenueRoomDisplayTest extends TestCase
         $venue = Role::factory()->create([
             'type' => 'venue',
             'user_id' => $user->id,
+            'email_verified_at' => now(),
             'name' => 'Test Venue',
             'address1' => '123 Main St',
             'address2' => 'Suite 200',
@@ -57,6 +60,7 @@ class VenueRoomDisplayTest extends TestCase
         $event = Event::factory()->create([
             'user_id' => $user->id,
             'name' => 'Test Event',
+            'is_in_person' => true,
         ]);
 
         $event->roles()->attach($venue->id, ['is_accepted' => true]);
@@ -76,6 +80,7 @@ class VenueRoomDisplayTest extends TestCase
         $venue = Role::factory()->create([
             'type' => 'venue',
             'user_id' => $user->id,
+            'email_verified_at' => now(),
             'name' => 'Test Venue',
             'address1' => '123 Main St',
             'address2' => null, // No room
@@ -107,6 +112,7 @@ class VenueRoomDisplayTest extends TestCase
         $venue = Role::factory()->create([
             'type' => 'venue',
             'user_id' => $user->id,
+            'email_verified_at' => now(),
             'name' => 'Test Venue',
             'address1' => '123 Main St',
             'address2' => 'Salle 42',
@@ -119,6 +125,7 @@ class VenueRoomDisplayTest extends TestCase
         $event = Event::factory()->create([
             'user_id' => $user->id,
             'name' => 'Test Event',
+            'is_in_person' => true,
         ]);
 
         $event->roles()->attach($venue->id, ['is_accepted' => true]);

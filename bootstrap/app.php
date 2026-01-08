@@ -1,5 +1,7 @@
 <?php
 
+fwrite(STDERR, "BOOTSTRAP: start\n");
+
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,6 +15,7 @@ use App\Http\Middleware\ApiAuthentication;
 use App\Http\Middleware\EnsureAbility;
 use Sentry\Laravel\Integration;
 
+fwrite(STDERR, "BOOTSTRAP: about to configure application\n");
 return Application::configure(basePath: dirname(__DIR__))
     ->withCommands([
         InspectStoragePermissions::class,

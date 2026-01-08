@@ -25,6 +25,6 @@ class SetUserLanguage
             }
         }
 
-        return $next($request); 
+        return $next($request);
     }
 }

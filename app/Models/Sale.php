@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\Notification;
 use App\Notifications\TicketCancelledNotification;
 use App\Notifications\TicketPaidNotification;
@@ -11,6 +12,7 @@ use App\Utils\NotificationUtils;
 
 class Sale extends Model
 {
+    use HasFactory;
     protected $casts = [
         'last_reminder_sent_at' => 'datetime',
     ];

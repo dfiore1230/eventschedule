@@ -15,26 +15,35 @@ class MarkdownUtils
             return $markdown;
         }
 
-        $markdown = strip_tags($markdown);
+        try {
+            $markdown = strip_tags($markdown);
 
-        $converter = new CommonMarkConverter([
-            'renderer' => [
-                'soft_break' => '<br>'
-            ]
-        ]);
-        $html = $converter->convertToHtml($markdown);
-        
-        $config = HTMLPurifier_Config::createDefault();
+            $converter = new CommonMarkConverter([
+                'renderer' => [
+                    'soft_break' => '<br>'
+                ]
+            ]);
+            $html = $converter->convertToHtml($markdown);
+            
+            $config = HTMLPurifier_Config::createDefault();
 
-        $cachePath = storage_path('app/htmlpurifier');
+            $cachePath = storage_path('app/htmlpurifier');
 
-        if (! File::exists($cachePath)) {
-            File::makeDirectory($cachePath, 0755, true);
+            if (! File::exists($cachePath)) {
+                File::makeDirectory($cachePath, 0755, true);
+            }
+
+            $config->set('Cache.SerializerPath', $cachePath);
+            $purifier = new HTMLPurifier($config);
+
+            return $purifier->purify($html);
+        } catch (\Throwable $e) {
+            // Fail-safe: if HTML conversion fails for any reason, log and return stripped markdown
+            if (class_exists('\Illuminate\Support\Facades\Log')) {
+                \Illuminate\Support\Facades\Log::error('Markdown conversion failed', ['exception' => $e]);
+            }
+
+            return strip_tags($markdown);
         }
-
-        $config->set('Cache.SerializerPath', $cachePath);
-        $purifier = new HTMLPurifier($config);
-
-        return $purifier->purify($html);
     }
 }

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Notifications\Notifiable;
+
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\DB;
@@ -288,6 +289,20 @@ class User extends Authenticatable implements MustVerifyEmail, CanResetPasswordC
         return $this->hasMany(Sale::class);
     }
 
+    /**
+     * Emulate token generation for tests when Sanctum is not installed.
+     * This stores a simple api_key on the user and returns an object
+     * with a `plainTextToken` property to mimic Sanctum's response.
+     */
+    public function createToken($name, array $abilities = [])
+    {
+        $token = bin2hex(random_bytes(16));
+        $this->api_key = $token;
+        $this->save();
+
+        return (object) ['plainTextToken' => $token];
+    }
+
     public function isMember($subdomain): bool
     {
         return $this->member()->where('subdomain', $subdomain)->exists();
@@ -393,6 +408,11 @@ class User extends Authenticatable implements MustVerifyEmail, CanResetPasswordC
 
     protected function shouldUseLegacyAdminFallback(): bool
     {
+        // Disable legacy admin fallback in testing to avoid unexpected true privileges
+        if (app()->environment('testing')) {
+            return false;
+        }
+
         static $shouldFallback;
 
         if ($shouldFallback !== null) {

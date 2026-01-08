@@ -25,10 +25,11 @@ class UserResourceScopeTest extends TestCase
 
         // Ensure system role exists (avoid duplicate slug on MySQL where seed ran)
         $systemRole = SystemRole::query()->firstOrCreate(['slug' => 'admin'], ['name' => 'Admin']);
-        $systemRole->permissions()->attach($permission);
+        // Use syncWithoutDetaching to avoid duplicate permission entries when default seed exists
+        $systemRole->permissions()->syncWithoutDetaching([$permission->id]);
 
         $user = User::factory()->create($attributes);
-        $user->systemRoles()->attach($systemRole);
+        $user->systemRoles()->syncWithoutDetaching([$systemRole->id]);
 
         app(AuthorizationService::class)->warmUserPermissions($user);
 

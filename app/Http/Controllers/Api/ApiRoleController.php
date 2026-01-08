@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\Notification;
 use App\Notifications\AddedMemberNotification;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
-use App\Utils\UrlUtils;
 
 class ApiRoleController extends Controller
 {

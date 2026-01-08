@@ -15,12 +15,23 @@ class AuthorizationService
             return [];
         }
 
-        $roleIds = $user->systemRoles()->pluck('auth_roles.id');
+        // Use pivot table query to avoid unexpected behavior with relation pluck
+        $roleIds = \Illuminate\Support\Facades\DB::table('user_roles')
+            ->where('user_id', $user->getKey())
+            ->pluck('role_id');
 
         $permissions = collect();
 
+        if (app()->environment('testing')) {
+            \Illuminate\Support\Facades\Log::info('AuthorizationService warmUserPermissions roleIds', ['roleIds' => $roleIds->toArray()]);
+        }
+
         foreach ($roleIds as $roleId) {
             $permissions = $permissions->merge($this->permissionsForRole((int) $roleId));
+        }
+
+        if (app()->environment('testing')) {
+            \Illuminate\Support\Facades\Log::info('AuthorizationService warmUserPermissions permissions', ['permissions' => $permissions->unique()->values()->all()]);
         }
 
         $permissionSet = $permissions->unique()->values()->all();

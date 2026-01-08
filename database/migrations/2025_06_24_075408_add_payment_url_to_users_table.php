@@ -17,18 +17,11 @@ return new class extends Migration
             $table->string('payment_secret')->nullable();
         });
 
-        // For SQLite, add a new column with the updated constraint
+        // For SQLite, take a minimal, trigger-safe path: rename the column and add a new one with the relaxed enum.
+        // We leave the old column in place to avoid SQLite drop-column rebuilds that were failing in CI.
         if (config('database.default') === 'sqlite') {
-            // Update events table
-            DB::statement('ALTER TABLE events ADD COLUMN payment_method_new varchar check ("payment_method_new" in ("cash", "stripe", "invoiceninja", "payment_url")) not null default "cash"');
-            DB::statement('UPDATE events SET payment_method_new = payment_method');
-            DB::statement('ALTER TABLE events DROP COLUMN payment_method');
-            DB::statement('ALTER TABLE events RENAME COLUMN payment_method_new TO payment_method');
-            
-            DB::statement('ALTER TABLE sales ADD COLUMN payment_method_new varchar check ("payment_method_new" in ("cash", "stripe", "invoiceninja", "payment_url")) not null default "cash"');
-            DB::statement('UPDATE sales SET payment_method_new = payment_method');
-            DB::statement('ALTER TABLE sales DROP COLUMN payment_method');
-            DB::statement('ALTER TABLE sales RENAME COLUMN payment_method_new TO payment_method');
+            $this->sqliteRenameAndCopy('events');
+            $this->sqliteRenameAndCopy('sales');
         } else {
             // For other databases, use ALTER TABLE
             DB::statement("ALTER TABLE events MODIFY COLUMN payment_method ENUM('cash', 'stripe', 'invoiceninja', 'payment_url') DEFAULT 'cash'");
@@ -46,21 +39,50 @@ return new class extends Migration
         });
 
         if (config('database.default') === 'sqlite') {
-            // Revert events table
-            DB::statement('ALTER TABLE events ADD COLUMN payment_method_old varchar check ("payment_method_old" in ("cash", "stripe", "invoiceninja")) not null default "cash"');
-            DB::statement('UPDATE events SET payment_method_old = CASE WHEN payment_method = "payment_url" THEN "cash" ELSE payment_method END');
-            DB::statement('ALTER TABLE events DROP COLUMN payment_method');
-            DB::statement('ALTER TABLE events RENAME COLUMN payment_method_old TO payment_method');
-            
-            // Revert sales table
-            DB::statement('ALTER TABLE sales ADD COLUMN payment_method_old varchar check ("payment_method_old" in ("cash", "stripe", "invoiceninja")) not null default "cash"');
-            DB::statement('UPDATE sales SET payment_method_old = CASE WHEN payment_method = "payment_url" THEN "cash" ELSE payment_method END');
-            DB::statement('ALTER TABLE sales DROP COLUMN payment_method');
-            DB::statement('ALTER TABLE sales RENAME COLUMN payment_method_old TO payment_method');
+            // Revert to the prior enum by keeping the safer rename path; map payment_url back to cash
+            $this->sqliteRenameAndCopy('events', rollback: true);
+            $this->sqliteRenameAndCopy('sales', rollback: true);
         } else {
             // For other databases, use ALTER TABLE
             DB::statement("ALTER TABLE events MODIFY COLUMN payment_method ENUM('cash', 'stripe', 'invoiceninja') DEFAULT 'cash'");
             DB::statement("ALTER TABLE sales MODIFY COLUMN payment_method ENUM('cash', 'stripe', 'invoiceninja') DEFAULT 'cash'");
         }
+    }
+
+    /**
+     * Rebuild a SQLite table replacing the given column with a new definition.
+     */
+    protected function sqliteRenameAndCopy(string $table, bool $rollback = false): void
+    {
+        // Temporarily disable FK checks to avoid transient rename issues
+        DB::statement('PRAGMA foreign_keys = OFF');
+
+        // If the helper already ran, skip to idempotent state
+        $columns = DB::select("PRAGMA table_info('$table')");
+        $names = array_map(fn($c) => $c->name, $columns);
+        if (in_array('payment_method_old', $names, true) && in_array('payment_method', $names, true)) {
+            // We already have both columns; just normalize values on rollback
+            if ($rollback) {
+                DB::statement("UPDATE $table SET payment_method_old = CASE WHEN payment_method = 'payment_url' THEN 'cash' ELSE payment_method END");
+            }
+            DB::statement('PRAGMA foreign_keys = ON');
+            return;
+        }
+
+        // Rename the existing column so we can add a fresh one with the new enum semantics
+        DB::statement("ALTER TABLE $table RENAME COLUMN payment_method TO payment_method_old");
+
+        Schema::table($table, function (Blueprint $tableDef) use ($rollback) {
+            $default = $rollback ? 'cash' : 'cash';
+            $tableDef->string('payment_method')->default($default);
+        });
+
+        if ($rollback) {
+            DB::statement("UPDATE $table SET payment_method = CASE WHEN payment_method_old = 'payment_url' THEN 'cash' ELSE payment_method_old END");
+        } else {
+            DB::statement("UPDATE $table SET payment_method = payment_method_old");
+        }
+
+        DB::statement('PRAGMA foreign_keys = ON');
     }
 };
