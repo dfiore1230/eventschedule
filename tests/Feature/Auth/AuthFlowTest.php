@@ -28,10 +28,6 @@ class AuthFlowTest extends TestCase
             'language_code' => 'en',
         ]);
 
-        if ($response->status() === 419) {
-            echo "REGISTER RESPONSE: \n" . $response->getContent();
-        }
-
         $response->assertRedirect(route('home'));
         $this->assertAuthenticated();
 
