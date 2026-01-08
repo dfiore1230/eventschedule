@@ -52,8 +52,8 @@ abstract class TestCase extends BaseTestCase
             return;
         }
 
-        // Find tables with _temp_ references in their foreign keys
-        $rows = DB::select("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND sql LIKE '%_temp_%'");
+        // Find tables with _temp_ or _old_ references in their foreign keys
+        $rows = DB::select("SELECT name, sql FROM sqlite_master WHERE type = 'table' AND (sql LIKE '%_temp_%' OR sql LIKE '%_old_%')");
         
         if (empty($rows)) {
             return;
@@ -65,10 +65,15 @@ abstract class TestCase extends BaseTestCase
             $table = $row->name;
             $createSql = $row->sql;
 
-            // Fix the CREATE statement by removing _temp_ prefixes from referenced tables
+            // Fix the CREATE statement by removing _temp_ and _old_ prefixes from referenced tables
             $fixedCreate = preg_replace('/"_temp_([^"]+)"/', '"$1"', $createSql);
             $fixedCreate = preg_replace("/'_temp_([^']+)'/", "'$1'", $fixedCreate);
             $fixedCreate = str_replace('_temp_', '', $fixedCreate);
+            
+            // Also fix _old_ references
+            $fixedCreate = preg_replace('/"_old_([^"]+)"/', '"$1"', $fixedCreate);
+            $fixedCreate = preg_replace("/'_old_([^']+)'/", "'$1'", $fixedCreate);
+            $fixedCreate = str_replace('_old_', '', $fixedCreate);
 
             if ($fixedCreate === $createSql) {
                 continue; // No changes needed

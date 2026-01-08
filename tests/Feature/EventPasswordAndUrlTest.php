@@ -6,11 +6,14 @@ use Tests\TestCase;
 use App\Models\User;
 use App\Models\Role;
 use App\Models\Event;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class EventPasswordAndUrlTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_guest_gets_password_prompt_for_protected_event()
     {
         $user = User::factory()->create();

@@ -25,7 +25,7 @@ class EventDeletionNotificationTest extends TestCase
         $venue = Role::factory()->create(['type' => 'venue', 'user_id' => $user->id]);
         $talent = Role::factory()->create(['type' => 'talent']);
         $talentMember = User::factory()->create();
-        $talent->members()->attach($talentMember->id);
+        $talent->members()->attach($talentMember->id, ['level' => 'admin']);
 
         $event = Event::factory()->create([
             'user_id' => $user->id,
@@ -50,7 +50,7 @@ class EventDeletionNotificationTest extends TestCase
         $user = User::factory()->create();
         $venue = Role::factory()->create(['type' => 'venue', 'user_id' => $user->id]);
         $venueMember = User::factory()->create();
-        $venue->members()->attach($venueMember->id);
+        $venue->members()->attach($venueMember->id, ['level' => 'admin']);
 
         $event = Event::factory()->create([
             'user_id' => $user->id,
@@ -118,7 +118,7 @@ class EventDeletionNotificationTest extends TestCase
         $venue = Role::factory()->create(['type' => 'venue', 'user_id' => $user->id]);
         $talent = Role::factory()->create(['type' => 'talent']);
         $talentMember = User::factory()->create();
-        $talent->members()->attach($talentMember->id);
+        $talent->members()->attach($talentMember->id, ['level' => 'admin']);
 
         $event = Event::factory()->create([
             'user_id' => $user->id,
@@ -143,7 +143,7 @@ class EventDeletionNotificationTest extends TestCase
         $talent = Role::factory()->create(['type' => 'talent', 'user_id' => $user->id]);
         $venue = Role::factory()->create(['type' => 'venue']);
         $venueMember = User::factory()->create();
-        $venue->members()->attach($venueMember->id);
+        $venue->members()->attach($venueMember->id, ['level' => 'admin']);
 
         $event = Event::factory()->create([
             'user_id' => $user->id,
