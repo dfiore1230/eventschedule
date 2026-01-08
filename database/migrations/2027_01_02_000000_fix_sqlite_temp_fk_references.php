@@ -7,7 +7,7 @@ class FixSqliteTempFkReferences extends Migration
 {
     public function up(): void
     {
-        // Skip this migration - the schema repair happens in TestCase::setUp() for testing
+        // Skip this migration - the schema repair happens in TestCase::afterRefreshingDatabase() for testing
         return;
         
         // Disable foreign key checks while we rebuild tables to avoid transient references to _temp_* tables

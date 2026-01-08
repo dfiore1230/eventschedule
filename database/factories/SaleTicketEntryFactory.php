@@ -18,7 +18,7 @@ class SaleTicketEntryFactory extends Factory
         return [
             'sale_ticket_id' => SaleTicket::factory(),
             'secret' => \Illuminate\Support\Str::random(12),
-            'seat_number' => null,
+            'seat_number' => $this->faker->numberBetween(1, 100),
             'scanned_at' => null,
         ];
     }
