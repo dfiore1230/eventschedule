@@ -7,11 +7,9 @@ class FixSqliteTempFkReferences extends Migration
 {
     public function up(): void
     {
-        // Temporarily disable this migration entirely to avoid sqlite schema-change
-        // errors during test runs. Repair logic now lives in TestCase and can be
-        // re-enabled after stabilization.
+        // Skip this migration - the schema repair happens in TestCase::setUp() for testing
         return;
-
+        
         // Disable foreign key checks while we rebuild tables to avoid transient references to _temp_* tables
         DB::statement('PRAGMA foreign_keys = OFF');
 
