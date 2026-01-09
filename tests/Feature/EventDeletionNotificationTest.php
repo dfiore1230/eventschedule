@@ -34,8 +34,8 @@ class EventDeletionNotificationTest extends TestCase
         $event->roles()->attach($venue->id, ['is_accepted' => true]);
         $event->roles()->attach($talent->id, ['is_accepted' => true]);
 
-        $this->actingAs($user)
-            ->delete(route('event.delete', [
+        $response = $this->actingAs($user)
+            ->get(route('event.delete', [
                 'subdomain' => $venue->subdomain,
                 'hash' => \App\Utils\UrlUtils::encodeId($event->id)
             ]));
@@ -59,7 +59,7 @@ class EventDeletionNotificationTest extends TestCase
         $event->roles()->attach($venue->id, ['is_accepted' => true]);
 
         $this->actingAs($user)
-            ->delete(route('event.delete', [
+            ->get(route('event.delete', [
                 'subdomain' => $venue->subdomain,
                 'hash' => \App\Utils\UrlUtils::encodeId($event->id)
             ]));
@@ -96,7 +96,7 @@ class EventDeletionNotificationTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->delete(route('event.delete', [
+            ->get(route('event.delete', [
                 'subdomain' => $venue->subdomain,
                 'hash' => \App\Utils\UrlUtils::encodeId($event->id)
             ]));
@@ -154,7 +154,7 @@ class EventDeletionNotificationTest extends TestCase
 
         // Delete the talent role (which should delete orphaned events)
         $this->actingAs($user)
-            ->delete(route('role.delete', ['subdomain' => $talent->subdomain]));
+            ->get(route('role.delete', ['subdomain' => $talent->subdomain]));
 
         Notification::assertSentTo($venueMember, DeletedEventNotification::class);
     }

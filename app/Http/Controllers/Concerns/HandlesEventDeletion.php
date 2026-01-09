@@ -15,12 +15,17 @@ trait HandlesEventDeletion
      */
     protected function handleEventDeletion(Event $event, User $user): void
     {
+        \Log::info('handleEventDeletion called', ['event_id' => $event->id, 'user_id' => $user->id]);
+        
         $event->loadMissing(['roles.members', 'venue.members', 'creatorRole.members', 'sales']);
 
         // Notify talent roles
         $talentRoles = $event->roles->filter(fn ($roleModel) => $roleModel->isTalent());
 
+        \Log::info('talentRoles count', ['count' => $talentRoles->count()]);
+
         NotificationUtils::uniqueRoleMembersWithContext($talentRoles)->each(function (array $recipient) use ($event, $user) {
+            \Log::info('Notifying talent member', ['user_id' => $recipient['user']->id]);
             $recipient['user']->notify(new DeletedEventNotification($event, $user, 'talent', $recipient['role']));
         });
 
@@ -28,6 +33,7 @@ trait HandlesEventDeletion
         $organizerRoles = collect([$event->creatorRole, $event->venue])->filter();
 
         NotificationUtils::uniqueRoleMembersWithContext($organizerRoles)->each(function (array $recipient) use ($event, $user) {
+            \Log::info('Notifying organizer member', ['user_id' => $recipient['user']->id]);
             $recipient['user']->notify(new DeletedEventNotification($event, $user, 'organizer', $recipient['role']));
         });
 
