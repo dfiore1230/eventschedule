@@ -13,6 +13,15 @@ class UserManagementTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        
+        // Ensure user_roles table is not empty so new users don't auto-get superadmin role
+        $existingRole = SystemRole::firstOrCreate(['slug' => 'existing'], ['name' => 'Existing']);
+        User::factory()->create()->systemRoles()->attach($existingRole);
+    }
+
     protected function createManagerWithPermission(string $permissionKey = 'users.manage'): User
     {
         // Ensure permission exists (avoid duplicate inserts on MySQL where seed ran)
@@ -39,20 +48,25 @@ class UserManagementTest extends TestCase
     {
         $admin = $this->createManagerWithPermission();
 
-        $response = $this->actingAs($admin)->post(route('settings.users.store'), [
-            'name' => 'Managed User',
-            'email' => 'managed@example.com',
-            'password_mode' => 'set',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
-            'timezone' => 'America/New_York',
-            'language_code' => 'en',
-            'status' => 'active',
-            'roles' => [$admin->systemRoles->first()->id],
-            'venue_scope' => 'all',
-            'curator_scope' => 'all',
-            'talent_scope' => 'all',
-        ]);
+        // Use postJson to bypass CSRF token requirement or manually provide it
+        $response = $this->actingAs($admin)->post(
+            route('settings.users.store'),
+            [
+                'name' => 'Managed User',
+                'email' => 'managed@example.com',
+                'password_mode' => 'set',
+                'password' => 'password123',
+                'password_confirmation' => 'password123',
+                'timezone' => 'America/New_York',
+                'language_code' => 'en',
+                'status' => 'active',
+                'roles' => [$admin->systemRoles->first()->id],
+                'venue_scope' => 'all',
+                'curator_scope' => 'all',
+                'talent_scope' => 'all',
+            ],
+            ['X-CSRF-TOKEN' => csrf_token()]  // Provide CSRF token in header
+        );
 
         $response->assertRedirect(route('settings.users.index'));
 

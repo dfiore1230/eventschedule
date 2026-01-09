@@ -231,6 +231,21 @@ class User extends Authenticatable implements MustVerifyEmail, CanResetPasswordC
         return app(AuthorizationService::class)->userHasPermission($this, $permissionKey);
     }
 
+    /**
+     * Override the can method to support ability checks via hasPermission
+     * This allows the ability middleware to work with the custom permission system
+     */
+    public function can($ability, $arguments = [])
+    {
+        // First check Laravel's built-in authorization
+        if (parent::can($ability, $arguments)) {
+            return true;
+        }
+
+        // Then check custom permissions (abilities match permission keys)
+        return $this->hasPermission($ability);
+    }
+
     public function hasAnyPermission(string ...$permissionKeys): bool
     {
         if (count($permissionKeys) === 1 && is_array($permissionKeys[0])) {
