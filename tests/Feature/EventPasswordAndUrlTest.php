@@ -30,7 +30,16 @@ class EventPasswordAndUrlTest extends TestCase
         $event->event_password_hash = Hash::make('plain-text');
         $event->save();
 
-        $response = $this->get('/' . $role->subdomain . '/' . $event->slug);
+        $response = $this->get(
+            'http://' . $role->subdomain . '.eventschedule.com/' . $event->slug
+        );
+
+        if ($response->status() !== 200) {
+            echo "\n\nDEBUG Response for password prompt test:\n";
+            echo "Status: " . $response->status() . "\n";
+            echo "Location: " . $response->headers->get('Location') . "\n";
+            echo "Body: " . substr($response->getContent(), 0, 500) . "\n\n";
+        }
 
         $response->assertStatus(200);
         $response->assertSeeText(__('messages.event_password_required'));

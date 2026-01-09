@@ -372,7 +372,7 @@ class ApiTicketController extends Controller
         $newEntry = SaleTicketEntry::create([
             'sale_ticket_id' => $saleTicket->id,
             'secret' => Str::random(24),
-            'seat_number' => $validated['seat_number'] ?? null,
+            'seat_number' => $validated['seat_number'] ?? mt_rand(1, 65535),
             'scanned_at' => now(),
         ]);
 
