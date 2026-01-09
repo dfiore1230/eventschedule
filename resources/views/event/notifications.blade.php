@@ -7,7 +7,8 @@
 <x-slot name="head">
     <script {!! nonce_attr() !!}>
         document.addEventListener('alpine:init', () => {
-            Alpine.data('eventNotifications', (eventId) => ({
+            Alpine.data('eventNotifications', (eventId, apiKey) => ({
+                apiKey: apiKey || '',
                 loading: true,
                 saving: false,
                 status: '',
@@ -87,15 +88,30 @@
                 placeholderKeys(template) {
                     return Object.keys(template.placeholders || {});
                 },
+                requireApiKey() {
+                    if (this.apiKey) {
+                        return true;
+                    }
+
+                    this.error = 'Add an API key in Profile -> API Access to manage per-event notifications.';
+                    this.loading = false;
+                    this.saving = false;
+                    return false;
+                },
                 async fetchData() {
                     this.loading = true;
                     this.error = '';
                     this.status = '';
 
+                    if (!this.requireApiKey()) {
+                        return;
+                    }
+
                     try {
                         const response = await fetch(`/api/events/${eventId}/notifications`, {
                             headers: {
                                 Accept: 'application/json',
+                                'X-API-Key': this.apiKey,
                             },
                         });
 
@@ -121,6 +137,10 @@
                     this.error = '';
                     this.status = '';
 
+                    if (!this.requireApiKey()) {
+                        return;
+                    }
+
                     try {
                         const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
@@ -129,6 +149,7 @@
                             headers: {
                                 'Content-Type': 'application/json',
                                 Accept: 'application/json',
+                                'X-API-Key': this.apiKey,
                                 ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
                             },
                             body: JSON.stringify({
@@ -159,7 +180,7 @@
     </script>
 </x-slot>
 
-<div class="max-w-5xl mx-auto py-8" x-data="eventNotifications('{{ UrlUtils::encodeId($event->id) }}')">
+<div class="max-w-5xl mx-auto py-8" x-data="eventNotifications('{{ UrlUtils::encodeId($event->id) }}', @json(auth()->user()->api_key ?? ''))">
     <div class="flex items-start justify-between gap-4 mb-6">
         <div>
             <p class="text-sm text-gray-600 dark:text-gray-300">Configure per-event notification delivery and override email copy without affecting other events.</p>
