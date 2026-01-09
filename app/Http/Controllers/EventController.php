@@ -189,6 +189,9 @@ class EventController extends Controller
             'endAt' => $endAt,
             'recurringDays' => $recurringDays,
             'categoryName' => $categoryName,
+            'sales' => $sales,
+        ]);
+    }
 
     public function notifications(Request $request, $subdomain, $hash)
     {
@@ -212,9 +215,6 @@ class EventController extends Controller
             'role' => $role,
             'subdomain' => $subdomain,
             'title' => __('messages.notification_settings') ?? 'Notification settings',
-        ]);
-    }
-            'sales' => $sales,
         ]);
     }
 
