@@ -208,7 +208,11 @@
 
     <div x-show="!loading" class="space-y-4">
         <div class="flex justify-end mb-2">
-            <button type="button" class="text-sm text-red-600 hover:text-red-700" @click="resetAll">
+            <button
+                type="button"
+                class="inline-flex items-center gap-1 px-3 py-1 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:text-red-800 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 active:bg-red-200"
+                @click="resetAll"
+            >
                 Clear all overrides
             </button>
         </div>
