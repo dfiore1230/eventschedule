@@ -180,7 +180,7 @@
     </script>
 </x-slot>
 
-<div class="max-w-5xl mx-auto py-8" x-data="eventNotifications('{{ UrlUtils::encodeId($event->id) }}', @json(auth()->user()->api_key ?? ''))">
+<div class="max-w-5xl mx-auto py-8" x-data='eventNotifications(@json(UrlUtils::encodeId($event->id)), @json(auth()->user()->api_key ?? ""))'>
     <div class="flex items-start justify-between gap-4 mb-6">
         <div>
             <p class="text-sm text-gray-600 dark:text-gray-300">Configure per-event notification delivery and override email copy without affecting other events.</p>
