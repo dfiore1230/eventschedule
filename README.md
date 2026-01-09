@@ -199,20 +199,7 @@ PHP tests (Pest/PHPUnit):
 php artisan test
 ```
 
-Cypress (E2E):
-
-- The project includes Cypress tests under `cypress/e2e/` (run with `npm run cypress:run`).
-- Debugging: Use `CYPRESS_DEBUG=true` to enable extra diagnostic outputs (HTML snapshots and session cookie dumps) and use the debug workflow `.github/workflows/cypress-debug.yml` for on-demand artifact collection in CI.
-```bash
-# install deps
-npm ci
-# open interactive
-npm run cypress:open
-# run headless
-npm run cypress:run
-```
-
-GitHub Actions CI: `.github/workflows/ci.yml` runs PHP tests and the Cypress smoke suite on push & PRs.
+GitHub Actions CI: `.github/workflows/ci.yml` runs PHP feature tests on push & PRs.
 
 Seed test data (local/testing only):
 
