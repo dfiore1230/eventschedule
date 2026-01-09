@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ApiScheduleController;
 use App\Http\Controllers\Api\ApiSettingsController;
 use App\Http\Controllers\Api\ApiEventController;
+use App\Http\Controllers\Api\ApiEventNotificationController;
 use App\Http\Controllers\Api\ApiRoleController;
 use App\Http\Middleware\ApiAuthentication;
 
@@ -23,6 +24,8 @@ Route::middleware([ApiAuthentication::class])->group(function () {
     Route::patch('/events/{event_id}', [ApiEventController::class, 'update'])->middleware('ability:resources.manage');
     Route::delete('/events/{event_id}', [ApiEventController::class, 'destroy'])->middleware('ability:resources.manage');
     Route::post('/events/flyer/{event_id}', [ApiEventController::class, 'flyer'])->middleware('ability:resources.view');
+    Route::get('/events/{event_id}/notifications', [ApiEventNotificationController::class, 'show'])->middleware('ability:resources.manage');
+    Route::patch('/events/{event_id}/notifications', [ApiEventNotificationController::class, 'update'])->middleware('ability:resources.manage');
 
     // Profile
     Route::patch('/profile', [\App\Http\Controllers\Api\ApiProfileController::class, 'update'])->middleware('ability:resources.manage');

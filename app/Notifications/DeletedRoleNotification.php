@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Support\EventMailTemplateManager;
 use App\Support\MailConfigManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -37,7 +38,12 @@ class DeletedRoleNotification extends Notification
             return [];
         }
 
-        return ['mail'];
+        $event = $this->role?->events()->first();
+        $templates = $event
+            ? EventMailTemplateManager::forEvent($event)
+            : app(\App\Support\MailTemplateManager::class);
+
+        return $templates->enabled($this->templateKey()) ? ['mail'] : [];
     }
 
     /**
@@ -48,18 +54,27 @@ class DeletedRoleNotification extends Notification
         $role = $this->role;
         $user = $this->user;
 
+        $event = $role?->events()->first();
+        $templates = $event
+            ? EventMailTemplateManager::forEvent($event)
+            : app(\App\Support\MailTemplateManager::class);
+        $templateKey = $this->templateKey();
+
+        $data = [
+            'role_name' => $role->name,
+            'role_type' => $role->type,
+            'actor_name' => $user->name,
+            'app_name' => config('app.name'),
+        ];
+
+        $subject = $templates->renderSubject($templateKey, $data)
+            ?: str_replace(':type', __('messages.' . $role->type), __('messages.role_has_been_deleted'));
+        $body = $templates->renderBody($templateKey, $data);
+
         return (new MailMessage)
-                ->replyTo($user->email, $user->name)
-                ->subject(str_replace(
-                    ':type', 
-                    __('messages.' . $role->type), 
-                    __('messages.role_has_been_deleted'))
-                )
-                ->line(str_replace(
-                    [':name', ':type', ':user'],
-                    [$role->name, $role->type, $user->name],
-                    __('messages.role_has_been_deleted_details'))
-                );
+            ->replyTo($user->email, $user->name)
+            ->subject($subject)
+            ->markdown('mail.templates.generic', ['body' => $body]);
     }
 
     /**
@@ -83,5 +98,10 @@ class DeletedRoleNotification extends Notification
             'List-Unsubscribe' => '<' . route('role.unsubscribe', ['subdomain' => $this->role->subdomain]) . '>',
             'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
         ];
+    }
+
+    protected function templateKey(): string
+    {
+        return 'role_deleted';
     }
 }

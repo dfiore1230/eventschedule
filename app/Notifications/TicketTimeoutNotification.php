@@ -4,8 +4,8 @@ namespace App\Notifications;
 
 use App\Models\Role;
 use App\Models\Sale;
+use App\Support\EventMailTemplateManager;
 use App\Support\MailConfigManager;
-use App\Support\MailTemplateManager;
 use App\Utils\NotificationUtils;
 use App\Utils\UrlUtils;
 use Illuminate\Bus\Queueable;
@@ -35,7 +35,7 @@ class TicketTimeoutNotification extends Notification
             return [];
         }
 
-        $templates = app(MailTemplateManager::class);
+        $templates = EventMailTemplateManager::forEvent($this->sale->event);
 
         return $templates->enabled($this->templateKey()) ? ['mail'] : [];
     }
@@ -54,7 +54,7 @@ class TicketTimeoutNotification extends Notification
             'secret' => $this->sale->secret,
         ]);
 
-        $templates = app(MailTemplateManager::class);
+        $templates = EventMailTemplateManager::forEvent($event);
         $templateKey = $this->templateKey();
 
         $eventDate = $date ?: __('messages.date_to_be_announced');

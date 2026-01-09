@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Support\EventMailTemplateManager;
 use App\Support\MailConfigManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -37,7 +38,12 @@ class EventRequestNotification extends Notification
             return [];
         }
 
-        return ['mail'];
+        $event = $this->venue->events()->first();
+        $templates = $event
+            ? EventMailTemplateManager::forEvent($event)
+            : app(\App\Support\MailTemplateManager::class);
+
+        return $templates->enabled($this->templateKey()) ? ['mail'] : [];
     }
 
     /**
@@ -45,12 +51,27 @@ class EventRequestNotification extends Notification
      */
     public function toMail(object $notifiable): MailMessage
     {
+        $event = $this->venue->events()->first();
+        $templates = $event
+            ? EventMailTemplateManager::forEvent($event)
+            : app(\App\Support\MailTemplateManager::class);
+        $templateKey = $this->templateKey();
+
+        $data = [
+            'role_name' => $this->role->name,
+            'venue_name' => $this->venue->name,
+            'venue_subdomain' => $this->venue->subdomain,
+            'requests_url' => route('role.view_admin', ['subdomain' => $this->venue->subdomain, 'tab' => 'requests']),
+            'app_name' => config('app.name'),
+        ];
+
+        $subject = $templates->renderSubject($templateKey, $data) ?: str_replace(':name', $this->role->name, __('messages.new_request'));
+        $body = $templates->renderBody($templateKey, $data);
+
         return (new MailMessage)
-                    ->replyTo($this->role->user->email, $this->role->user->name)
-                    ->subject(str_replace(':name', $this->role->name, __('messages.new_request')))
-                    ->line(str_replace(':name', $this->role->name, __('messages.new_request')))
-                    ->action(__('messages.view_details'), route('role.view_admin', ['subdomain' => $this->venue->subdomain, 'tab' => 'requests']))
-                    ->line(__('messages.thank_you_for_using'));
+            ->replyTo($this->role->user->email, $this->role->user->name)
+            ->subject($subject)
+            ->markdown('mail.templates.generic', ['body' => $body]);
     }
 
     /**
@@ -63,6 +84,11 @@ class EventRequestNotification extends Notification
         return [
             //
         ];
+    }
+
+    protected function templateKey(): string
+    {
+        return 'event_request';
     }
 
     /**

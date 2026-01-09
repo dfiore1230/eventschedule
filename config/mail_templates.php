@@ -497,5 +497,235 @@ MD,
                 ':app_name' => 'The application name configured in settings.',
             ],
         ],
+        'event_added' => [
+            'label' => 'Event added (talent/organizer)',
+            'description' => 'Sent to talent and organizers when an event is added to a schedule.',
+            'enabled' => true,
+            'subject' => ':event_name was added',
+            'body' => <<<'MD'
+# Hello!
+
+An event was added to the schedule.
+
+- **Event:** :event_name
+- **Venue:** :venue_name
+- **Date:** :event_date
+
+[View Event](:event_url)
+
+Thanks,
+:app_name
+MD,
+            'placeholders' => [
+                ':event_name' => 'Name of the event.',
+                ':venue_name' => 'Name of the venue where the event takes place.',
+                ':event_date' => 'Date of the event, or "Date to be announced" when not available.',
+                ':event_url' => 'Public link where the recipient can view the event.',
+                ':app_name' => 'The application name configured in settings.',
+            ],
+        ],
+        'event_added_purchaser' => [
+            'label' => 'Event added (purchaser)',
+            'description' => 'Sent to purchasers when an event relevant to their tickets is added or rescheduled.',
+            'enabled' => true,
+            'subject' => 'New event: :event_name',
+            'body' => <<<'MD'
+# Hello!
+
+- **Event:** :event_name
+- **Venue:** :venue_name
+- **Date:** :event_date
+
+[View Event](:event_url)
+
+Thanks,
+:app_name
+MD,
+            'placeholders' => [
+                ':event_name' => 'Name of the event.',
+                ':venue_name' => 'Name of the venue where the event takes place.',
+                ':event_date' => 'Date of the event, or "Date to be announced" when not available.',
+                ':event_url' => 'Public link where the recipient can view the event.',
+                ':app_name' => 'The application name configured in settings.',
+            ],
+        ],
+        'booking_request_accepted_talent' => [
+            'label' => 'Booking request accepted (talent)',
+            'description' => 'Sent to talent when their booking request is accepted.',
+            'enabled' => true,
+            'subject' => 'Booking request accepted for :event_name',
+            'body' => <<<'MD'
+# Hello!
+
+Your booking request has been accepted.
+
+- **Event:** :event_name
+- **Venue:** :venue_name
+- **Date:** :event_date
+
+[View Event](:event_url)
+
+Thanks,
+:app_name
+MD,
+            'placeholders' => [
+                ':event_name' => 'Name of the event.',
+                ':venue_name' => 'Name of the venue where the event takes place.',
+                ':event_date' => 'Date of the event, or "Date to be announced" when not available.',
+                ':event_url' => 'Public link where the recipient can view the event.',
+                ':app_name' => 'The application name configured in settings.',
+            ],
+        ],
+        'booking_request_accepted_organizer' => [
+            'label' => 'Booking request accepted (organizer)',
+            'description' => 'Sent to organizers when a booking request is accepted.',
+            'enabled' => true,
+            'subject' => 'Booking confirmed for :event_name',
+            'body' => <<<'MD'
+# Hello!
+
+A booking request has been accepted.
+
+- **Event:** :event_name
+- **Talent:** :talent_name
+- **Venue:** :venue_name
+- **Date:** :event_date
+
+[View Event](:event_url)
+
+Thanks,
+:app_name
+MD,
+            'placeholders' => [
+                ':event_name' => 'Name of the event.',
+                ':talent_name' => 'Name of the talent.',
+                ':venue_name' => 'Name of the venue where the event takes place.',
+                ':event_date' => 'Date of the event, or "Date to be announced" when not available.',
+                ':event_url' => 'Public link where the recipient can view the event.',
+                ':app_name' => 'The application name configured in settings.',
+            ],
+        ],
+        'booking_request_declined_talent' => [
+            'label' => 'Booking request declined (talent)',
+            'description' => 'Sent to talent when their booking request is declined.',
+            'enabled' => true,
+            'subject' => 'Booking request declined for :event_name',
+            'body' => <<<'MD'
+# Hello!
+
+Your booking request was declined.
+
+- **Event:** :event_name
+- **Venue:** :venue_name
+- **Date:** :event_date
+
+[View Event](:event_url)
+
+Thanks,
+:app_name
+MD,
+            'placeholders' => [
+                ':event_name' => 'Name of the event.',
+                ':venue_name' => 'Name of the venue where the event takes place.',
+                ':event_date' => 'Date of the event, or "Date to be announced" when not available.',
+                ':event_url' => 'Public link where the recipient can view the event.',
+                ':app_name' => 'The application name configured in settings.',
+            ],
+        ],
+        'booking_request_declined_organizer' => [
+            'label' => 'Booking request declined (organizer)',
+            'description' => 'Sent to organizers when a booking request is declined.',
+            'enabled' => true,
+            'subject' => 'Booking request declined for :event_name',
+            'body' => <<<'MD'
+# Hello!
+
+A booking request was declined.
+
+- **Event:** :event_name
+- **Talent:** :talent_name
+- **Venue:** :venue_name
+- **Date:** :event_date
+
+[View Event](:event_url)
+
+Thanks,
+:app_name
+MD,
+            'placeholders' => [
+                ':event_name' => 'Name of the event.',
+                ':talent_name' => 'Name of the talent.',
+                ':venue_name' => 'Name of the venue where the event takes place.',
+                ':event_date' => 'Date of the event, or "Date to be announced" when not available.',
+                ':event_url' => 'Public link where the recipient can view the event.',
+                ':app_name' => 'The application name configured in settings.',
+            ],
+        ],
+        'event_request' => [
+            'label' => 'Event request received',
+            'description' => 'Sent to venues when a new event request is submitted.',
+            'enabled' => true,
+            'subject' => 'New event request: :role_name',
+            'body' => <<<'MD'
+# Hello!
+
+You have a new event request.
+
+- **Performer:** :role_name
+- **Venue:** :venue_name
+
+[View Requests](:requests_url)
+
+Thanks,
+:app_name
+MD,
+            'placeholders' => [
+                ':role_name' => 'Name of the requesting role/performer.',
+                ':venue_name' => 'Name of the venue receiving the request.',
+                ':requests_url' => 'Link to review incoming event requests.',
+                ':app_name' => 'The application name configured in settings.',
+            ],
+        ],
+        'member_added' => [
+            'label' => 'Member added to role',
+            'description' => 'Sent to users when they are added to a role for an event.',
+            'enabled' => true,
+            'subject' => 'You were added to :role_name',
+            'body' => <<<'MD'
+# Hello!
+
+You have been added to :role_name.
+
+[Get Started](:action_url)
+
+Thanks,
+:app_name
+MD,
+            'placeholders' => [
+                ':role_name' => 'Name of the role the user was added to.',
+                ':action_url' => 'Link to manage the role or set a password.',
+                ':app_name' => 'The application name configured in settings.',
+            ],
+        ],
+        'role_deleted' => [
+            'label' => 'Role deleted',
+            'description' => 'Sent to role members when a role tied to an event is deleted.',
+            'enabled' => true,
+            'subject' => ':role_type role deleted',
+            'body' => <<<'MD'
+# Hello!
+
+A :role_type role (:role_name) was deleted by :actor_name.
+
+Thanks,
+:app_name
+MD,
+            'placeholders' => [
+                ':role_type' => 'Type of the role (venue, talent, curator).',
+                ':role_name' => 'Name of the deleted role.',
+                ':actor_name' => 'Name of the user who performed the deletion.',
+                ':app_name' => 'The application name configured in settings.',
+            ],
+        ],
     ],
 ];

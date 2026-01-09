@@ -5,8 +5,8 @@ namespace App\Notifications;
 use App\Models\Event;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\EventMailTemplateManager;
 use App\Support\MailConfigManager;
-use App\Support\MailTemplateManager;
 use App\Utils\NotificationUtils;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -37,7 +37,7 @@ class DeletedEventNotification extends Notification
             return [];
         }
 
-        $templates = app(MailTemplateManager::class);
+        $templates = EventMailTemplateManager::forEvent($this->event);
 
         return $templates->enabled($this->templateKey()) ? ['mail'] : [];
     }
@@ -49,7 +49,7 @@ class DeletedEventNotification extends Notification
         $venueName = $this->event->getVenueDisplayName();
         $date = $this->event->localStartsAt(true);
 
-        $templates = app(MailTemplateManager::class);
+        $templates = EventMailTemplateManager::forEvent($this->event);
         $templateKey = $this->templateKey();
 
         $data = [

@@ -11,6 +11,7 @@ use App\Models\Role;
 use App\Models\RoleUser;
 use App\Repos\EventRepo;
 use App\Utils\UrlUtils;
+use App\Support\EventNotificationSettingsManager;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Storage;
@@ -126,6 +127,9 @@ class ApiEventController extends Controller
                 'string',
                 'max:255',
             ],
+            'notification_settings' => 'sometimes|array',
+            'notification_settings.templates' => 'sometimes|array',
+            'notification_settings.channels' => 'sometimes|array',
         ]);
 
         // Handle group name to group_id conversion
@@ -245,6 +249,15 @@ class ApiEventController extends Controller
         }
 
         $event = $this->eventRepo->saveEvent($role, $request, null);
+
+        if ($request->has('notification_settings')) {
+            app(EventNotificationSettingsManager::class)->update(
+                $event,
+                $request->input('notification_settings', [])
+            );
+
+            $event->load('notificationSetting');
+        }
                 
         return response()->json([
             'data' => $event->toApiData(),
@@ -277,6 +290,9 @@ class ApiEventController extends Controller
             'category_id' => 'nullable|integer',
             'flyer_image_url' => 'nullable|string',
             'flyer_image_id' => 'nullable|integer',
+            'notification_settings' => 'sometimes|array',
+            'notification_settings.templates' => 'sometimes|array',
+            'notification_settings.channels' => 'sometimes|array',
         ]);
         
         // Validate that at least one location type is present (venue or online)
@@ -434,6 +450,15 @@ class ApiEventController extends Controller
         }
 
         $event = $this->eventRepo->saveEvent($currentRole, $request, $event);
+
+        if ($request->has('notification_settings')) {
+            app(EventNotificationSettingsManager::class)->update(
+                $event,
+                $request->input('notification_settings', [])
+            );
+
+            $event->load('notificationSetting');
+        }
 
         return response()->json([
             'data' => $event->toApiData(),

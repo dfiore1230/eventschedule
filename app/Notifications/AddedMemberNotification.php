@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Support\EventMailTemplateManager;
 use App\Support\MailConfigManager;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -39,7 +40,12 @@ class AddedMemberNotification extends Notification
             return [];
         }
 
-        return ['mail'];
+        $event = $this->role?->events()->first();
+        $templates = $event
+            ? EventMailTemplateManager::forEvent($event)
+            : app(\App\Support\MailTemplateManager::class);
+
+        return $templates->enabled($this->templateKey()) ? ['mail'] : [];
     }
 
     /**
@@ -49,14 +55,29 @@ class AddedMemberNotification extends Notification
     {
         $newUser = $this->user->wasRecentlyCreated;
 
+        $event = $this->role?->events()->first();
+        $templates = $event
+            ? EventMailTemplateManager::forEvent($event)
+            : app(\App\Support\MailTemplateManager::class);
+        $templateKey = $this->templateKey();
+
+        $data = [
+            'role_name' => $this->role->name,
+            'admin_name' => $this->admin->name,
+            'admin_email' => $this->admin->email,
+            'action_url' => $newUser
+                ? route('password.request', ['email' => $this->user->email])
+                : route('role.view_admin', ['subdomain' => $this->role->subdomain, 'tab' => 'schedule']),
+            'app_name' => config('app.name'),
+        ];
+
+        $subject = $templates->renderSubject($templateKey, $data) ?: str_replace(':name', $this->role->name, __('messages.added_to_team'));
+        $body = $templates->renderBody($templateKey, $data);
+
         return (new MailMessage)
-                    ->replyTo($this->admin->email, $this->admin->name)
-                    ->subject(str_replace(':name', $this->role->name, __('messages.added_to_team')))
-                    ->line(str_replace([':name', ':user'], [$this->role->name, $this->admin->name], __('messages.added_to_team_detail')))
-                    ->action(
-                        $newUser ? __('messages.set_new_password') : __('messages.get_started'), 
-                        $newUser ? route('password.request', ['email' => $this->user->email]) : route('role.view_admin', ['subdomain' => $this->role->subdomain, 'tab' => 'schedule']))
-                    ->line(__('messages.thank_you_for_using'));
+            ->replyTo($this->admin->email, $this->admin->name)
+            ->subject($subject)
+            ->markdown('mail.templates.generic', ['body' => $body]);
     }
 
     /**
@@ -80,5 +101,10 @@ class AddedMemberNotification extends Notification
             'List-Unsubscribe' => '<' . route('role.unsubscribe', ['subdomain' => $this->role->subdomain]) . '>',
             'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
         ];
+    }
+
+    protected function templateKey(): string
+    {
+        return 'member_added';
     }
 }

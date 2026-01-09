@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\Event;
 use App\Models\Role;
 use App\Models\User;
+use App\Support\EventMailTemplateManager;
 use App\Support\MailConfigManager;
 use App\Utils\NotificationUtils;
 use Illuminate\Bus\Queueable;
@@ -36,7 +37,9 @@ class EventAddedNotification extends Notification
             return [];
         }
 
-        return ['mail'];
+        $templates = EventMailTemplateManager::forEvent($this->event);
+
+        return $templates->enabled($this->templateKey()) ? ['mail'] : [];
     }
 
     public function toMail(object $notifiable): MailMessage
@@ -50,15 +53,24 @@ class EventAddedNotification extends Notification
             ? 'messages.event_added_line_purchaser'
             : 'messages.event_added_line';
 
+        $templates = EventMailTemplateManager::forEvent($this->event);
+        $templateKey = $this->templateKey();
+
+        $data = [
+            'event_name' => $eventName,
+            'venue_name' => $venueName ?: __('messages.event'),
+            'talent_name' => $talentName ?: $eventName,
+            'event_date' => $date ?: __('messages.date_to_be_announced'),
+            'event_url' => $this->event->getGuestUrl($this->contextRole?->subdomain ?? $this->event->venue?->subdomain),
+            'app_name' => config('app.name'),
+        ];
+
+        $subject = $templates->renderSubject($templateKey, $data) ?: __('messages.event_added_subject', ['event' => $eventName]);
+        $body = $templates->renderBody($templateKey, $data);
+
         $mail = (new MailMessage)
-            ->subject(__('messages.event_added_subject', ['event' => $eventName]))
-            ->line(__($lineKey, [
-                'talent' => $talentName ?: $eventName,
-                'venue' => $venueName ?: __('messages.event'),
-                'date' => $date ?: __('messages.date_to_be_announced'),
-            ]))
-            ->action(__('messages.view_event'), $this->event->getGuestUrl($this->contextRole?->subdomain ?? $this->event->venue?->subdomain))
-            ->line(__('messages.thank_you_for_using'));
+            ->subject($subject)
+            ->markdown('mail.templates.generic', ['body' => $body]);
 
         if ($this->actor && $this->actor->email) {
             $mail->replyTo($this->actor->email, $this->actor->name);
@@ -70,6 +82,13 @@ class EventAddedNotification extends Notification
     public function toArray(object $notifiable): array
     {
         return [];
+    }
+
+    protected function templateKey(): string
+    {
+        return $this->recipientType === 'purchaser'
+            ? 'event_added_purchaser'
+            : 'event_added';
     }
 
     public function toMailHeaders(): array

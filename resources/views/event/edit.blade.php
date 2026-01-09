@@ -172,6 +172,15 @@
     {{ $title }}
   </h2>
 
+  @if ($event->exists)
+  <div class="flex justify-end mb-4">
+    <a href="{{ route('event.notifications', ['subdomain' => $subdomain, 'hash' => \App\Utils\UrlUtils::encodeId($event->id)]) }}"
+       class="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+      {{ __('messages.notification_settings') ?? 'Notification settings' }}
+    </a>
+  </div>
+  @endif
+
   <form method="POST"
         x-on:submit="validateForm"
         action="{{ $event->exists ? route('event.update', ['subdomain' => $subdomain, 'hash' => \App\Utils\UrlUtils::encodeId($event->id)]) : route('event.store', ['subdomain' => $subdomain]) }}"

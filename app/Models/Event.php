@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Jobs\SyncEventToGoogleCalendar;
 use App\Models\EventRole;
 use App\Models\EventType;
+use App\Models\EventNotificationSetting;
 use App\Models\MediaAssetUsage;
 use App\Models\VenueRoom;
 use App\Utils\MarkdownUtils;
@@ -204,6 +205,11 @@ class Event extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function notificationSetting()
+    {
+        return $this->hasOne(EventNotificationSetting::class);
     }
     
     public function venue()
@@ -909,7 +915,7 @@ class Event extends Model
 
     public function toApiData()
     {
-        $this->loadMissing(['tickets', 'roles.groups', 'flyerImage', 'eventType', 'creatorRole']);
+        $this->loadMissing(['tickets', 'roles.groups', 'flyerImage', 'eventType', 'creatorRole', 'notificationSetting']);
 
         $primaryRole = $this->creatorRole ?: $this->roles->first();
 
@@ -941,6 +947,7 @@ class Event extends Model
                 'id' => $this->eventType->id,
                 'name' => $this->eventType->name,
             ] : null,
+            'notification_settings' => $this->notificationSetting?->settings ?? [],
         ];
 
         $data['has_password'] = $this->hasPassword();

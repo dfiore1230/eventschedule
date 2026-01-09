@@ -189,6 +189,31 @@ class EventController extends Controller
             'endAt' => $endAt,
             'recurringDays' => $recurringDays,
             'categoryName' => $categoryName,
+
+    public function notifications(Request $request, $subdomain, $hash)
+    {
+        $user = $request->user();
+
+        if (! is_hosted_or_admin()) {
+            return redirect()->back()->with('error', __('messages.not_authorized'));
+        }
+
+        $eventId = UrlUtils::decodeId($hash);
+        $event = Event::with('notificationSetting')->findOrFail($eventId);
+
+        if (! $user->canEditEvent($event)) {
+            return redirect()->back()->with('error', __('messages.not_authorized'));
+        }
+
+        $role = Role::subdomain($subdomain)->firstOrFail();
+
+        return view('event.notifications', [
+            'event' => $event,
+            'role' => $role,
+            'subdomain' => $subdomain,
+            'title' => __('messages.notification_settings') ?? 'Notification settings',
+        ]);
+    }
             'sales' => $sales,
         ]);
     }
