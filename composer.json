@@ -1,5 +1,6 @@
 {
     "name": "eventschedule/eventschedule",
+    "version": "0.0.0",
     "type": "project",
     "description": "The open-source platform to create calendars, sell tickets and streamline event check-ins with QR codes",
     "keywords": ["event", "schedule", "tickets"],
@@ -35,14 +36,19 @@
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         },
+        "exclude-from-classmap": [
+            "artifacts/",
+            "storage/",
+            "node_modules/",
+            "public/build/"
+        ],
         "files": [
             "app/helpers.php"
         ]
     },
     "autoload-dev": {
         "psr-4": {
-            "Tests\\": "tests/",
-            "Tests\\Browser\\": "tests/legacy/Browser/"
+            "Tests\\": "tests/"
         }
     },
     "scripts": {
@@ -69,13 +75,13 @@
         }
     },
     "config": {
-        "optimize-autoloader": true,
+        "optimize-autoloader": false,
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true,
-            "phpstan/extension-installer": true
+            "phpstan/extension-installer": false
         }
     },
     "minimum-stability": "stable",

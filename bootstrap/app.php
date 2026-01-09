@@ -1,5 +1,10 @@
 <?php
 
+if (! defined('STDERR')) {
+    // Define STDERR for non-CLI SAPIs (e.g., built-in PHP server under Dusk)
+    define('STDERR', fopen('php://stderr', 'w'));
+}
+
 fwrite(STDERR, "BOOTSTRAP: start\n");
 
 use Illuminate\Foundation\Application;
