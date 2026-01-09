@@ -233,7 +233,13 @@
                             <input type="checkbox" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" :checked="templateEnabled(template.key)" @change="toggleTemplate(template.key, $event.target.checked)">
                             <span>Template enabled</span>
                         </label>
-                        <button type="button" class="text-xs text-red-600 hover:text-red-700" @click="resetTemplate(template.key)">Reset overrides</button>
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 border border-red-200 rounded hover:text-red-800 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 active:bg-red-200"
+                            @click="resetTemplate(template.key)"
+                        >
+                            Reset overrides
+                        </button>
                     </div>
                 </div>
 
