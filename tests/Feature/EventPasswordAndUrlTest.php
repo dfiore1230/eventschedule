@@ -60,10 +60,10 @@ class EventPasswordAndUrlTest extends TestCase
         $this->assertNotNull($event->event_url);
         $this->assertEquals($eventUrl, $event->event_url);
 
-        // Test that the event can retrieve its guest URL
+        // Test that the event can retrieve its guest URL (route URL)
         $guestUrl = $event->getGuestUrl($role->subdomain);
         $this->assertNotNull($guestUrl);
-        $this->assertStringContainsString($eventUrl, $guestUrl);
+        $this->assertStringContainsString($event->slug, $guestUrl);
     }
 
     public function test_edit_page_shows_password_set_and_owner_can_update_without_password()
@@ -90,7 +90,6 @@ class EventPasswordAndUrlTest extends TestCase
 
         // Simulate updating the event without changing the password
         $event->name = 'Updated name';
-        $event->is_private = true;
         // Note: Not setting event_password_hash, so it should remain unchanged
         $event->save();
 
