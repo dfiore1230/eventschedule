@@ -15,25 +15,23 @@ trait HandlesEventDeletion
      */
     protected function handleEventDeletion(Event $event, User $user): void
     {
-        \Log::info('handleEventDeletion called', ['event_id' => $event->id, 'user_id' => $user->id]);
-        
         $event->loadMissing(['roles.members', 'venue.members', 'creatorRole.members', 'sales']);
 
         // Notify talent roles
         $talentRoles = $event->roles->filter(fn ($roleModel) => $roleModel->isTalent());
 
-        \Log::info('talentRoles count', ['count' => $talentRoles->count()]);
-
         NotificationUtils::uniqueRoleMembersWithContext($talentRoles)->each(function (array $recipient) use ($event, $user) {
-            \Log::info('Notifying talent member', ['user_id' => $recipient['user']->id]);
             $recipient['user']->notify(new DeletedEventNotification($event, $user, 'talent', $recipient['role']));
         });
 
-        // Notify organizers (venue and creator)
-        $organizerRoles = collect([$event->creatorRole, $event->venue])->filter();
+        // Notify organizers (venue roles and creator role)
+        // Note: $event->venue is a belongsToMany collection, so we need to flatten roles properly
+        $organizerRoles = $event->venue->isNotEmpty() ? $event->venue : collect();
+        if ($event->creatorRole) {
+            $organizerRoles = $organizerRoles->push($event->creatorRole);
+        }
 
         NotificationUtils::uniqueRoleMembersWithContext($organizerRoles)->each(function (array $recipient) use ($event, $user) {
-            \Log::info('Notifying organizer member', ['user_id' => $recipient['user']->id]);
             $recipient['user']->notify(new DeletedEventNotification($event, $user, 'organizer', $recipient['role']));
         });
 
@@ -41,8 +39,9 @@ trait HandlesEventDeletion
         $purchaserEmails = NotificationUtils::purchaserEmails($event);
 
         if ($purchaserEmails->isNotEmpty()) {
+            $venueRole = $event->venue->first();
             Notification::route('mail', $purchaserEmails->all())
-                ->notify(new DeletedEventNotification($event, $user, 'purchaser', $event->venue));
+                ->notify(new DeletedEventNotification($event, $user, 'purchaser', $venueRole ?? $event->creatorRole));
         }
 
         $event->delete();
