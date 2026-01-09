@@ -130,7 +130,7 @@ class EventDeletionNotificationTest extends TestCase
         $token = $user->createToken('test', ['resources.manage'])->plainTextToken;
 
         $this->withHeaders(['Authorization' => 'Bearer ' . $token])
-            ->deleteJson('/api/v2/events/' . \App\Utils\UrlUtils::encodeId($event->id));
+            ->deleteJson('/api/events/' . \App\Utils\UrlUtils::encodeId($event->id));
 
         Notification::assertSentTo($talentMember, DeletedEventNotification::class);
     }

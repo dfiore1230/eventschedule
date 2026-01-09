@@ -25,8 +25,15 @@ trait HandlesEventDeletion
         });
 
         // Notify organizers (venue roles and creator role)
-        // Note: $event->venue is a belongsToMany collection, so we need to flatten roles properly
-        $organizerRoles = $event->venue->isNotEmpty() ? $event->venue : collect();
+        // Note: $event->venue is a belongsToMany collection from the venue() method
+        // Also try getting venue through roles attached to event directly
+        $organizerRoles = collect();
+        
+        // Get venue roles from event.roles (all attached roles)
+        $venueRoles = $event->roles->filter(fn ($roleModel) => $roleModel->isVenue());
+        $organizerRoles = $organizerRoles->merge($venueRoles);
+        
+        // Also add creator role
         if ($event->creatorRole) {
             $organizerRoles = $organizerRoles->push($event->creatorRole);
         }
@@ -39,7 +46,7 @@ trait HandlesEventDeletion
         $purchaserEmails = NotificationUtils::purchaserEmails($event);
 
         if ($purchaserEmails->isNotEmpty()) {
-            $venueRole = $event->venue->first();
+            $venueRole = $event->roles->filter(fn ($r) => $r->isVenue())->first();
             Notification::route('mail', $purchaserEmails->all())
                 ->notify(new DeletedEventNotification($event, $user, 'purchaser', $venueRole ?? $event->creatorRole));
         }
