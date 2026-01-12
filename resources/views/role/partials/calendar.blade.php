@@ -46,6 +46,7 @@
 
     // Prepare data for Vue
     $eventsForVue = [];
+    $viewRouteName = Route::has('events.view') ? 'events.view' : 'event.view';
     foreach ($events as $event) {
         $groupId = isset($role) ? $event->getGroupIdForSubdomain($role->subdomain) : null;
         $eventsForVue[] = [
@@ -61,6 +62,11 @@
             'guest_url' => $event->getGuestUrl(isset($subdomain) ? $subdomain : ''),
             'image_url' => $event->getImageUrl(),
             'can_edit' => auth()->user() && auth()->user()->canEditEvent($event),
+            'view_url' => auth()->user() && auth()->user()->canEditEvent($event)
+                ? (isset($role)
+                    ? $publicUrl . route($viewRouteName, ['hash' => App\Utils\UrlUtils::encodeId($event->id)], false)
+                    : route($viewRouteName, ['hash' => App\Utils\UrlUtils::encodeId($event->id)]))
+                : null,
             'edit_url' => auth()->user() && auth()->user()->canEditEvent($event)
                 ? (isset($role)
                     ? $publicUrl . route('event.edit', ['subdomain' => $role->subdomain, 'hash' => App\Utils\UrlUtils::encodeId($event->id)], false)
@@ -643,7 +649,7 @@ const calendarApp = createApp({
             return true;
         },
         getEventUrl(event, _date) {
-            let url = event.guest_url;
+            let url = event.view_url || event.guest_url;
             const queryParams = [];
 
             if (this.selectedCategory) {

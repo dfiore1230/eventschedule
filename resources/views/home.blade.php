@@ -296,6 +296,7 @@
                                                 <td class="px-6 py-4 align-top">
                                                     <div class="flex items-center justify-end space-x-3">
                                                         @php
+                                                            $viewRouteName = Route::has('events.view') ? 'events.view' : 'event.view';
                                                             $eventGuestUrl = rescue(
                                                                 fn () => $event->getGuestUrl(false, null, null, true),
                                                                 null,
@@ -304,7 +305,7 @@
                                                         @endphp
 
                                                         @if ($canEdit)
-                                                            <a href="{{ route('events.view', ['hash' => $hashedId]) }}" target="_blank" rel="noopener noreferrer"
+                                                            <a href="{{ route($viewRouteName, ['hash' => $hashedId]) }}" target="_blank" rel="noopener noreferrer"
                                                                class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">{{ __('messages.view_event') }}</a>
                                                         @elseif ($eventGuestUrl)
                                                             <a href="{{ $eventGuestUrl }}" target="_blank" rel="noopener noreferrer"

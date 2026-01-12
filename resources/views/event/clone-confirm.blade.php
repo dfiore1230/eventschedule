@@ -62,13 +62,16 @@
                         </div>
 
                         <div class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+                            @php
+                                $viewRouteName = Route::has('events.view') ? 'events.view' : 'event.view';
+                            @endphp
                             @if ($guestUrl)
                                 <a href="{{ $guestUrl }}" target="_blank"
                                    class="inline-flex items-center justify-center rounded-md border border-transparent bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-700">
                                     {{ __('messages.view_event') }}
                                 </a>
                             @endif
-                            <a href="{{ route('events.view', ['hash' => \App\Utils\UrlUtils::encodeId($event->id)]) }}"
+                            <a href="{{ route($viewRouteName, ['hash' => \App\Utils\UrlUtils::encodeId($event->id)]) }}"
                                class="inline-flex items-center justify-center rounded-md border border-transparent bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-700">
                                 {{ __('messages.cancel') }}
                             </a>
