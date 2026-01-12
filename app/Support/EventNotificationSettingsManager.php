@@ -15,9 +15,12 @@ class EventNotificationSettingsManager
         $allowedTemplates = array_keys(config('mail_templates.templates', []));
 
         $existing = $event->notificationSetting?->settings ?? [];
+        $hasTemplatesInput = array_key_exists('templates', $input);
+        $hasChannelsInput = array_key_exists('channels', $input);
+
         $settings = [
-            'templates' => $existing['templates'] ?? [],
-            'channels' => $existing['channels'] ?? [],
+            'templates' => $hasTemplatesInput ? [] : ($existing['templates'] ?? []),
+            'channels' => $hasChannelsInput ? [] : ($existing['channels'] ?? []),
         ];
 
         $templateInput = $input['templates'] ?? [];
