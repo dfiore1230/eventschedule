@@ -2,6 +2,20 @@
 
 use Illuminate\Support\Str;
 
+// Prefer the new namespaced PDO MySQL attribute constants when available (PHP 8.5+)
+// while remaining compatible with older PHP versions.
+$mysqlSslCaAttribute = (function () {
+    if (class_exists('Pdo\\Mysql') && defined('Pdo\\Mysql::ATTR_SSL_CA')) {
+        return constant('Pdo\\Mysql::ATTR_SSL_CA');
+    }
+
+    if (defined('PDO::MYSQL_ATTR_SSL_CA')) {
+        return constant('PDO::MYSQL_ATTR_SSL_CA');
+    }
+
+    return null;
+})();
+
 return [
 
     /*
@@ -69,9 +83,11 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+            'options' => extension_loaded('pdo_mysql') && $mysqlSslCaAttribute
+                ? array_filter([
+                    $mysqlSslCaAttribute => env('MYSQL_ATTR_SSL_CA'),
+                ])
+                : [],
         ],
 
         'mariadb' => [
@@ -89,9 +105,11 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-            ]) : [],
+            'options' => extension_loaded('pdo_mysql') && $mysqlSslCaAttribute
+                ? array_filter([
+                    $mysqlSslCaAttribute => env('MYSQL_ATTR_SSL_CA'),
+                ])
+                : [],
         ],
 
         'pgsql' => [

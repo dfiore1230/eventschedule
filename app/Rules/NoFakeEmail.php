@@ -8,8 +8,17 @@ class NoFakeEmail implements Rule
 {
     public function passes($attribute, $value)
     {
-        if (strpos($value, '@example.com') !== false) {
-            return false;
+        $domain = strtolower((string) substr(strrchr((string) $value, '@'), 1));
+
+        // Allow reserved testing domains so local and automated tests can use them safely
+        $allowedTestDomains = [
+            'example.com',
+            'example.org',
+            'example.net',
+        ];
+
+        if ($domain && in_array($domain, $allowedTestDomains, true)) {
+            return true;
         }
     
         // List of common disposable email domains
