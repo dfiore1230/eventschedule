@@ -53,13 +53,25 @@ class EventNotificationSettingsManager
             }
         }
 
-        // Clean out empty overrides to keep payloads small
-        $settings['templates'] = array_filter($settings['templates'], function ($template) {
-            return is_array($template) && count(array_filter($template, fn ($v) => $v !== null && $v !== '')) > 0;
+        // Clean out empty overrides to keep payloads small, but preserve booleans (including false)
+        $nonEmptyValue = function ($v) {
+            if (is_bool($v)) {
+                return true; // keep true/false so disabled flags persist
+            }
+
+            if (is_string($v)) {
+                return $v !== '';
+            }
+
+            return $v !== null;
+        };
+
+        $settings['templates'] = array_filter($settings['templates'], function ($template) use ($nonEmptyValue) {
+            return is_array($template) && count(array_filter($template, $nonEmptyValue)) > 0;
         });
 
-        $settings['channels'] = array_filter($settings['channels'], function ($channels) {
-            return is_array($channels) && count(array_filter($channels, fn ($v) => $v !== null)) > 0;
+        $settings['channels'] = array_filter($settings['channels'], function ($channels) use ($nonEmptyValue) {
+            return is_array($channels) && count(array_filter($channels, $nonEmptyValue)) > 0;
         });
 
         return EventNotificationSetting::updateOrCreate(
