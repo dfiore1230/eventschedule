@@ -12,6 +12,7 @@
         $guestUrl = $event->getGuestUrl(false, null, null, true);
         $cleanGuestUrl = $guestUrl ? \App\Utils\UrlUtils::clean($guestUrl) : null;
         $sales = $sales ?? collect();
+        $invites = $invites ?? collect();
     @endphp
 
     <div class="py-6">
@@ -589,6 +590,50 @@
                                 <span class="inline-flex items-center rounded-full bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700 dark:bg-gray-900/30 dark:text-gray-200">{{ __('messages.disabled') }}</span>
                             @endif
                         </div>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg">
+                    <div class="px-6 py-5">
+                        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">{{ __('messages.event_invites') }}</h2>
+                        <form method="POST" action="{{ route('event.invites.send', ['hash' => \App\Utils\UrlUtils::encodeId($event->id)]) }}" class="mt-4">
+                            @csrf
+                            <x-input-label for="invite_emails" :value="__('messages.invite_emails')" />
+                            <textarea id="invite_emails"
+                                      name="invite_emails"
+                                      rows="3"
+                                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#4E81FA] focus:ring-[#4E81FA] dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">{{ old('invite_emails') }}</textarea>
+                            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ __('messages.invite_emails_help') }}</p>
+                            <x-input-error class="mt-2" :messages="$errors->get('invite_emails')" />
+                            <div class="mt-4">
+                                <x-primary-button>{{ __('messages.send_invites') }}</x-primary-button>
+                            </div>
+                        </form>
+
+                        @if ($invites->count())
+                            <div class="mt-6 space-y-3">
+                                @foreach ($invites as $invite)
+                                    @php
+                                        $inviteUrl = $invite->getInviteUrl();
+                                    @endphp
+                                    <div class="rounded-lg bg-gray-50 p-3 text-sm text-gray-700 dark:bg-gray-900/60 dark:text-gray-200">
+                                        <div class="font-medium">{{ $invite->email ?? __('messages.invite_link') }}</div>
+                                        <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                            @if ($event->hasPassword())
+                                                {{ $invite->used_at ? __('messages.invite_used') : __('messages.invite_unused') }}
+                                            @else
+                                                {{ __('messages.invite_reusable') }}
+                                            @endif
+                                        </div>
+                                        @if ($inviteUrl)
+                                            <a href="{{ $inviteUrl }}" target="_blank" class="mt-2 inline-flex text-blue-600 hover:underline dark:text-blue-400">
+                                                {{ __('messages.view_invite_link') }}
+                                            </a>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                     </div>
                 </div>
 

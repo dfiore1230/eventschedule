@@ -56,6 +56,7 @@ if (config('app.hosted')) {
         Route::get('/payment/cancel/{sale_id}', [TicketController::class, 'paymentUrlCancel'])->name('payment_url.cancel');
         Route::get('/{slug}', [RoleController::class, 'viewGuest'])->name('event.view_guest');
         Route::post('/event/access/{hash}', [RoleController::class, 'eventAccess'])->name('event.access');
+        Route::get('/invite/{token}', [RoleController::class, 'inviteAccess'])->name('event.invite');
     });
 } else {
     Route::match(['get', 'post'], '/update', [AppController::class, 'update'])->name('app.update');
@@ -107,6 +108,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function ()
     Route::get('/events/{hash}/view', [EventController::class, 'view'])->name('events.view');
     // Backwards-compatible named route expected by tests
     Route::get('/events/{hash}/view', [EventController::class, 'view'])->name('event.view');
+    Route::post('/events/{hash}/invites', [EventController::class, 'sendInvites'])->name('event.invites.send');
     Route::get('/events/{hash}/sales/export/{format}', [TicketController::class, 'exportEventSales'])
         ->whereIn('format', ['csv', 'xlsx'])
         ->name('events.sales.export');
@@ -357,6 +359,7 @@ if (config('app.hosted')) {
     Route::get('/{subdomain}', [RoleController::class, 'viewGuest'])->name('role.view_guest');
     Route::get('/{subdomain}/{slug}', [RoleController::class, 'viewGuest'])->name('event.view_guest');
     Route::post('/{subdomain}/event/access/{hash}', [RoleController::class, 'eventAccess'])->name('event.access');
+    Route::get('/{subdomain}/invite/{token}', [RoleController::class, 'inviteAccess'])->name('event.invite');
 }
 
 if (config('app.env') == 'local') {

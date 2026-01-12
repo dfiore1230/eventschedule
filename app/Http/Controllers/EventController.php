@@ -16,6 +16,7 @@ use App\Utils\NotificationUtils;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use App\Models\Event;
+use App\Models\EventInvite;
 use App\Models\Role;
 use App\Models\RoleUser;
 use App\Models\MediaAssetUsage;
@@ -24,6 +25,7 @@ use App\Models\User;
 use App\Models\Ticket;
 use App\Utils\UrlUtils;
 use App\Utils\GeminiUtils;
+use App\Notifications\EventInviteNotification;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Repos\EventRepo;
@@ -33,6 +35,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use App\Rules\NoFakeEmail;
 use App\Models\Image;
+use Illuminate\Support\Facades\Validator;
 use App\Http\Controllers\Concerns\HandlesEventDeletion;
 
 class EventController extends Controller
@@ -190,6 +193,7 @@ class EventController extends Controller
             'recurringDays' => $recurringDays,
             'categoryName' => $categoryName,
             'sales' => $sales,
+            'invites' => $event->invites()->latest()->get(),
         ]);
     }
 
@@ -216,6 +220,54 @@ class EventController extends Controller
             'subdomain' => $subdomain,
             'title' => __('messages.notification_settings') ?? 'Notification settings',
         ]);
+    }
+
+    public function sendInvites(Request $request, $hash)
+    {
+        $eventId = UrlUtils::decodeId($hash);
+        $event = Event::findOrFail($eventId);
+
+        if (! $request->user()->canEditEvent($event)) {
+            return redirect()->back()->with('error', __('messages.not_authorized'));
+        }
+
+        $input = (string) $request->input('invite_emails', '');
+        $emails = collect(preg_split('/[\s,;]+/', $input))
+            ->map(fn ($email) => trim((string) $email))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $validator = Validator::make(['emails' => $emails->all()], [
+            'emails' => ['required', 'array', 'min:1'],
+            'emails.*' => ['required', 'email', 'max:255', new NoFakeEmail],
+        ]);
+
+        if ($validator->fails()) {
+            $message = $validator->errors()->first('emails.*') ?? $validator->errors()->first('emails');
+
+            return redirect()->back()
+                ->withErrors(['invite_emails' => $message])
+                ->withInput();
+        }
+
+        $sender = $request->user();
+        $sentCount = 0;
+
+        foreach ($emails as $email) {
+            $invite = EventInvite::create([
+                'event_id' => $event->id,
+                'email' => $email,
+                'token' => Str::random(40),
+            ]);
+
+            Notification::route('mail', $email)
+                ->notify(new EventInviteNotification($event, $invite, $sender));
+
+            $sentCount++;
+        }
+
+        return redirect()->back()->with('message', __('messages.invites_sent', ['count' => $sentCount]));
     }
 
     public function cloneConfirm(Request $request, $hash)

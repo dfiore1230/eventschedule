@@ -25,6 +25,7 @@ use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Builder;
 use App\Models\Role;
 use App\Models\Event;
+use App\Models\EventInvite;
 use App\Models\User;
 use App\Models\RoleUser;
 use App\Models\EventRole;
@@ -526,6 +527,30 @@ class RoleController extends Controller
         }
 
         session()->put('event_access_' . $event->id, true);
+
+        return redirect($event->getGuestUrl($subdomain, $request->date));
+    }
+
+    public function inviteAccess(Request $request, $subdomain, $token)
+    {
+        $invite = EventInvite::with('event')->where('token', $token)->firstOrFail();
+        $event = $invite->event;
+
+        if (! $event) {
+            abort(404);
+        }
+
+        if ($event->hasPassword()) {
+            if ($invite->used_at) {
+                return redirect($event->getGuestUrl($subdomain, $request->date))
+                    ->with('error', __('messages.invite_already_used'));
+            }
+
+            $invite->used_at = now();
+            $invite->save();
+
+            session()->put('event_access_' . $event->id, true);
+        }
 
         return redirect($event->getGuestUrl($subdomain, $request->date));
     }

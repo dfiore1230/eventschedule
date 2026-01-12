@@ -549,6 +549,37 @@ MD,
                 ':app_name' => 'The application name configured in settings.',
             ],
         ],
+        'event_invite' => [
+            'label' => 'Event invitation (guest)',
+            'description' => 'Sent to guests when they are invited to view an event.',
+            'enabled' => true,
+            'subject' => 'You are invited to :event_name',
+            'body' => <<<'MD'
+# Hello!
+
+:subject_line
+
+- **Event:** :event_name
+- **Date:** :event_date
+
+[View Invitation](:invite_url)
+
+[View Event](:event_url)
+
+Thanks,
+:app_name
+MD,
+            'placeholders' => [
+                ':subject_line' => 'The email subject line with placeholders applied.',
+                ':event_name' => 'Name of the event.',
+                ':event_date' => 'Date of the event, or "Date to be announced" when not available.',
+                ':invite_url' => 'Private link for the recipient to access the event invitation.',
+                ':event_url' => 'Public link where the recipient can view the event.',
+                ':organizer_name' => 'Name of the organizer who sent the invitation.',
+                ':organizer_email' => 'Email address of the organizer who sent the invitation.',
+                ':app_name' => 'The application name configured in settings.',
+            ],
+        ],
         'booking_request_accepted_talent' => [
             'label' => 'Booking request accepted (talent)',
             'description' => 'Sent to talent when their booking request is accepted.',

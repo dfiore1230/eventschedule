@@ -328,6 +328,11 @@ class Event extends Model
         return $this->hasMany(Sale::class)->where('is_deleted', false);
     }
 
+    public function invites()
+    {
+        return $this->hasMany(EventInvite::class);
+    }
+
     public function members()
     {
         return $this->roles->filter(function($role) {

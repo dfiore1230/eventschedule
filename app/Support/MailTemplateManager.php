@@ -194,6 +194,15 @@ class MailTemplateManager
                 'app_name' => $appName,
                 'is_curated' => $isCurated,
             ],
+            'event_invite' => [
+                'event_name' => 'Sample Event',
+                'event_date' => 'June 1, 2024 at 8:00 PM',
+                'invite_url' => $baseUrl . '/invite/sample-token',
+                'event_url' => $baseUrl . '/events/sample-event',
+                'organizer_name' => 'Alex Organizer',
+                'organizer_email' => 'organizer@example.com',
+                'app_name' => $appName,
+            ],
             'ticket_sale_purchaser' => [
                 'event_name' => 'Sample Event',
                 'event_date' => 'June 1, 2024 at 8:00 PM',
