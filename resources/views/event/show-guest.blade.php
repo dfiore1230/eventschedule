@@ -222,8 +222,8 @@
     <div
       class="container mx-auto flex flex-col sm:grid px-5 py-[80px] lg:gap-[48px] gap-[8px] lg:grid-cols-[minmax(0px,_auto)_minmax(0px,_344px)]"
     >
-      <div class="flex flex-col gap-10">
-        @if (request()->get('tickets') === 'true' && $event->isPro())
+        <div class="flex flex-col gap-10">
+          @if (request()->get('tickets') === 'true' && $event->isPro())
         <div class="flex flex-col xl:flex-row gap-10 bg-[#F5F9FE] dark:bg-gray-800 rounded-lg px-5 py-10 sm:p-10 mb-4">
           <div class="flex-1">
             <div class="flex flex-col gap-4">
@@ -243,6 +243,18 @@
         </div>
         @else
         <div class="flex flex-col">
+          <div class="bg-white rounded-lg border border-gray-200 px-5 py-6 sm:p-8 mb-6 shadow-sm">
+            <div class="flex flex-col gap-3">
+              <p class="text-sm font-semibold uppercase tracking-widest text-indigo-500">Stay updated</p>
+              <h3 class="text-2xl font-semibold text-gray-900">Get event email updates</h3>
+              <p class="text-sm text-gray-600">Join the mailing list for schedule updates and announcements.</p>
+              <a href="{{ route('public.subscribe.event', ['hash' => \\App\\Utils\\UrlUtils::encodeId($event->id)]) }}"
+                 class="inline-flex w-fit items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+                Subscribe
+              </a>
+            </div>
+          </div>
+
           @if ($event->flyer_image_url)
             <div class="bg-[#F5F9FE] dark:bg-gray-800 rounded-lg px-5 py-8 sm:p-8 mb-6 flex justify-center">
               <img src="{{ $event->flyer_image_url }}" class="block max-w-full"/>

@@ -18,6 +18,7 @@ use App\Http\Controllers\AppController;
 use App\Http\Controllers\Api\ApiSettingsController;
 use App\Http\Controllers\EmailProviderWebhookController;
 use App\Http\Controllers\PublicEmailSubscriptionController;
+use App\Http\Controllers\PublicEmailSignupController;
 use App\Http\Controllers\EmailCampaignController;
 use App\Http\Controllers\EventEmailCampaignController;
 use App\Http\Controllers\TermsController;
@@ -82,6 +83,8 @@ Route::get('/user/unsubscribe', [RoleController::class, 'unsubscribeUser'])
     ->name('user.unsubscribe')
     ->middleware('throttle:2,2');
 Route::post('/public/subscribe', [PublicEmailSubscriptionController::class, 'subscribe'])->name('public.subscribe');
+Route::get('/public/subscribe', [PublicEmailSignupController::class, 'show'])->name('public.subscribe.form');
+Route::get('/public/subscribe/event/{hash}', [PublicEmailSignupController::class, 'show'])->name('public.subscribe.event');
 Route::get('/public/confirm', [PublicEmailSubscriptionController::class, 'confirm'])
     ->name('public.confirm')
     ->middleware('signed');

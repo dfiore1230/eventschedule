@@ -13,6 +13,9 @@
         $cleanGuestUrl = $guestUrl ? \App\Utils\UrlUtils::clean($guestUrl) : null;
         $sales = $sales ?? collect();
         $invites = $invites ?? collect();
+        $emailSubdomain = $event->creatorRole?->subdomain
+            ?? $event->role()?->subdomain
+            ?? $event->roles->first()?->subdomain;
     @endphp
 
     <div class="py-6">
@@ -124,6 +127,15 @@
                                        role="menuitem">
                                         {{ __('messages.edit') }}
                                     </a>
+
+                                    @if ($emailSubdomain)
+                                        <a href="{{ route('event.email.index', ['subdomain' => $emailSubdomain, 'hash' => \App\Utils\UrlUtils::encodeId($event->id)]) }}"
+                                           x-on:click="open = false"
+                                           class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left transition-colors duration-150 dark:text-gray-200 dark:hover:bg-gray-700"
+                                           role="menuitem">
+                                            Event Emails
+                                        </a>
+                                    @endif
 
                                     <button type="button"
                                             x-on:click="open = false; submitDelete()"

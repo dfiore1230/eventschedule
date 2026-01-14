@@ -14,6 +14,7 @@
             data() {
                 return {
                     createAccount: @json(old('create_account', false)),
+                    marketingOptIn: @json(old('marketing_opt_in', '1') === '1'),
                     tickets: @json($event->tickets->map(function ($ticket) { 
                         $data = $ticket->toData(request()->date); 
                         $data['selectedQty'] = old('tickets')[$data['id']] ?? 0;
@@ -152,6 +153,17 @@
                 v-model="email" required autocomplete="email" />
             <x-input-error class="mt-2" :messages="$errors->get('email')" />
 
+            <div class="mt-6">
+                <div class="flex items-center">
+                    <input id="marketing_opt_in" name="marketing_opt_in" type="checkbox"
+                        v-model="marketingOptIn" value="1"
+                        class="h-4 w-4 text-[#4E81FA] focus:ring-[#4E81FA] border-gray-300 rounded">
+                    <label for="marketing_opt_in" class="ml-3 block text-sm font-medium leading-6 text-gray-900">
+                        Send me event updates and announcements
+                    </label>
+                </div>
+            </div>
+
             @if (! auth()->check() && config('app.hosted'))
                 <div class="mt-6">
                     <div class="flex items-center">
@@ -276,4 +288,3 @@
 
     </form>
 </div>
-

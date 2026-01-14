@@ -55,6 +55,18 @@ class EmailUiTest extends TestCase
         $response->assertStatus(200);
     }
 
+    public function test_public_subscribe_form_for_event_is_visible(): void
+    {
+        $event = Event::factory()->create();
+
+        $response = $this->get(route('public.subscribe.event', [
+            'hash' => \\App\\Utils\\UrlUtils::encodeId($event->id),
+        ]));
+
+        $response->assertStatus(200);
+        $response->assertSee('Get event email updates');
+    }
+
     public function test_settings_mail_update_stores_mass_email_settings(): void
     {
         $admin = $this->createManagerWithPermission('settings.manage');

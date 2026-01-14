@@ -2,7 +2,9 @@
 
 namespace App\Services\Email;
 
+use App\Models\EmailSubscriber;
 use App\Models\EmailSubscription;
+use App\Models\Event;
 use App\Models\Sale;
 
 class EmailEventListMembershipService
@@ -27,21 +29,8 @@ class EmailEventListMembershipService
             'ticket_purchase'
         );
 
-        $list = $this->listService->getEventList($event);
-
-        $metadata = [
-            'ticket_status' => 'paid',
-            'marketing_opt_in' => (bool) ($sale->marketing_opt_in ?? false),
-        ];
-
-        $this->subscriptionService->upsertSubscription(
-            $subscriber,
-            $list,
-            EmailSubscription::STATUS_SUBSCRIBED,
-            'ticket_purchase',
-            'system',
-            $metadata
-        );
+        $this->ensureSubscriptionForEvent($subscriber, $event, $sale, 'ticket_purchase');
+        $this->ensureSubscriberEventsForEmail($subscriber, $sale->email, $sale->getKey());
     }
 
     public function handleSaleRefunded(Sale $sale): void
@@ -89,5 +78,48 @@ class EmailEventListMembershipService
         $subscription->metadata = array_merge($existing, ['ticket_status' => 'refunded']);
         $subscription->source = 'ticket_refund';
         $subscription->save();
+    }
+
+    protected function ensureSubscriberEventsForEmail(EmailSubscriber $subscriber, string $email, int $currentSaleId): void
+    {
+        $sales = Sale::query()
+            ->with('event')
+            ->where('email', $email)
+            ->where('status', 'paid')
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('event_id')
+            ->map->first();
+
+        foreach ($sales as $sale) {
+            if (! $sale || ! $sale->event) {
+                continue;
+            }
+
+            if ($sale->getKey() === $currentSaleId) {
+                continue;
+            }
+
+            $this->ensureSubscriptionForEvent($subscriber, $sale->event, $sale, 'ticket_purchase_backfill');
+        }
+    }
+
+    protected function ensureSubscriptionForEvent(EmailSubscriber $subscriber, Event $event, Sale $sale, string $source): void
+    {
+        $list = $this->listService->getEventList($event);
+
+        $metadata = [
+            'ticket_status' => 'paid',
+            'marketing_opt_in' => (bool) ($sale->marketing_opt_in ?? false),
+        ];
+
+        $this->subscriptionService->upsertSubscription(
+            $subscriber,
+            $list,
+            EmailSubscription::STATUS_SUBSCRIBED,
+            $source,
+            'system',
+            $metadata
+        );
     }
 }

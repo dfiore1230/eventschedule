@@ -293,6 +293,55 @@ class MassEmailTest extends TestCase
         $this->assertSame(EmailSubscription::STATUS_SUBSCRIBED, $subscription->status);
         $this->assertSame('refunded', $subscription->metadata['ticket_status']);
     }
+
+    public function test_returning_buyer_backfills_event_lists_on_new_purchase(): void
+    {
+        $owner = User::factory()->create();
+        $eventOne = Event::factory()->create(['user_id' => $owner->id]);
+        $eventTwo = Event::factory()->create(['user_id' => $owner->id]);
+
+        Sale::query()->create([
+            'event_id' => $eventOne->id,
+            'name' => 'Buyer',
+            'email' => 'repeat@example.com',
+            'secret' => 'secret-one',
+            'event_date' => now()->format('Y-m-d'),
+            'subdomain' => 'test-subdomain',
+            'status' => 'paid',
+            'payment_method' => 'cash',
+            'marketing_opt_in' => true,
+        ]);
+
+        $saleTwo = Sale::query()->create([
+            'event_id' => $eventTwo->id,
+            'name' => 'Buyer',
+            'email' => 'repeat@example.com',
+            'secret' => 'secret-two',
+            'event_date' => now()->format('Y-m-d'),
+            'subdomain' => 'test-subdomain',
+            'status' => 'unpaid',
+            'payment_method' => 'cash',
+            'marketing_opt_in' => true,
+        ]);
+
+        $saleTwo->update(['status' => 'paid']);
+
+        $listOne = EmailList::query()->where('event_id', $eventOne->id)->where('type', EmailList::TYPE_EVENT)->first();
+        $listTwo = EmailList::query()->where('event_id', $eventTwo->id)->where('type', EmailList::TYPE_EVENT)->first();
+
+        $this->assertNotNull($listOne);
+        $this->assertNotNull($listTwo);
+
+        $this->assertDatabaseHas('email_subscriptions', [
+            'list_id' => $listOne->id,
+            'status' => EmailSubscription::STATUS_SUBSCRIBED,
+        ]);
+
+        $this->assertDatabaseHas('email_subscriptions', [
+            'list_id' => $listTwo->id,
+            'status' => EmailSubscription::STATUS_SUBSCRIBED,
+        ]);
+    }
 }
 
 class FakeEmailProvider implements EmailProviderInterface
