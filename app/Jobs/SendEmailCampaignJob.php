@@ -287,6 +287,6 @@ class SendEmailCampaignJob implements ShouldQueue
             return $content . '<p>' . e($footer) . '</p>';
         }
 
-        return $content . \"\\n\\n\" . $footer;
+        return $content . "\n\n" . $footer;
     }
 }

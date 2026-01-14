@@ -26,6 +26,8 @@ class Sale extends Model
         'secret',
         'event_date',
         'subdomain',
+        'status',
+        'payment_method',
         'marketing_opt_in',
     ];
 
