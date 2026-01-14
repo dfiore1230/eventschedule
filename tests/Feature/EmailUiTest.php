@@ -60,11 +60,12 @@ class EmailUiTest extends TestCase
         $event = Event::factory()->create();
 
         $response = $this->get(route('public.subscribe.event', [
-            'hash' => \\App\\Utils\\UrlUtils::encodeId($event->id),
+            'hash' => \App\Utils\UrlUtils::encodeId($event->id),
         ]));
 
         $response->assertStatus(200);
-        $response->assertSee('Get event email updates');
+        $response->assertSeeText('Stay in the loop for');
+        $response->assertSeeText('Join the event mailing list for schedule updates and important announcements.');
     }
 
     public function test_settings_mail_update_stores_mass_email_settings(): void
