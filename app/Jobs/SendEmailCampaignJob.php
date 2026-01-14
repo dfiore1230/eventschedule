@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\EmailCampaign;
 use App\Models\EmailCampaignRecipientStat;
+use App\Models\EmailCampaignRecipient;
 use App\Models\EmailSubscription;
 use App\Models\EmailSuppression;
 use App\Services\Email\EmailMessage;
@@ -119,22 +120,24 @@ class SendEmailCampaignJob implements ShouldQueue
                 $seenEmails[$email] = true;
                 $targetedCount++;
 
+                $suppressionReason = null;
+
                 if ($campaign->email_type === EmailCampaign::TYPE_MARKETING && $subscriber->marketing_unsubscribed_at) {
                     $suppressedCount++;
-                    continue;
+                    $suppressionReason = 'marketing_unsubscribed';
                 }
 
-                if ($campaign->email_type === EmailCampaign::TYPE_MARKETING) {
+                if ($campaign->email_type === EmailCampaign::TYPE_MARKETING && $suppressionReason === null) {
                     $marketingOptIn = $subscription->metadata['marketing_opt_in'] ?? true;
                     if ($marketingOptIn === false) {
                         $suppressedCount++;
-                        continue;
+                        $suppressionReason = 'marketing_opt_out';
                     }
                 }
 
-                if ($suppressed->has($email)) {
+                if ($suppressionReason === null && $suppressed->has($email)) {
                     $suppressedCount++;
-                    continue;
+                    $suppressionReason = 'suppressed';
                 }
 
                 $list = $subscription->list;
@@ -172,6 +175,25 @@ class SendEmailCampaignJob implements ShouldQueue
 
                 if ($campaign->email_type === EmailCampaign::TYPE_MARKETING && $mergeData['unsubscribeUrl']) {
                     $headers['List-Unsubscribe'] = '<' . $mergeData['unsubscribeUrl'] . '>';
+                }
+
+                $recipientAttributes = [
+                    'campaign_id' => $campaign->id,
+                    'subscriber_id' => $subscriber->getKey(),
+                ];
+
+                $recipientValues = [
+                    'list_id' => $subscription->list_id,
+                    'email' => $subscriber->email,
+                    'status' => $suppressionReason ? EmailCampaignRecipient::STATUS_SUPPRESSED : EmailCampaignRecipient::STATUS_ACCEPTED,
+                    'suppression_reason' => $suppressionReason,
+                    'sent_at' => $suppressionReason ? null : now(),
+                ];
+
+                EmailCampaignRecipient::query()->updateOrCreate($recipientAttributes, $recipientValues);
+
+                if ($suppressionReason) {
+                    continue;
                 }
 
                 $messages[] = new EmailMessage(

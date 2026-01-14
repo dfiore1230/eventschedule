@@ -18,6 +18,8 @@ use App\Http\Controllers\AppController;
 use App\Http\Controllers\Api\ApiSettingsController;
 use App\Http\Controllers\EmailProviderWebhookController;
 use App\Http\Controllers\PublicEmailSubscriptionController;
+use App\Http\Controllers\EmailCampaignController;
+use App\Http\Controllers\EventEmailCampaignController;
 use App\Http\Controllers\TermsController;
 use App\Http\Controllers\DiscoveryController;
 use App\Http\Controllers\BlogController;
@@ -126,6 +128,10 @@ Route::middleware(['auth', 'verified', 'active'])->group(function ()
     Route::get('/events/{hash}/clone', [EventController::class, 'cloneConfirm'])->name('events.clone.confirm');
     Route::post('/events/{hash}/clone', [EventController::class, 'clone'])->name('events.clone');
     Route::delete('/events/{hash}', [EventController::class, 'destroyFromHome'])->name('events.destroy');
+    Route::get('/{subdomain}/event-email/{hash}', [EventEmailCampaignController::class, 'index'])->name('event.email.index');
+    Route::get('/{subdomain}/event-email/{hash}/compose', [EventEmailCampaignController::class, 'create'])->name('event.email.create');
+    Route::post('/{subdomain}/event-email/{hash}', [EventEmailCampaignController::class, 'store'])->name('event.email.store');
+    Route::get('/{subdomain}/event-email/{hash}/{campaign}', [EventEmailCampaignController::class, 'show'])->name('event.email.show');
     Route::get('/manage/venues', [RoleController::class, 'venues'])->name('role.venues');
     Route::get('/manage/curators', [RoleController::class, 'curators'])->name('role.curators');
     Route::get('/manage/talent', [RoleController::class, 'talent'])->name('role.talent');
@@ -229,6 +235,13 @@ Route::middleware(['auth', 'verified', 'active'])->group(function ()
 
         Route::post('/admin/blog/generate-content', [BlogController::class, 'generateContent'])->name('blog.generate-content');
     });
+
+    Route::get('/email', [EmailCampaignController::class, 'index'])->name('email.index');
+    Route::get('/email/compose', [EmailCampaignController::class, 'create'])->name('email.create');
+    Route::post('/email', [EmailCampaignController::class, 'store'])->name('email.store');
+    Route::get('/email/campaigns/{campaign}', [EmailCampaignController::class, 'show'])->name('email.campaigns.show');
+    Route::get('/email/subscribers', [EmailCampaignController::class, 'subscribers'])->name('email.subscribers.index');
+    Route::get('/email/subscribers/{subscriber}', [EmailCampaignController::class, 'subscriberShow'])->name('email.subscribers.show');
 
     Route::middleware('ability:users.manage')->prefix('settings/users')->name('settings.users.')->group(function () {
         Route::get('/', [UserManagementController::class, 'index'])->name('index');

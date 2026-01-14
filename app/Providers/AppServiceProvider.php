@@ -17,6 +17,7 @@ use App\Services\Email\Providers\LaravelMailProvider;
 use App\Support\BrandingManager;
 use App\Support\Logging\LoggingConfigManager;
 use App\Support\MailConfigManager;
+use App\Support\MassEmailConfigManager;
 use App\Support\ReleaseChannelManager;
 use App\Support\UpdateConfigManager;
 use App\Support\UrlUtilsConfigManager;
@@ -160,6 +161,12 @@ class AppServiceProvider extends ServiceProvider
 
                 if (!empty($loggingSettings)) {
                     LoggingConfigManager::apply($loggingSettings);
+                }
+
+                $massEmailSettings = Setting::forGroup('mass_email');
+
+                if (!empty($massEmailSettings)) {
+                    MassEmailConfigManager::apply($massEmailSettings);
                 }
 
                 $appleWalletSettings = Setting::forGroup('wallet.apple');

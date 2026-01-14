@@ -28,6 +28,7 @@ class EmailCampaign extends Model
         'reply_to',
         'content_html',
         'content_text',
+        'content_markdown',
         'status',
         'scheduled_at',
         'metadata',
@@ -51,5 +52,10 @@ class EmailCampaign extends Model
     public function stats(): HasOne
     {
         return $this->hasOne(EmailCampaignRecipientStat::class, 'campaign_id');
+    }
+
+    public function recipients()
+    {
+        return $this->hasMany(EmailCampaignRecipient::class, 'campaign_id');
     }
 }

@@ -1,0 +1,26 @@
+<?php
+
+namespace App\Support;
+
+class MassEmailConfigManager
+{
+    public static function apply(array $settings): void
+    {
+        $config = [
+            'mass_email.provider' => $settings['provider'] ?? config('mass_email.provider'),
+            'mass_email.default_from_name' => $settings['from_name'] ?? config('mass_email.default_from_name'),
+            'mass_email.default_from_email' => $settings['from_email'] ?? config('mass_email.default_from_email'),
+            'mass_email.default_reply_to' => $settings['reply_to'] ?? config('mass_email.default_reply_to'),
+        ];
+
+        if (array_key_exists('batch_size', $settings)) {
+            $config['mass_email.batch_size'] = (int) $settings['batch_size'];
+        }
+
+        if (array_key_exists('rate_limit_per_minute', $settings)) {
+            $config['mass_email.rate_limit_per_minute'] = (int) $settings['rate_limit_per_minute'];
+        }
+
+        config($config);
+    }
+}

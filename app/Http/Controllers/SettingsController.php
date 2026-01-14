@@ -197,12 +197,20 @@ class SettingsController extends Controller
         $this->authorizeAdmin($request->user());
 
         $mailSettings = $this->getMailSettings();
+        $massEmailSettings = $this->getMassEmailSettings();
 
         return view('settings.email', [
             'mailSettings' => $mailSettings,
+            'massEmailSettings' => $massEmailSettings,
             'availableMailers' => [
                 'smtp' => 'SMTP',
                 'log' => 'Log',
+            ],
+            'availableEmailProviders' => [
+                'laravel_mail' => 'SMTP (Laravel mailer)',
+                'sendgrid' => 'SendGrid',
+                'mailgun' => 'Mailgun',
+                'mailchimp' => 'Mailchimp',
             ],
             'availableEncryptions' => [
                 '' => __('messages.none'),
@@ -424,10 +432,13 @@ class SettingsController extends Controller
         $this->authorizeAdmin($request->user());
 
         $validated = $this->validateMailSettings($request);
+        $massEmailValidated = $this->validateMassEmailSettings($request);
 
         $mailSettings = $this->buildMailSettings($request, $validated);
+        $massEmailSettings = $this->buildMassEmailSettings($request, $massEmailValidated);
 
         Setting::setGroup('mail', $mailSettings);
+        Setting::setGroup('mass_email', $massEmailSettings);
 
         $this->applyMailConfig($mailSettings);
 
@@ -1259,6 +1270,23 @@ class SettingsController extends Controller
         ];
     }
 
+    protected function getMassEmailSettings(): array
+    {
+        $stored = Setting::forGroup('mass_email');
+
+        return [
+            'provider' => $stored['provider'] ?? config('mass_email.provider'),
+            'api_key' => $stored['api_key'] ?? null,
+            'sending_domain' => $stored['sending_domain'] ?? null,
+            'webhook_secret' => $stored['webhook_secret'] ?? null,
+            'from_name' => $stored['from_name'] ?? config('mass_email.default_from_name'),
+            'from_email' => $stored['from_email'] ?? config('mass_email.default_from_email'),
+            'reply_to' => $stored['reply_to'] ?? config('mass_email.default_reply_to'),
+            'batch_size' => $stored['batch_size'] ?? config('mass_email.batch_size'),
+            'rate_limit_per_minute' => $stored['rate_limit_per_minute'] ?? config('mass_email.rate_limit_per_minute'),
+        ];
+    }
+
     protected function getCurrentMailConfig(): array
     {
         return [
@@ -1608,6 +1636,21 @@ class SettingsController extends Controller
         ]);
     }
 
+    protected function validateMassEmailSettings(Request $request): array
+    {
+        return $request->validate([
+            'mass_email_provider' => ['required', 'string', 'max:255'],
+            'mass_email_api_key' => ['nullable', 'string', 'max:255'],
+            'mass_email_sending_domain' => ['nullable', 'string', 'max:255'],
+            'mass_email_webhook_secret' => ['nullable', 'string', 'max:255'],
+            'mass_email_from_name' => ['required', 'string', 'max:255'],
+            'mass_email_from_email' => ['required', 'email', 'max:255'],
+            'mass_email_reply_to' => ['nullable', 'email', 'max:255'],
+            'mass_email_batch_size' => ['nullable', 'integer', 'min:1', 'max:5000'],
+            'mass_email_rate_limit' => ['nullable', 'integer', 'min:1', 'max:100000'],
+        ]);
+    }
+
     protected function buildMailSettings(Request $request, array $validated): array
     {
         $currentSettings = Setting::forGroup('mail');
@@ -1626,6 +1669,31 @@ class SettingsController extends Controller
             'from_address' => trim($validated['mail_from_address']),
             'from_name' => trim($validated['mail_from_name']),
             'disable_delivery' => $request->boolean('mail_disable_delivery') ? '1' : '0',
+        ];
+    }
+
+    protected function buildMassEmailSettings(Request $request, array $validated): array
+    {
+        $currentSettings = Setting::forGroup('mass_email');
+
+        $apiKey = $request->filled('mass_email_api_key')
+            ? trim($validated['mass_email_api_key'])
+            : ($currentSettings['api_key'] ?? null);
+
+        $webhookSecret = $request->filled('mass_email_webhook_secret')
+            ? trim($validated['mass_email_webhook_secret'])
+            : ($currentSettings['webhook_secret'] ?? null);
+
+        return [
+            'provider' => trim($validated['mass_email_provider']),
+            'api_key' => $this->nullableTrim($apiKey),
+            'sending_domain' => $this->nullableTrim($validated['mass_email_sending_domain'] ?? null),
+            'webhook_secret' => $this->nullableTrim($webhookSecret),
+            'from_name' => trim($validated['mass_email_from_name']),
+            'from_email' => trim($validated['mass_email_from_email']),
+            'reply_to' => $this->nullableTrim($validated['mass_email_reply_to'] ?? null),
+            'batch_size' => isset($validated['mass_email_batch_size']) ? (string) $validated['mass_email_batch_size'] : null,
+            'rate_limit_per_minute' => isset($validated['mass_email_rate_limit']) ? (string) $validated['mass_email_rate_limit'] : null,
         ];
     }
 }

@@ -79,6 +79,19 @@
                     </a>
                 </li>
 
+                @if (auth()->user()->isAdmin())
+                <li>
+                    <a href="{{ route('email.index') }}"
+                        class="{{ $navLinkBase }} font-semibold {{ request()->is('email*') ? $navLinkActive : $navLinkDefault }}">
+                        <svg class="sidebar-item-icon h-6 w-6 shrink-0 text-gray-400 transition-colors duration-150 group-hover:text-gray-500 dark:text-gray-400 dark:group-hover:text-gray-200" viewBox="0 0 24 24"
+                            fill="currentColor" aria-hidden="true">
+                            <path d="M20 4H4C2.9 4 2 4.9 2 6V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4M20 8L12 13L4 8V6L12 11L20 6V8Z" />
+                        </svg>
+                        <span class="sidebar-item-label">Email</span>
+                    </a>
+                </li>
+                @endif
+
                 <li>
                     <a href="{{ route('role.pages') }}"
                         class="{{ $navLinkBase }} font-semibold {{ $schedulesActive ? $navLinkActive : $navLinkDefault }}">

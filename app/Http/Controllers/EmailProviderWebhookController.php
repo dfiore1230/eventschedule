@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\EmailCampaignRecipientStat;
+use App\Models\EmailCampaignRecipient;
 use App\Models\EmailSubscriber;
 use App\Models\EmailSubscription;
 use App\Models\EmailSuppression;
@@ -16,14 +17,14 @@ class EmailProviderWebhookController extends Controller
     {
         $result = $provider->parseWebhook($request);
 
-        $this->handleSuppressionEvents($result->bounces, EmailSuppression::REASON_BOUNCE, true);
-        $this->handleSuppressionEvents($result->complaints, EmailSuppression::REASON_COMPLAINT, false);
+        $this->handleSuppressionEvents($result->bounces, EmailSuppression::REASON_BOUNCE, EmailCampaignRecipient::STATUS_BOUNCED, true);
+        $this->handleSuppressionEvents($result->complaints, EmailSuppression::REASON_COMPLAINT, EmailCampaignRecipient::STATUS_COMPLAINT, false);
         $this->handleUnsubscribeEvents($result->unsubscribes);
 
         return response()->json(['status' => 'ok']);
     }
 
-    private function handleSuppressionEvents(array $events, string $reason, bool $incrementBounce): void
+    private function handleSuppressionEvents(array $events, string $reason, string $recipientStatus, bool $incrementBounce): void
     {
         foreach ($events as $event) {
             $email = $event['email'] ?? null;
@@ -37,6 +38,18 @@ class EmailProviderWebhookController extends Controller
                 ['email' => EmailSubscriber::normalizeEmail($email)],
                 ['reason' => $reason]
             );
+
+            if ($campaignId) {
+                EmailCampaignRecipient::query()
+                    ->where('campaign_id', $campaignId)
+                    ->where('email', EmailSubscriber::normalizeEmail($email))
+                    ->update([
+                        'status' => $recipientStatus,
+                        'suppression_reason' => $reason,
+                        'bounced_at' => $recipientStatus === EmailCampaignRecipient::STATUS_BOUNCED ? now() : null,
+                        'complained_at' => $recipientStatus === EmailCampaignRecipient::STATUS_COMPLAINT ? now() : null,
+                    ]);
+            }
 
             if ($campaignId && $incrementBounce) {
                 $stats = EmailCampaignRecipientStat::query()->firstOrCreate(['campaign_id' => $campaignId]);

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Mail\ConfirmSubscriptionMail;
 use App\Models\EmailCampaign;
 use App\Models\EmailCampaignRecipientStat;
+use App\Models\EmailCampaignRecipient;
 use App\Models\EmailList;
 use App\Models\EmailSubscriber;
 use App\Models\EmailSubscription;
@@ -169,6 +170,13 @@ class MassEmailTest extends TestCase
         $this->assertCount(1, $provider->sent);
         $this->assertSame('valid@example.com', $provider->sent[0]->toEmail);
 
+        $recipient = EmailCampaignRecipient::query()
+            ->where('campaign_id', $campaign->id)
+            ->where('email', 'valid@example.com')
+            ->first();
+        $this->assertNotNull($recipient);
+        $this->assertSame(EmailCampaignRecipient::STATUS_ACCEPTED, $recipient->status);
+
         $stats = EmailCampaignRecipientStat::query()->where('campaign_id', $campaign->id)->first();
         $this->assertNotNull($stats);
         $this->assertSame(4, $stats->targeted_count);
@@ -202,6 +210,13 @@ class MassEmailTest extends TestCase
             'status' => EmailCampaign::STATUS_SENT,
         ]);
         EmailCampaignRecipientStat::query()->create(['campaign_id' => $campaign->id]);
+        EmailCampaignRecipient::query()->create([
+            'campaign_id' => $campaign->id,
+            'subscriber_id' => $subscriberA->id,
+            'list_id' => $list->id,
+            'email' => 'bounce@example.com',
+            'status' => EmailCampaignRecipient::STATUS_ACCEPTED,
+        ]);
 
         $payload = [
             'events' => [
@@ -230,6 +245,13 @@ class MassEmailTest extends TestCase
 
         $stats = EmailCampaignRecipientStat::query()->where('campaign_id', $campaign->id)->first();
         $this->assertSame(1, $stats->bounced_count);
+
+        $recipient = EmailCampaignRecipient::query()
+            ->where('campaign_id', $campaign->id)
+            ->where('email', 'bounce@example.com')
+            ->first();
+        $this->assertNotNull($recipient);
+        $this->assertSame(EmailCampaignRecipient::STATUS_BOUNCED, $recipient->status);
     }
 
     public function test_event_list_membership_updates_on_sale_paid_and_refund(): void

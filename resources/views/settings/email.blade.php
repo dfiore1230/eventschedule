@@ -1,11 +1,18 @@
 <x-app-admin-layout>
     @php
         $mailSettings = $mailSettings ?? [];
+        $massEmailSettings = $massEmailSettings ?? [];
 
         if ($mailSettings instanceof \Illuminate\Support\Collection) {
             $mailSettings = $mailSettings->toArray();
         } elseif (is_object($mailSettings)) {
             $mailSettings = (array) $mailSettings;
+        }
+
+        if ($massEmailSettings instanceof \Illuminate\Support\Collection) {
+            $massEmailSettings = $massEmailSettings->toArray();
+        } elseif (is_object($massEmailSettings)) {
+            $massEmailSettings = (array) $massEmailSettings;
         }
 
         $mailTemplates = $mailTemplates ?? [];
@@ -178,6 +185,89 @@
                                 <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
                                     {{ __('messages.mail_disable_delivery_help') }}
                                 </p>
+                            </div>
+
+                            <div class="mt-8 border-t border-gray-100 pt-6 dark:border-gray-700">
+                                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ __('messages.mass_email_settings') }}</h2>
+                                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">{{ __('messages.mass_email_settings_description') }}</p>
+                            </div>
+
+                            <div>
+                                <x-input-label for="mass_email_provider" :value="__('messages.mass_email_provider')" />
+                                <select id="mass_email_provider" name="mass_email_provider"
+                                    class="mt-1 block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-[#4E81FA] dark:focus:border-[#4E81FA] focus:ring-[#4E81FA] dark:focus:ring-[#4E81FA] rounded-md shadow-sm">
+                                    @foreach($availableEmailProviders as $value => $label)
+                                        <option value="{{ $value }}" {{ old('mass_email_provider', $massEmailSettings['provider']) === $value ? 'selected' : '' }}>
+                                            {{ $label }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <x-input-error class="mt-2" :messages="$errors->get('mass_email_provider')" />
+                            </div>
+
+                            <div class="grid gap-6 sm:grid-cols-2">
+                                <div>
+                                    <x-input-label for="mass_email_from_name" :value="__('messages.mass_email_from_name')" />
+                                    <x-text-input id="mass_email_from_name" name="mass_email_from_name" type="text" class="mt-1 block w-full"
+                                        :value="old('mass_email_from_name', $massEmailSettings['from_name'] ?? '')" />
+                                    <x-input-error class="mt-2" :messages="$errors->get('mass_email_from_name')" />
+                                </div>
+                                <div>
+                                    <x-input-label for="mass_email_from_email" :value="__('messages.mass_email_from_email')" />
+                                    <x-text-input id="mass_email_from_email" name="mass_email_from_email" type="email" class="mt-1 block w-full"
+                                        :value="old('mass_email_from_email', $massEmailSettings['from_email'] ?? '')" />
+                                    <x-input-error class="mt-2" :messages="$errors->get('mass_email_from_email')" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <x-input-label for="mass_email_reply_to" :value="__('messages.mass_email_reply_to')" />
+                                <x-text-input id="mass_email_reply_to" name="mass_email_reply_to" type="email" class="mt-1 block w-full"
+                                    :value="old('mass_email_reply_to', $massEmailSettings['reply_to'] ?? '')" />
+                                <x-input-error class="mt-2" :messages="$errors->get('mass_email_reply_to')" />
+                            </div>
+
+                            <div class="grid gap-6 sm:grid-cols-2">
+                                <div>
+                                    <x-input-label for="mass_email_api_key" :value="__('messages.mass_email_api_key')" />
+                                    <x-text-input id="mass_email_api_key" name="mass_email_api_key" type="password" class="mt-1 block w-full"
+                                        :value="old('mass_email_api_key')" autocomplete="new-password" />
+                                    @if (!empty($massEmailSettings['api_key']))
+                                        <p class="mt-1 text-xs text-gray-500">{{ __('messages.secret_stored') }}</p>
+                                    @endif
+                                    <x-input-error class="mt-2" :messages="$errors->get('mass_email_api_key')" />
+                                </div>
+                                <div>
+                                    <x-input-label for="mass_email_webhook_secret" :value="__('messages.mass_email_webhook_secret')" />
+                                    <x-text-input id="mass_email_webhook_secret" name="mass_email_webhook_secret" type="password" class="mt-1 block w-full"
+                                        :value="old('mass_email_webhook_secret')" autocomplete="new-password" />
+                                    @if (!empty($massEmailSettings['webhook_secret']))
+                                        <p class="mt-1 text-xs text-gray-500">{{ __('messages.secret_stored') }}</p>
+                                    @endif
+                                    <x-input-error class="mt-2" :messages="$errors->get('mass_email_webhook_secret')" />
+                                </div>
+                            </div>
+
+                            <div class="grid gap-6 sm:grid-cols-2">
+                                <div>
+                                    <x-input-label for="mass_email_sending_domain" :value="__('messages.mass_email_sending_domain')" />
+                                    <x-text-input id="mass_email_sending_domain" name="mass_email_sending_domain" type="text" class="mt-1 block w-full"
+                                        :value="old('mass_email_sending_domain', $massEmailSettings['sending_domain'] ?? '')" />
+                                    <x-input-error class="mt-2" :messages="$errors->get('mass_email_sending_domain')" />
+                                </div>
+                                <div>
+                                    <x-input-label for="mass_email_batch_size" :value="__('messages.mass_email_batch_size')" />
+                                    <x-text-input id="mass_email_batch_size" name="mass_email_batch_size" type="number" class="mt-1 block w-full"
+                                        :value="old('mass_email_batch_size', $massEmailSettings['batch_size'] ?? '')" min="1" max="5000" />
+                                    <x-input-error class="mt-2" :messages="$errors->get('mass_email_batch_size')" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <x-input-label for="mass_email_rate_limit" :value="__('messages.mass_email_rate_limit')" />
+                                <x-text-input id="mass_email_rate_limit" name="mass_email_rate_limit" type="number" class="mt-1 block w-full"
+                                    :value="old('mass_email_rate_limit', $massEmailSettings['rate_limit_per_minute'] ?? '')" min="1" max="100000" />
+                                <x-input-error class="mt-2" :messages="$errors->get('mass_email_rate_limit')" />
                             </div>
 
                             <div class="flex flex-wrap items-center gap-4">
