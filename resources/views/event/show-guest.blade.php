@@ -248,7 +248,7 @@
               <p class="text-sm font-semibold uppercase tracking-widest text-indigo-500">Stay updated</p>
               <h3 class="text-2xl font-semibold text-gray-900">Get event email updates</h3>
               <p class="text-sm text-gray-600">Join the mailing list for schedule updates and announcements.</p>
-              <a href="{{ route('public.subscribe.event', ['hash' => \\App\\Utils\\UrlUtils::encodeId($event->id)]) }}"
+              <a href="{{ route('public.subscribe.event', ['hash' => \App\Utils\UrlUtils::encodeId($event->id)]) }}"
                  class="inline-flex w-fit items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
                 Subscribe
               </a>
