@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Notification;
 use App\Notifications\TicketCancelledNotification;
 use App\Notifications\TicketPaidNotification;
 use App\Notifications\TicketTimeoutNotification;
+use App\Services\Email\EmailEventListMembershipService;
 use App\Utils\NotificationUtils;
 
 class Sale extends Model
@@ -15,6 +16,7 @@ class Sale extends Model
     use HasFactory;
     protected $casts = [
         'last_reminder_sent_at' => 'datetime',
+        'marketing_opt_in' => 'boolean',
     ];
 
     protected $fillable = [
@@ -24,6 +26,7 @@ class Sale extends Model
         'secret',
         'event_date',
         'subdomain',
+        'marketing_opt_in',
     ];
 
     protected static function booted()
@@ -47,12 +50,18 @@ class Sale extends Model
                 $sale->loadMissing(['saleTickets.ticket', 'event.roles.members', 'event.venue.members', 'event.creatorRole.members', 'event.user']);
 
                 self::sendPaidNotifications($sale);
+
+                app(EmailEventListMembershipService::class)->handleSalePaid($sale);
             }
 
             if ($sale->wasChanged('status') && $sale->status === 'expired') {
                 $sale->loadMissing(['saleTickets.ticket', 'event.roles.members', 'event.venue.members', 'event.creatorRole.members', 'event.user']);
 
                 self::sendTimeoutNotifications($sale);
+            }
+
+            if ($sale->wasChanged('status') && in_array($sale->status, ['refunded', 'cancelled'], true)) {
+                app(EmailEventListMembershipService::class)->handleSaleRefunded($sale);
             }
         });
     }

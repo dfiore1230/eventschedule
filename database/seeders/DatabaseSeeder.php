@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Database\Seeders\EmailListSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -13,5 +14,6 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(AuthorizationSeeder::class);
         $this->call(HeaderMediaSeeder::class);
+        $this->call(EmailListSeeder::class);
     }
 }

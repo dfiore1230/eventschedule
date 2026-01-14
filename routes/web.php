@@ -16,6 +16,8 @@ use App\Http\Controllers\TicketController;
 use App\Http\Controllers\InvoiceNinjaController;
 use App\Http\Controllers\AppController;
 use App\Http\Controllers\Api\ApiSettingsController;
+use App\Http\Controllers\EmailProviderWebhookController;
+use App\Http\Controllers\PublicEmailSubscriptionController;
 use App\Http\Controllers\TermsController;
 use App\Http\Controllers\DiscoveryController;
 use App\Http\Controllers\BlogController;
@@ -77,6 +79,13 @@ Route::post('/unsubscribe', [RoleController::class, 'unsubscribe'])
 Route::get('/user/unsubscribe', [RoleController::class, 'unsubscribeUser'])
     ->name('user.unsubscribe')
     ->middleware('throttle:2,2');
+Route::post('/public/subscribe', [PublicEmailSubscriptionController::class, 'subscribe'])->name('public.subscribe');
+Route::get('/public/confirm', [PublicEmailSubscriptionController::class, 'confirm'])
+    ->name('public.confirm')
+    ->middleware('signed');
+Route::get('/public/unsubscribe', [PublicEmailSubscriptionController::class, 'unsubscribe'])
+    ->name('public.unsubscribe')
+    ->middleware('signed');
 Route::get('/.well-known/eventschedule.json', [DiscoveryController::class, 'manifest'])
     ->name('well_known.eventschedule');
 Route::get('/branding.json', [DiscoveryController::class, 'branding'])
@@ -87,6 +96,7 @@ Route::get('/terms', [TermsController::class, 'show'])->name('terms.show');
 
 Route::post('/stripe/webhook', [StripeController::class, 'webhook'])->name('stripe.webhook')->middleware('throttle:60,1');
 Route::post('/invoiceninja/webhook/{secret}', [InvoiceNinjaController::class, 'webhook'])->name('invoiceninja.webhook')->middleware('throttle:60,1');
+Route::post('/webhooks/email-provider', [EmailProviderWebhookController::class, 'handle'])->name('email_provider.webhook')->middleware('throttle:60,1');
 
 // Google Calendar webhook routes (no auth required)
 Route::get('/google-calendar/webhook', [GoogleCalendarWebhookController::class, 'verify'])->name('google.calendar.webhook.verify')->middleware('throttle:10,1');

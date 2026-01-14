@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\ApiSettingsController;
 use App\Http\Controllers\Api\ApiEventController;
 use App\Http\Controllers\Api\ApiEventNotificationController;
 use App\Http\Controllers\Api\ApiRoleController;
+use App\Http\Controllers\Api\ApiEmailCampaignController;
+use App\Http\Controllers\Api\ApiEmailListController;
 use App\Http\Middleware\ApiAuthentication;
 
 Route::middleware([ApiAuthentication::class])->group(function () {
@@ -74,4 +76,10 @@ Route::middleware([ApiAuthentication::class])->group(function () {
     Route::post('/roles/{role_id}/members', [\App\Http\Controllers\Api\ApiRoleController::class, 'storeMember'])->middleware('ability:resources.manage');
     Route::patch('/roles/{role_id}/members/{member_id}', [\App\Http\Controllers\Api\ApiRoleController::class, 'updateMember'])->middleware('ability:resources.manage');
     Route::delete('/roles/{role_id}/members/{member_id}', [\App\Http\Controllers\Api\ApiRoleController::class, 'destroyMember'])->middleware('ability:resources.manage');
+
+    // Email lists + campaigns
+    Route::post('/admin/lists/{listId}/subscribers', [ApiEmailListController::class, 'addSubscriber']);
+    Route::post('/admin/campaigns', [ApiEmailCampaignController::class, 'store']);
+    Route::post('/admin/campaigns/{campaignId}/send', [ApiEmailCampaignController::class, 'send']);
+    Route::get('/admin/campaigns/{campaignId}', [ApiEmailCampaignController::class, 'show']);
 });

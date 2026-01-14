@@ -498,6 +498,7 @@ class ApiTicketController extends Controller
             'event_date' => ['required', 'date_format:Y-m-d'],
             'tickets' => ['required', 'array'],
             'tickets.*' => ['integer', 'min:0'],
+            'marketing_opt_in' => ['nullable', 'boolean'],
         ]);
 
         $event = Event::where('subdomain', $subdomain)->firstOrFail();
@@ -534,6 +535,7 @@ class ApiTicketController extends Controller
         $sale->secret = strtolower(Str::random(32));
         $sale->payment_method = $event->payment_method;
         $sale->event_date = $validated['event_date'];
+        $sale->marketing_opt_in = (bool) ($validated['marketing_opt_in'] ?? false);
         $sale->save();
 
         foreach ($validated['tickets'] as $ticketHash => $quantity) {

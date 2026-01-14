@@ -12,6 +12,8 @@ use App\Models\Setting;
 use App\Policies\ImagePolicy;
 use App\Services\Audit\AuditLogger;
 use App\Services\Authorization\AuthorizationService;
+use App\Services\Email\EmailProviderInterface;
+use App\Services\Email\Providers\LaravelMailProvider;
 use App\Support\BrandingManager;
 use App\Support\Logging\LoggingConfigManager;
 use App\Support\MailConfigManager;
@@ -44,6 +46,16 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(AuditLogger::class, function ($app) {
             return new AuditLogger();
+        });
+
+        $this->app->singleton(EmailProviderInterface::class, function () {
+            $provider = config('mass_email.provider', 'laravel_mail');
+
+            if ($provider === 'laravel_mail') {
+                return new LaravelMailProvider();
+            }
+
+            return new LaravelMailProvider();
         });
     }
 

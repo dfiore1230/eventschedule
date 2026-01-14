@@ -343,6 +343,7 @@ class TicketController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
             'tickets' => ['required', 'array'],
+            'marketing_opt_in' => ['nullable', 'boolean'],
         ]);
 
         if (! $user && $request->create_account && config('app.hosted')) {
@@ -409,6 +410,7 @@ class TicketController extends Controller
         $sale->user_id = $user ? $user->id : null;
         $sale->secret = strtolower(Str::random(32));
         $sale->payment_method = $event->payment_method;
+        $sale->marketing_opt_in = (bool) $request->boolean('marketing_opt_in');
 
         if (! $sale->event_date) {
             $sale->event_date = Carbon::createFromFormat('Y-m-d H:i:s', $event->starts_at, 'UTC')->format('Y-m-d');
