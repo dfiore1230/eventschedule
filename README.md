@@ -11,8 +11,6 @@
     An open-source platform to create calendars, sell tickets and streamline event check-ins with QR codes
 </p>
 
-* Sample Schedule: [openmicnight.planify.com](https://openmicnight.planify.com)
-
 **Choose your setup**
 - [Self-Hosted](https://github.com/dfiore1230/planify?tab=readme-ov-file#installation-guide): For those who prefer to manage their own hosting and server infrastructure. This version gives you full control and flexibility.
 
