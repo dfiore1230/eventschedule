@@ -12,7 +12,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
-    <link rel="icon" href="{{ url('/images/favicon.png') }}">
+    <link rel="icon" type="image/png" href="{{ url('/images/favicon.png') }}?v={{ config('self-update.version_installed') }}">
     <link rel="sitemap" type="application/xml" href="{{ url(route('sitemap', [], false)) }}">
     
     @if (config('app.hosted') || config('app.report_errors'))

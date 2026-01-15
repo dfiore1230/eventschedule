@@ -15,7 +15,7 @@
     <meta name="twitter:image:alt" content="Planify">
     <meta name="twitter:card" content="summary_large_image">
 
-    <link rel="icon" href="{{ url('/images/favicon.png') }}">
+    <link rel="icon" type="image/png" href="{{ url('/images/favicon.png') }}?v={{ config('self-update.version_installed') }}">
 
     @if (config('services.google.analytics') && (! auth()->user() || ! auth()->user()->isAdmin()))
     <!-- Google tag (gtag.js) -->
