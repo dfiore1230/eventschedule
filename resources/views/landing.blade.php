@@ -600,10 +600,25 @@
             @endif
 
             @if(! request()->embed)
-                <div class="max-w-6xl mx-auto flex flex-col gap-4 px-4 py-8 text-center sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+                <div class="max-w-6xl mx-auto flex flex-col gap-6 px-4 py-8 text-center sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
                     <div class="text-sm text-slate-300">
                         {!! str_replace(':link', '<a href="https://www.eventschedule.com" target="_blank" rel="noopener" class="hover:underline font-medium text-white">EventSchedule</a>', __('messages.powered_by_eventschedule')) !!}
                     </div>
+
+                    @php
+                        $globalList = app(\App\Services\Email\EmailListService::class)->getGlobalList();
+                    @endphp
+                    <form method="POST" action="{{ route('public.subscribe') }}" class="flex w-full max-w-xl flex-col items-center gap-3 rounded-2xl bg-slate-900/70 px-4 py-3 sm:flex-row sm:gap-4 sm:px-5 sm:py-4">
+                        @csrf
+                        <input type="hidden" name="list_id" value="{{ $globalList->id }}">
+                        <label for="landing-subscribe-email" class="sr-only">Email</label>
+                        <input id="landing-subscribe-email" name="email" type="email" required placeholder="Your email"
+                               class="w-full rounded-md border border-slate-700 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-white focus:outline-none focus:ring-2 focus:ring-white sm:flex-1" />
+                        <button type="submit"
+                                class="inline-flex w-full items-center justify-center gap-2 rounded-md bg-white px-5 py-2 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto">
+                            Join the mailing list
+                        </button>
+                    </form>
 
                     @if($loginCta)
                         <div>
