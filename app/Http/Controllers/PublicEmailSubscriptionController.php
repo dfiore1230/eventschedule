@@ -54,6 +54,8 @@ class PublicEmailSubscriptionController extends Controller
             ['marketing_opt_in' => true]
         );
 
+        $finalStatus = $status;
+
         if ($status === EmailSubscription::STATUS_PENDING) {
             try {
                 $confirmUrl = $this->buildConfirmUrl($subscriber, $list);
@@ -67,18 +69,21 @@ class PublicEmailSubscriptionController extends Controller
 
                 // Fail open: mark subscribed so signups work even when mail is disabled
                 $subscriptionService->markSubscriptionStatus($subscription, EmailSubscription::STATUS_SUBSCRIBED, 'system');
+                $finalStatus = EmailSubscription::STATUS_SUBSCRIBED;
             }
         }
 
-        $message = $status === EmailSubscription::STATUS_PENDING
+        $message = $finalStatus === EmailSubscription::STATUS_PENDING
             ? 'If this email is eligible, a confirmation email will be sent shortly.'
             : 'You are subscribed. Thank you!';
+
+        $httpStatus = $finalStatus === EmailSubscription::STATUS_PENDING ? 202 : 200;
 
         if ($request->expectsJson() || $request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'status' => 'ok',
                 'message' => $message,
-            ], 200);
+            ], $httpStatus);
         }
 
         return redirect()->back()->with('subscription_status', $message);
