@@ -299,7 +299,7 @@
                                 <textarea id="mass_email_unsubscribe_footer" name="mass_email_unsubscribe_footer" rows="4"
                                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#4E81FA] focus:ring-[#4E81FA] dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">{{ old('mass_email_unsubscribe_footer', $massEmailSettings['unsubscribe_footer'] ?? '') }}</textarea>
                                 <p class="mt-2 text-xs text-gray-500">
-                                    Supports {{ '{{unsubscribeUrl}}' }}, {{ '{{unsubscribeAllUrl}}' }}, and {{ '{{physicalAddress}}' }} placeholders.
+                                    Supports @{{unsubscribeUrl}}, @{{unsubscribeAllUrl}}, and @{{physicalAddress}} placeholders.
                                 </p>
                                 <x-input-error class="mt-2" :messages="$errors->get('mass_email_unsubscribe_footer')" />
                             </div>
