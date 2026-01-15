@@ -54,12 +54,12 @@
 @endphp
 
 <a href="{{ app_public_url() }}" class="block">
-    <div class="sidebar-logo flex h-16 shrink-0 items-center pt-2">
+    <div class="sidebar-logo flex h-16 shrink-0 items-center pt-1">
         @if ($navigationLogo)
-            <img class="h-10 w-auto" src="{{ branding_logo_url() }}" alt="{{ $logoAlt }}">
+            <img class="h-12 w-auto" src="{{ branding_logo_url() }}" alt="{{ $logoAlt }}">
         @else
-            <img class="h-10 w-auto dark:hidden" src="{{ branding_logo_url('light') }}" alt="{{ $logoAlt }}">
-            <img class="hidden h-10 w-auto dark:block" src="{{ branding_logo_url('dark') }}" alt="{{ $logoAlt }}">
+            <img class="h-12 w-auto dark:hidden" src="{{ branding_logo_url('light') }}" alt="{{ $logoAlt }}">
+            <img class="hidden h-12 w-auto dark:block" src="{{ branding_logo_url('dark') }}" alt="{{ $logoAlt }}">
         @endif
     </div>
 </a>
