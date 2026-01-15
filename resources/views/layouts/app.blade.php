@@ -6,7 +6,7 @@
     @if ($forceLight ?? false) data-force-theme="light" @endif
 >
 <head>
-    <title>{{ $title ?? 'Event Schedule' }}</title>
+    <title>{{ $title ?? 'Planify' }}</title>
     <!-- Version: {{ config('self-update.version_installed') }} -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -23,16 +23,16 @@
         {{ $meta }}
     @else
         <link rel="canonical" href="{{ url()->current() }}">
-        <meta name="description" content="The simple and free way to share your event schedule">
-        <meta property="og:title" content="Event Schedule">
-        <meta property="og:description" content="The simple and free way to share your event schedule">
+        <meta name="description" content="Planify — Plan smarter. Run better.">
+        <meta property="og:title" content="Planify">
+        <meta property="og:description" content="Planify — Plan smarter. Run better.">
         <meta property="og:image" content="{{ url('/images/background.jpg') }}">
         <meta property="og:url" content="{{ str_replace('http://', 'https://', request()->url()) }}">
-        <meta property="og:site_name" content="Event Schedule">
-        <meta name="twitter:title" content="Event Schedule">
-        <meta name="twitter:description" content="The simple and free way to share your event schedule">
+        <meta property="og:site_name" content="Planify">
+        <meta name="twitter:title" content="Planify">
+        <meta name="twitter:description" content="Planify — Plan smarter. Run better.">
         <meta name="twitter:image" content="{{ url('/images/background.jpg') }}">
-        <meta name="twitter:image:alt" content="Event Schedule">
+        <meta name="twitter:image:alt" content="Planify">
         <meta name="twitter:card" content="summary_large_image">
     @endif    
 
@@ -399,9 +399,9 @@
 
     @if (isset($footer))
         {{ $footer }}
-    @else
-        @include('branding.powered-by')
     @endif
+
+    @include('layouts.partials.planify-footer')
 
 </body>
 </html>

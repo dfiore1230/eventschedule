@@ -3,16 +3,16 @@
 
 <head>
     
-    <meta name="description" content="The simple and free way to share your event schedule">
-    <meta property="og:title" content="Event Schedule">
-    <meta property="og:description" content="The simple and free way to share your event schedule">
+    <meta name="description" content="Planify — Plan smarter. Run better.">
+    <meta property="og:title" content="Planify">
+    <meta property="og:description" content="Planify — Plan smarter. Run better.">
     <meta property="og:image" content="{{ url('/images/background.jpg') }}">
     <meta property="og:url" content="{{ str_replace('http://', 'https://', request()->url()) }}">
-    <meta property="og:site_name" content="Event Schedule">
-    <meta name="twitter:title" content="Event Schedule">
-    <meta name="twitter:description" content="The simple and free way to share your event schedule">
+    <meta property="og:site_name" content="Planify">
+    <meta name="twitter:title" content="Planify">
+    <meta name="twitter:description" content="Planify — Plan smarter. Run better.">
     <meta name="twitter:image" content="{{ url('/images/background.jpg') }}">
-    <meta name="twitter:image:alt" content="Event Schedule">
+    <meta name="twitter:image:alt" content="Planify">
     <meta name="twitter:card" content="summary_large_image">
 
     <link rel="icon" href="{{ url('/images/favicon.png') }}">
@@ -40,7 +40,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>Event Schedule</title>
+    <title>Planify</title>
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://rsms.me/">
@@ -66,7 +66,7 @@
 
 <body class="font-sans text-gray-900 antialiased">
     <div class="min-h-screen flex flex-col sm:justify-center items-center pt-10 bg-gray-100 dark:bg-gray-900">
-        <a href="https://eventschedule.com" target="_blank">
+        <a href="https://planify.com" target="_blank">
             <x-application-logo class="w-20 h-20 fill-current text-gray-500" />
         </a>
 
@@ -79,7 +79,7 @@
         <div class="pt-20"></div>
     </div>
 
-    @include('branding.powered-by')
+    @include('layouts.partials.planify-footer')
 </body>
 
 </html>

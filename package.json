@@ -1,4 +1,5 @@
 {
+    "name": "planify",
     "private": true,
     "type": "module",
     "scripts": {

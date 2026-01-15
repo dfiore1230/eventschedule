@@ -31,21 +31,21 @@ use Illuminate\Support\Facades\Route;
 
 if (config('app.hosted')) {
     
-    // Redirect all requests to eventschedule.com to www.eventschedule.com
-    Route::group(['domain' => 'eventschedule.com'], function () {
+    // Redirect all requests to planify.com to www.planify.com
+    Route::group(['domain' => 'planify.com'], function () {
         Route::get('{path?}', function ($path = null) {
-            return redirect('https://www.eventschedule.com/' . ($path ? $path : ''), 301);
+            return redirect('https://www.planify.com/' . ($path ? $path : ''), 301);
         })->where('path', '.*');
     });
 
     if (config('app.env') != 'local') {
-        Route::domain('blog.eventschedule.com')->group(function () {
+        Route::domain('blog.planify.com')->group(function () {
             Route::get('/', [BlogController::class, 'index'])->name('blog.index');
             Route::get('/{slug}', [BlogController::class, 'show'])->name('blog.show');
         });
     }
 
-    Route::domain('{subdomain}.eventschedule.com')->where(['subdomain' => '^(?!www|app).*'])->group(function () {
+    Route::domain('{subdomain}.planify.com')->where(['subdomain' => '^(?!www|app).*'])->group(function () {
         Route::get('/request', [RoleController::class, 'request'])->name('role.request');
         Route::get('/follow', [RoleController::class, 'follow'])->name('role.follow');
         Route::get('/guest-add', [EventController::class, 'showGuestImport'])->name('event.guest_import');
@@ -91,13 +91,15 @@ Route::get('/public/confirm', [PublicEmailSubscriptionController::class, 'confir
 Route::get('/public/unsubscribe', [PublicEmailSubscriptionController::class, 'unsubscribe'])
     ->name('public.unsubscribe')
     ->middleware('signed');
-Route::get('/.well-known/eventschedule.json', [DiscoveryController::class, 'manifest'])
-    ->name('well_known.eventschedule');
+Route::get('/.well-known/planify.json', [DiscoveryController::class, 'manifest'])
+    ->name('well_known.planify');
 Route::get('/branding.json', [DiscoveryController::class, 'branding'])
     ->name('branding.json');
 Route::post('/clear-pending-request', [EventController::class, 'clearPendingRequest'])->name('event.clear_pending_request');
 
 Route::get('/terms', [TermsController::class, 'show'])->name('terms.show');
+Route::view('/privacy', 'privacy.show')->name('privacy.show');
+Route::view('/open-source-attribution', 'public.open-source-attribution')->name('open-source.attribution');
 
 Route::post('/stripe/webhook', [StripeController::class, 'webhook'])->name('stripe.webhook')->middleware('throttle:60,1');
 Route::post('/invoiceninja/webhook/{secret}', [InvoiceNinjaController::class, 'webhook'])->name('invoiceninja.webhook')->middleware('throttle:60,1');
@@ -378,7 +380,7 @@ Route::get('/tmp/event-image/{filename?}', function ($filename = null) {
 })->name('event.tmp_image');
 
 if (config('app.hosted')) {
-    Route::domain('{subdomain}.eventschedule.com')->where(['subdomain' => '^(?!www|app).*'])->group(function () {
+    Route::domain('{subdomain}.planify.com')->where(['subdomain' => '^(?!www|app).*'])->group(function () {
         Route::get('/', [RoleController::class, 'viewGuest'])->name('role.view_guest');
     });
 } else {

@@ -21,7 +21,7 @@ class DiscoveryController extends Controller
 
         return response()->json([
             'logoUrl' => data_get($branding, 'logo_url', branding_logo_url()),
-            'logoAlt' => data_get($branding, 'logo_alt', 'Event Schedule'),
+            'logoAlt' => data_get($branding, 'logo_alt', 'Planify'),
             'colors' => [
                 'primary' => data_get($branding, 'colors.primary', '#1F2937'),
                 'secondary' => data_get($branding, 'colors.secondary', '#111827'),

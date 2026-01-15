@@ -147,7 +147,7 @@ class ImportCuratorEvents extends Command
 
             // Fetch robots.txt
             $response = Http::timeout(10)
-                ->withHeaders(['User-Agent' => 'Event Schedule Bot/1.0 (+https://www.eventschedule.com)'])
+                ->withHeaders(['User-Agent' => 'Planify Bot/1.0 (+https://www.planify.com)'])
                 ->get($robotsUrl);
             
             if (!$response->successful()) {
@@ -284,7 +284,7 @@ class ImportCuratorEvents extends Command
 
         // Fetch the webpage content
         $response = Http::timeout(30)
-            ->withHeaders(['User-Agent' => 'Event Schedule Bot/1.0 (+https://www.eventschedule.com)'])
+            ->withHeaders(['User-Agent' => 'Planify Bot/1.0 (+https://www.planify.com)'])
             ->get($url);
         
         if (!$response->successful()) {
@@ -448,7 +448,7 @@ class ImportCuratorEvents extends Command
 
         // Fetch event page content
         $response = Http::timeout(30)
-            ->withHeaders(['User-Agent' => 'Event Schedule Bot/1.0 (+https://www.eventschedule.com)'])
+            ->withHeaders(['User-Agent' => 'Planify Bot/1.0 (+https://www.planify.com)'])
             ->get($eventUrl);
         
         if (!$response->successful()) {

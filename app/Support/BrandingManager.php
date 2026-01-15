@@ -19,7 +19,7 @@ class BrandingManager
         $defaults = [
             'logo_path' => config('branding.logo_path'),
             'logo_disk' => config('branding.logo_disk'),
-            'logo_alt' => config('branding.logo_alt', 'Event Schedule'),
+            'logo_alt' => config('branding.logo_alt', 'Planify'),
             'primary_color' => data_get(config('branding'), 'colors.primary', '#1F2937'),
             'secondary_color' => data_get(config('branding'), 'colors.secondary', '#111827'),
             'tertiary_color' => data_get(config('branding'), 'colors.tertiary', '#374151'),
@@ -66,7 +66,7 @@ class BrandingManager
             'logo_url' => $logoUrl,
             'logo_alt' => is_string($logoAlt) && trim($logoAlt) !== ''
                 ? trim($logoAlt)
-                : 'Event Schedule',
+                : 'Planify',
             'logo_media_asset_id' => $logoMediaAssetId ? (int) $logoMediaAssetId : null,
             'logo_media_variant_id' => $logoMediaVariantId ? (int) $logoMediaVariantId : null,
             'colors' => [

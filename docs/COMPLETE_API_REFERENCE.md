@@ -1,4 +1,4 @@
-# EventSchedule Complete API Reference
+# Planify Complete API Reference
 
 **Version:** 2.0.0  
 **Last Updated:** December 15, 2025
@@ -135,7 +135,7 @@ curl -H "X-API-Key: $API_KEY" \
   "data": [
     {
       "id": "YmFzZTY0LWVuY29kZWQ=",
-      "url": "https://eventschedule.test/sample-venue",
+      "url": "https://planify.test/sample-venue",
       "type": "venue",
       "subdomain": "sample-venue",
       "name": "Sample Venue",
@@ -160,7 +160,7 @@ curl -H "X-API-Key: $API_KEY" \
     "current_page": 1,
     "per_page": 100,
     "total": 1,
-    "path": "https://eventschedule.test/api/schedules"
+    "path": "https://planify.test/api/schedules"
   }
 }
 ```
@@ -1407,10 +1407,10 @@ Delete the authenticated user's account.
 ```yaml
 openapi: 3.0.3
 info:
-  title: EventSchedule API
+  title: Planify API
   version: 2.0.0
   description: >-
-    Complete REST API for EventSchedule event management system.
+    Complete REST API for Planify event management system.
     Includes schedules, roles, events, ticketing, talent, venues, check-ins, and media management.
 
 servers:

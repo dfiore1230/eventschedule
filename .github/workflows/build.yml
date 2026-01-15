@@ -83,7 +83,7 @@ jobs:
           rm -f .gitattributes .gitignore phpunit.xml
 
           # Create zip file
-          zip -r eventschedule.zip .
+          zip -r planify.zip .
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -97,4 +97,4 @@ jobs:
           name: "${{ steps.version.outputs.channel == 'beta' && 'Beta Release' || 'Latest Release' }}"
           tag_name: "${{ steps.version.outputs.version }}"
           files: |
-            eventschedule.zip
+            planify.zip

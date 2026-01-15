@@ -593,17 +593,9 @@
 
     <x-slot name="footer">
         <footer class="bg-slate-950">
-            @if(request()->embed)
-                <div class="px-4 py-5 text-center text-sm text-slate-300">
-                    {!! str_replace(':link', '<a href="https://www.eventschedule.com" target="_blank" rel="noopener" class="hover:underline font-medium text-white">EventSchedule</a>', __('messages.powered_by_eventschedule')) !!}
-                </div>
-            @endif
-
             @if(! request()->embed)
                 <div class="max-w-6xl mx-auto flex flex-col gap-6 px-4 py-8 text-center sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-                    <div class="text-sm text-slate-300">
-                        {!! str_replace(':link', '<a href="https://www.eventschedule.com" target="_blank" rel="noopener" class="hover:underline font-medium text-white">EventSchedule</a>', __('messages.powered_by_eventschedule')) !!}
-                    </div>
+                    <div class="text-sm text-slate-300">Planify — Plan smarter. Run better.</div>
 
                     @php
                         $globalList = app(\App\Services\Email\EmailListService::class)->getGlobalList();

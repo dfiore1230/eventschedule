@@ -40,7 +40,7 @@
 {{ $salutation }}
 @else
 @lang('Regards'),<br>
-The Event Schedule team
+The Planify team
 @endif
 
 {{-- Subcopy --}}

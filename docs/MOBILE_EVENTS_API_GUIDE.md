@@ -1,6 +1,6 @@
 # Mobile app guide: interacting with Events Schedule via API
 
-This guide explains how a mobile client can integrate with the Event Schedule REST API to list schedules, fetch events, create events, and manage flyers. It summarizes authentication, rate limiting, request/response shapes, and edge cases surfaced by the API controllers.
+This guide explains how a mobile client can integrate with the Planify REST API to list schedules, fetch events, create events, and manage flyers. It summarizes authentication, rate limiting, request/response shapes, and edge cases surfaced by the API controllers.
 
 ## 1) Authentication and headers
 
@@ -119,7 +119,7 @@ How to choose `{subdomain}` and build the request:
 Minimal example request:
 
 ```bash
-curl -X POST https://eventschedule.test/api/events/sample-venue \
+curl -X POST https://planify.test/api/events/sample-venue \
   -H "X-API-Key: <your-api-key>" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
@@ -144,7 +144,7 @@ Key points:
 Example minimal patch:
 
 ```bash
-curl -X PATCH https://eventschedule.test/api/events/RVZFTlQtMg== \
+curl -X PATCH https://planify.test/api/events/RVZFTlQtMg== \
   -H "X-API-Key: <your-api-key>" \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \

@@ -36,8 +36,8 @@ The command scans `storage/` and `bootstrap/cache`, reporting any entries that a
 Ensure the storage tree is owned by the same user that runs the PHP process. On many Linux distributions that is `www-data`:
 
 ```bash
-sudo chown -R www-data:www-data /data/Docker/eventscheduler/storage
-sudo chown -R www-data:www-data /data/Docker/eventscheduler/bootstrap/cache
+sudo chown -R www-data:www-data /data/Docker/planifyr/storage
+sudo chown -R www-data:www-data /data/Docker/planifyr/bootstrap/cache
 ```
 
 If you deploy via Docker, run the command inside the container as `root` but target the user configured for the PHP-FPM process.
@@ -47,10 +47,10 @@ If you deploy via Docker, run the command inside the container as `root` but tar
 Grant the owner read, write, and execute access, and allow the group to traverse the directories:
 
 ```bash
-sudo find /data/Docker/eventscheduler/storage -type d -exec chmod 775 {} +
-sudo find /data/Docker/eventscheduler/storage -type f -exec chmod 664 {} +
-sudo find /data/Docker/eventscheduler/bootstrap/cache -type d -exec chmod 775 {} +
-sudo find /data/Docker/eventscheduler/bootstrap/cache -type f -exec chmod 664 {} +
+sudo find /data/Docker/planifyr/storage -type d -exec chmod 775 {} +
+sudo find /data/Docker/planifyr/storage -type f -exec chmod 664 {} +
+sudo find /data/Docker/planifyr/bootstrap/cache -type d -exec chmod 775 {} +
+sudo find /data/Docker/planifyr/bootstrap/cache -type f -exec chmod 664 {} +
 ```
 
 This results in directory entries such as `drwxrwxr-x`, which lets PHP create and read files while preventing anonymous users from writing to the directory.

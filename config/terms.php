@@ -8,7 +8,7 @@ return [
 
 _Last updated: January 1, 2024_
 
-Welcome to Event Schedule (the "Platform"). These Terms & Conditions (the "Terms") govern your access to and use of the Platform, including any content, functionality, ticketing features, and services offered.
+Welcome to Planify (the "Platform"). These Terms & Conditions (the "Terms") govern your access to and use of the Platform, including any content, functionality, ticketing features, and services offered.
 
 By creating an account, publishing events, selling tickets, or purchasing a ticket through the Platform, you agree to be bound by these Terms. If you do not agree, you may not use the Platform.
 
@@ -55,7 +55,7 @@ You agree not to:
 * All Platform content, trademarks, and branding remain the property of their respective owners.
 * Organizers grant us a limited license to host, display, and distribute event materials for the purpose of operating the Platform.
 * You may not reproduce, resell, or exploit any portion of the Platform without express written permission.
-* You must keep the "Powered by EventSchedule" attribution visible on all user-facing screens of the Platform.
+* You must keep the "© 2026 Planify · Open Source Attribution · Privacy · Terms" footer visible on all user-facing screens of the Platform.
 
 ## 8. Privacy
 
@@ -69,11 +69,11 @@ Your use of the Platform is also governed by our Privacy Policy. Organizers are 
 
 ## 10. Limitation of Liability
 
-To the maximum extent permitted by law, Event Schedule and its affiliates are not liable for any indirect, incidental, special, consequential, or punitive damages arising out of or related to your use of the Platform, even if advised of the possibility of such damages. Our total liability to you for any claim arising under these Terms is limited to the amount paid by you to us, if any, during the twelve (12) months preceding the claim.
+To the maximum extent permitted by law, Planify and its affiliates are not liable for any indirect, incidental, special, consequential, or punitive damages arising out of or related to your use of the Platform, even if advised of the possibility of such damages. Our total liability to you for any claim arising under these Terms is limited to the amount paid by you to us, if any, during the twelve (12) months preceding the claim.
 
 ## 11. Indemnification
 
-You agree to indemnify, defend, and hold harmless Event Schedule, its affiliates, and their respective officers, directors, employees, and agents from any claims, liabilities, damages, losses, and expenses (including reasonable attorneys' fees) arising out of or related to your violation of these Terms or your use of the Platform.
+You agree to indemnify, defend, and hold harmless Planify, its affiliates, and their respective officers, directors, employees, and agents from any claims, liabilities, damages, losses, and expenses (including reasonable attorneys' fees) arising out of or related to your violation of these Terms or your use of the Platform.
 
 ## 12. Changes to the Platform & Terms
 

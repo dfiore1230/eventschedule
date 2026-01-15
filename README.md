@@ -1,7 +1,7 @@
 <div align="center">
     <picture>
         <source srcset="public/images/dark_logo.png" media="(prefers-color-scheme: light)">
-        <img src="public/images/light_logo.png" alt="Event Schedule Logo" width="350" media="(prefers-color-scheme: dark)">
+        <img src="public/images/light_logo.png" alt="Planify Logo" width="350" media="(prefers-color-scheme: dark)">
     </picture>
 </div>
 
@@ -11,15 +11,21 @@
     An open-source platform to create calendars, sell tickets and streamline event check-ins with QR codes
 </p>
 
-* Sample Schedule: [openmicnight.eventschedule.com](https://openmicnight.eventschedule.com)
+* Sample Schedule: [openmicnight.planify.com](https://openmicnight.planify.com)
 
 **Choose your setup**
 
-- [Hosted](https://www.eventschedule.com): Our hosted version is a Software as a Service (SaaS) solution. You're up and running in under 5 minutes, with no need to worry about hosting or server infrastructure.
-- [Self-Hosted](https://github.com/eventschedule/eventschedule?tab=readme-ov-file#installation-guide): For those who prefer to manage their own hosting and server infrastructure. This version gives you full control and flexibility.
+- [Hosted](https://www.planify.com): Our hosted version is a Software as a Service (SaaS) solution. You're up and running in under 5 minutes, with no need to worry about hosting or server infrastructure.
+- [Self-Hosted](https://github.com/planify/planify?tab=readme-ov-file#installation-guide): For those who prefer to manage their own hosting and server infrastructure. This version gives you full control and flexibility.
 
 > [!NOTE]  
-> You can use [Softaculous](https://www.softaculous.com/apps/calendars/Event_Schedule) to automatically install the selfhost app.
+> You can use [Softaculous](https://www.softaculous.com/apps/calendars/Event_Schedule) (legacy identifier) to automatically install the selfhost app.
+
+### Rename migration (required)
+
+- New product name: **Planify**. Legacy references (Event Schedule/eventschedule) are deprecated.
+- Update scripts, pipelines, and bookmarks to the new repository path https://github.com/planify/planify; redirects are not relied upon.
+- Planify originates from the open-source Event Schedule project by Hillel Coren (Attribution Assurance License). See LICENSE and the Open Source Attribution page for required runtime attribution.
 
 ## Features
 
@@ -51,34 +57,34 @@
 Comprehensive request/response samples for every REST endpoint, including authentication and failure handling, are available in [docs/API_REFERENCE.md](docs/API_REFERENCE.md).
 
 <div style="display: flex; gap: 10px;">
-    <img src="https://github.com/eventschedule/eventschedule/blob/main/public/images/screenshots/screen_1.png?raw=true" width="49%" alt="Guest > Schedule">
-    <img src="https://github.com/eventschedule/eventschedule/blob/main/public/images/screenshots/screen_2.png?raw=true" width="49%" alt="Guest > Event">
+    <img src="https://github.com/planify/planify/blob/main/public/images/screenshots/screen_1.png?raw=true" width="49%" alt="Guest > Schedule">
+    <img src="https://github.com/planify/planify/blob/main/public/images/screenshots/screen_2.png?raw=true" width="49%" alt="Guest > Event">
 </div>
 
 <div style="display: flex; gap: 10px;">
-    <img src="https://github.com/eventschedule/eventschedule/blob/main/public/images/screenshots/screen_3.png?raw=true" width="49%" alt="Admin > Schedule">
-    <img src="https://github.com/eventschedule/eventschedule/blob/main/public/images/screenshots/screen_4.png?raw=true" width="49%" alt="Admin > Event">
+    <img src="https://github.com/planify/planify/blob/main/public/images/screenshots/screen_3.png?raw=true" width="49%" alt="Admin > Schedule">
+    <img src="https://github.com/planify/planify/blob/main/public/images/screenshots/screen_4.png?raw=true" width="49%" alt="Admin > Event">
 </div>
 
 ## Installation Guide
 
-Follow these steps to set up Event Schedule:
+Follow these steps to set up Planify:
 
 ### 1. Set Up the Database
 
 Run the following commands to create the MySQL database and user:
 
 ```sql
-CREATE DATABASE eventschedule;
-CREATE USER 'eventschedule'@'localhost' IDENTIFIED BY 'change_me';
-GRANT ALL PRIVILEGES ON eventschedule.* TO 'eventschedule'@'localhost';
+CREATE DATABASE planify;
+CREATE USER 'planify'@'localhost' IDENTIFIED BY 'change_me';
+GRANT ALL PRIVILEGES ON planify.* TO 'planify'@'localhost';
 ```
 
 ---
 
 ### 2. Set Up the Application
 
-Copy [eventschedule.zip](https://github.com/eventschedule/eventschedule/releases/latest) to your server and unzip it.
+Copy [planify.zip](https://github.com/planify/planify/releases/latest) to your server and unzip it.
 
 ---
 
@@ -88,7 +94,7 @@ The self-updater copies new releases directly into your installation. Make sure 
 project is owned by the web server user (replace `www-data` with the user that runs PHP on your server):
 
 ```bash
-cd /path/to/eventschedule
+cd /path/to/planify
 sudo chown -R www-data:www-data .
 ```
 
@@ -105,7 +111,7 @@ Copy the `.env.example` file to `.env` and then access the application at `https
 cp .env.example .env
 ```
 
-<img src="https://github.com/eventschedule/eventschedule/blob/main/public/images/screenshots/setup.png?raw=true" width="100%" alt="Setup"/>
+<img src="https://github.com/planify/planify/blob/main/public/images/screenshots/setup.png?raw=true" width="100%" alt="Setup"/>
 
 ---
 
@@ -114,14 +120,14 @@ cp .env.example .env
 Add the following line to your crontab to ensure scheduled tasks run automatically:
 
 ```bash
-* * * * * php /path/to/eventschedule/artisan schedule:run
+* * * * * php /path/to/planify/artisan schedule:run
 ```
 
 ---
 
 ## Logging
 
-Event Schedule ships with a dedicated `syslog_server` channel for forwarding logs to a remote syslog endpoint.
+Planify ships with a dedicated `syslog_server` channel for forwarding logs to a remote syslog endpoint.
 
 1. Set `LOG_CHANNEL=syslog_server` (or include `syslog_server` in `LOG_STACK`) to start using the channel.
 2. Configure the target server via `LOG_SYSLOG_HOST` and `LOG_SYSLOG_PORT` in your `.env` file or through **Settings → General** in the administration panel.
@@ -131,11 +137,11 @@ By default, the handler emits RFC 5424-formatted messages with contextual placeh
 
 ---
 
-You're all set! 🎉 Event Schedule should now be up and running.
+You're all set! 🎉 Planify should now be up and running.
 
 ## Mobile Wallet Tickets
 
-Event Schedule can generate Apple Wallet passes and Google Wallet tickets for paid orders. Configure both services using the new environment variables in `.env`:
+Planify can generate Apple Wallet passes and Google Wallet tickets for paid orders. Configure both services using the new environment variables in `.env`:
 
 ### Apple Wallet
 
@@ -157,7 +163,7 @@ Once configured, paid ticket emails and the ticket viewer will surface “Add to
 
 ## Testing
 
-Event Schedule includes a comprehensive browser test suite powered by Laravel Dusk.
+Planify includes a comprehensive browser test suite powered by Laravel Dusk.
 
 Pest (optional):
 - To use Pest, install it locally (optional):

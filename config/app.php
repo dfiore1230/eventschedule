@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => 'Event Schedule',
+    'name' => 'Planify',
     'build_number' => 1,
 
     /*

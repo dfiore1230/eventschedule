@@ -18,7 +18,7 @@ class WalletConfigManagerTest extends TestCase
 
             WalletConfigManager::applyApple([
                 'enabled' => '1',
-                'pass_type_identifier' => ' pass.com.eventschedule.demo ',
+                'pass_type_identifier' => ' pass.com.planify.demo ',
                 'team_identifier' => " TEAM42 \n",
                 'organization_name' => " Demo Org \t",
                 'background_color' => "  rgb(1,2,3)  ",
@@ -32,7 +32,7 @@ class WalletConfigManagerTest extends TestCase
             $config = config('wallet.apple');
 
             $this->assertTrue($config['enabled']);
-            $this->assertSame('pass.com.eventschedule.demo', $config['pass_type_identifier']);
+            $this->assertSame('pass.com.planify.demo', $config['pass_type_identifier']);
             $this->assertSame('TEAM42', $config['team_identifier']);
             $this->assertSame('Demo Org', $config['organization_name']);
             $this->assertSame('rgb(1,2,3)', $config['background_color']);

@@ -452,7 +452,7 @@ class Role extends Model implements MustVerifyEmail
         $subdomain = Str::slug($name);
 
         $reserved = [
-            'eventschedule',
+            'planify',
             'event',
             'events',
             'admin',

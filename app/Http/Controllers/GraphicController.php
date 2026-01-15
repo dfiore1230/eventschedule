@@ -104,7 +104,7 @@ class GraphicController extends Controller
                 CURLOPT_TIMEOUT => 60, // 60 second timeout
                 CURLOPT_CONNECTTIMEOUT => 30, // 30 second connection timeout
                 CURLOPT_SSL_VERIFYPEER => true,
-                CURLOPT_USERAGENT => 'EventSchedule/1.0',
+                CURLOPT_USERAGENT => 'Planify/1.0',
                 CURLOPT_HTTPHEADER => [
                     'Accept: image/png,image/*,*/*;q=0.8',
                     'Accept-Language: en-US,en;q=0.5',

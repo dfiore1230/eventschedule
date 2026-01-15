@@ -1,6 +1,6 @@
 # REST API Reference
 
-Event Schedule exposes a JSON API that mirrors the web application's scheduling, booking, and media features. All endpoints are now available to every account tier – no Pro subscription required – while still enforcing authentication and per-user authorization.
+Planify exposes a JSON API that mirrors the web application's scheduling, booking, and media features. All endpoints are now available to every account tier – no Pro subscription required – while still enforcing authentication and per-user authorization.
 
 ## Authentication
 
@@ -57,7 +57,7 @@ Returns the authenticated user's venues, talents, curators, and other schedules.
   "data": [
     {
       "id": "YmFzZTY0LWVuY29kZWQ=",
-      "url": "https://eventschedule.test/sample-venue",
+      "url": "https://planify.test/sample-venue",
       "type": "venue",
       "subdomain": "sample-venue",
       "name": "Sample Venue",
@@ -74,7 +74,7 @@ Returns the authenticated user's venues, talents, curators, and other schedules.
     "current_page": 1,
     "per_page": 100,
     "total": 1,
-    "path": "https://eventschedule.test/api/schedules"
+    "path": "https://planify.test/api/schedules"
   }
 }
 ```
@@ -121,7 +121,7 @@ Lists all events owned by the authenticated user, including ticketing, schedulin
         "address1": null,
         "city": null
       },
-      "flyer_image_url": "https://eventschedule.test/storage/flyers/api-showcase.png",
+      "flyer_image_url": "https://planify.test/storage/flyers/api-showcase.png",
       "registration_url": "https://events.example.com/register",
       "event_url": "https://events.example.com/stream",
       "payment_method": null,
@@ -243,7 +243,7 @@ Uploads or swaps the flyer for an event you own. Supply either a multipart `flye
 {
   "data": {
     "id": "RVZFTlQtMQ==",
-    "flyer_image_url": "https://eventschedule.test/storage/flyers/api-showcase.png"
+    "flyer_image_url": "https://planify.test/storage/flyers/api-showcase.png"
   },
   "meta": {
     "message": "Flyer uploaded successfully"
@@ -285,4 +285,4 @@ Deletes an event owned by the authenticated user. The route enforces the `resour
 | 423 | API key temporarily blocked | `{ "error": "API key temporarily blocked" }` |
 | 429 | Rate limit exceeded | `{ "error": "Rate limit exceeded" }` |
 
-With these responses and the expanded payloads, every feature that is exposed in the Event Schedule UI—schedules, talent assignments, venue details, ticketing, payments, and media—can now be queried or created via the public REST API across all plan levels.
+With these responses and the expanded payloads, every feature that is exposed in the Planify UI—schedules, talent assignments, venue details, ticketing, payments, and media—can now be queried or created via the public REST API across all plan levels.

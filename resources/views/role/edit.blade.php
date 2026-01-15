@@ -1254,7 +1254,7 @@
                                    {{ $role->sync_direction === 'to' ? 'checked' : '' }}
                                    class="sync-direction-radio rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
                             <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                                {{ __('To Google Calendar') }} - {{ __('Events from EventSchedule will appear in Google Calendar') }}
+                                {{ __('To Google Calendar') }} - {{ __('Events from Planify will appear in Google Calendar') }}
                             </span>
                         </label>
                         <label class="flex items-center">
@@ -1264,7 +1264,7 @@
                                    {{ $role->sync_direction === 'from' ? 'checked' : '' }}
                                    class="sync-direction-radio rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
                             <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
-                                {{ __('From Google Calendar') }} - {{ __('Events from Google Calendar will appear in EventSchedule') }}
+                                {{ __('From Google Calendar') }} - {{ __('Events from Google Calendar will appear in Planify') }}
                             </span>
                         </label>
                         <label class="flex items-center">

@@ -60,7 +60,7 @@ class AppleWalletServiceTest extends TestCase
                 'certificate_path' => $certificatePath . "  \n",
                 'certificate_password' => "  ",
                 'wwdr_certificate_path' => " \t{$wwdrPath} ",
-                'pass_type_identifier' => " pass.com.eventschedule.sample ",
+                'pass_type_identifier' => " pass.com.planify.sample ",
                 'team_identifier' => " TEAM12345A \n",
                 'organization_name' => " Example Org \n",
                 'background_color' => "  rgb(78,129,250)  ",
@@ -105,7 +105,7 @@ class AppleWalletServiceTest extends TestCase
                 'certificate_path' => $certificatePath,
                 'certificate_password' => null,
                 'wwdr_certificate_path' => $wwdrPath,
-                'pass_type_identifier' => 'pass.com.eventschedule.sample',
+                'pass_type_identifier' => 'pass.com.planify.sample',
                 'team_identifier' => 'InvalidTeam',
                 'organization_name' => 'Example Org',
             ]]);
@@ -558,7 +558,7 @@ class AppleWalletServiceTest extends TestCase
 
         $exported = '';
         $result = openssl_pkcs12_export($certificate, $exported, $privateKey, $password, [
-            'friendly_name' => 'EventScheduleTest',
+            'friendly_name' => 'PlanifyTest',
         ]);
 
         $this->assertTrue($result, 'Failed to export PKCS12 certificate for test.');
@@ -589,7 +589,7 @@ class AppleWalletServiceTest extends TestCase
 
         $this->assertNotFalse($privateKey, 'Failed to generate WWDR private key for test.');
 
-        $csr = openssl_csr_new(['commonName' => 'EventSchedule WWDR Test'], $privateKey);
+        $csr = openssl_csr_new(['commonName' => 'Planify WWDR Test'], $privateKey);
 
         $this->assertNotFalse($csr, 'Failed to create WWDR CSR for test.');
 

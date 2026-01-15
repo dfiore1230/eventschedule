@@ -1,9 +1,9 @@
 openapi: 3.0.3
 info:
-  title: EventSchedule API
+  title: Planify API
   version: 2.0.0
   description: >-
-    Complete REST API for EventSchedule event management system.
+    Complete REST API for Planify event management system.
     Includes schedules, roles, events, ticketing, talent, venues, check-ins, and media management.
 
 servers:

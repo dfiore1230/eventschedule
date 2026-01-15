@@ -1,6 +1,6 @@
 # Authorization & RBAC
 
-Event Schedule ships with a single-tenant role-based access control (RBAC) system that enforces the same permission model for the web UI and API. Every authenticated request is evaluated against cached permission sets so we can return `401/403` consistently, hide unauthorized actions, and keep checks O(1).
+Planify ships with a single-tenant role-based access control (RBAC) system that enforces the same permission model for the web UI and API. Every authenticated request is evaluated against cached permission sets so we can return `401/403` consistently, hide unauthorized actions, and keep checks O(1).
 
 ## Goals
 

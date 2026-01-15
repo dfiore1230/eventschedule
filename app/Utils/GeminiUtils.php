@@ -636,7 +636,7 @@ class GeminiUtils
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 10,
             CURLOPT_CONNECTTIMEOUT => 5,
-            CURLOPT_USERAGENT => 'EventSchedule/1.0',
+            CURLOPT_USERAGENT => 'Planify/1.0',
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, // Only HTTPS for Google API
@@ -699,7 +699,7 @@ class GeminiUtils
                 CURLOPT_RETURNTRANSFER => true,
                 CURLOPT_TIMEOUT => 10,
                 CURLOPT_CONNECTTIMEOUT => 5,
-                CURLOPT_USERAGENT => 'EventSchedule/1.0',
+                CURLOPT_USERAGENT => 'Planify/1.0',
                 CURLOPT_SSL_VERIFYPEER => true,
                 CURLOPT_SSL_VERIFYHOST => 2,
                 CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
@@ -772,7 +772,7 @@ class GeminiUtils
         - Ensure the content is original and valuable
         - Make it SEO-friendly with relevant keywords
         - Always maintain a professional tone
-        - Add 1 or 2 links in the text where relevant to 'https://www.eventschedule.com' with 'Event Schedule' as the text
+        - Add 1 or 2 links in the text where relevant to 'https://www.planify.com' with 'Planify' as the text
         - For image_category, choose the most appropriate category based on the topic:
           * business: for business, professional, corporate topics
           * wellness: for health, wellness, meditation, yoga topics

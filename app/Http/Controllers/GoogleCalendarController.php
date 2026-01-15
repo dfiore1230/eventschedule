@@ -446,7 +446,7 @@ class GoogleCalendarController extends Controller
     }
 
     /**
-     * Sync from Google Calendar to EventSchedule
+    * Sync from Google Calendar to Planify
      */
     public function syncFromGoogleCalendar(Request $request, $subdomain)
     {

@@ -1,8 +1,8 @@
-<x-app-layout :title="$role->name . ' | Event Schedule'" :force-light="true">
+<x-app-layout :title="$role->name . ' | Planify'" :force-light="true">
 
     <noscript>
       <div style="background: #fff3cd; color: #856404; padding: 16px; text-align: center; font-size: 1rem;">
-        JavaScript is required to use Event Schedule. Please enable JavaScript in your browser.
+        JavaScript is required to use Planify. Please enable JavaScript in your browser.
       </div>
     </noscript>
 
@@ -38,7 +38,7 @@
             <meta property="og:description" content="{{ $event->getMetaDescription($date) }}">
             <meta property="og:image" content="{{ $event->getImageUrl() }}">
             <meta property="og:url" content="{{ str_replace('http://', 'https://', request()->url()) }}">
-            <meta property="og:site_name" content="Event Schedule">
+            <meta property="og:site_name" content="Planify">
             <meta name="twitter:title" content="{{ $event->translatedName() }}">
             <meta name="twitter:description" content="{{ $event->getMetaDescription($date) }}">
             <meta name="twitter:image" content="{{ $event->getImageUrl() }}">
@@ -69,7 +69,7 @@
             <meta name="twitter:image" content="{{ $image }}">
             @endif
             <meta property="og:url" content="{{ str_replace('http://', 'https://', request()->url()) }}">
-            <meta property="og:site_name" content="Event Schedule">
+            <meta property="og:site_name" content="Planify">
             <meta name="twitter:card" content="summary_large_image">
         @endif
     </x-slot>
@@ -198,31 +198,5 @@
 
         {{ $slot }}
     </div>
-
-    <x-slot name="footer">
-        @if (request()->embed)
-            <div class="py-3 text-center text-xs text-gray-500 dark:text-gray-400">
-                {!! str_replace(':link', '<a href="https://www.eventschedule.com" class="hover:underline" target="_blank">EventSchedule</a>', __('messages.powered_by_eventschedule')) !!}
-            </div>
-        @else
-            <footer class="bg-gray-800">
-                <div class="container mx-auto flex flex-row justify-center items-center py-5 px-5">
-                    <p class="text-[#F5F9FE] text-sm sm:text-base text-center">
-                        {!! str_replace(':link', '<a href="https://www.eventschedule.com" target="_blank" class="hover:underline">EventSchedule</a>', __('messages.powered_by_eventschedule')) !!}
-                        @if ($role->showBranding())
-                            <span class="block sm:inline sm:ml-2">
-                                {!! str_replace(':link', '<a href="https://www.eventschedule.com" target="_blank" class="hover:underline">eventschedule.com</a>', __('messages.try_event_schedule')) !!}
-                            </span>
-                            @if (config('app.hosted'))
-                                <span class="block sm:inline sm:ml-2">
-                                    {!! __('messages.supported_by', ['link' => '<a href="https://invoiceninja.com" target="_blank" class="hover:underline" title="Leading small-business platform to manage invoices, expenses & tasks">Invoice Ninja</a>']) !!}
-                                </span>
-                            @endif
-                        @endif
-                    </p>
-                </div>
-            </footer>
-        @endif
-    </x-slot>
 
 </x-app-layout>

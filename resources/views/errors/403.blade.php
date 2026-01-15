@@ -97,7 +97,7 @@
     </head>
     <body>
         @php
-            $requestAccessEmail = config('mail.from.address') ?: 'support@eventschedule.com';
+            $requestAccessEmail = config('mail.from.address') ?: 'support@planify.com';
         @endphp
         <div class="card">
             <span class="code-badge">403</span>

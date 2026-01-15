@@ -496,7 +496,7 @@ class GoogleCalendarService
     }
 
     /**
-     * Sync events from Google Calendar to EventSchedule
+    * Sync events from Google Calendar to Planify
      */
     public function syncFromGoogleCalendar(User $user, Role $role, string $calendarId): array
     {
@@ -579,7 +579,7 @@ class GoogleCalendarService
     }
 
     /**
-     * Create an EventSchedule event from Google Calendar event
+    * Create a Planify event from Google Calendar event
      */
     private function createEventFromGoogle(array $googleEvent, Role $role, string $calendarId): Event
     {
@@ -624,7 +624,7 @@ class GoogleCalendarService
     }
 
     /**
-     * Update an EventSchedule event from Google Calendar event
+    * Update a Planify event from Google Calendar event
      */
     private function updateEventFromGoogle(Event $event, array $googleEvent, Role $role): void
     {

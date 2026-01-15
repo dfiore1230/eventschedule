@@ -6,7 +6,7 @@
                     <div class="flex flex-col gap-3">
                         <p class="text-sm font-semibold uppercase tracking-widest text-indigo-500">Email updates</p>
                         <h1 class="text-3xl font-semibold text-gray-900">
-                            {{ $event ? 'Stay in the loop for ' . $event->translatedName() : 'Get EventSchedule updates' }}
+                            {{ $event ? 'Stay in the loop for ' . $event->translatedName() : 'Get Planify updates' }}
                         </h1>
                         <p class="text-base text-gray-600">
                             {{ $event ? 'Join the event mailing list for schedule updates and important announcements.' : 'Subscribe for new event announcements and platform news.' }}

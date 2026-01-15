@@ -1,11 +1,11 @@
-<x-app-layout :title="$post->meta_title . ' | Event Schedule'">
+<x-app-layout :title="$post->meta_title . ' | Planify'">
     <x-slot name="meta">
         <meta name="description" content="{{ $post->meta_description }}">
         <meta property="og:title" content="{{ $post->meta_title }}">
         <meta property="og:description" content="{{ $post->meta_description }}">
         <meta property="og:image" content="{{ $post->featured_image_url ?: url('/images/background.jpg') }}">
         <meta property="og:url" content="{{ url()->current() }}">
-        <meta property="og:site_name" content="Event Schedule">
+        <meta property="og:site_name" content="Planify">
         <meta property="og:type" content="article">
         @if($post->published_at)
             <meta property="article:published_time" content="{{ $post->published_at->toISOString() }}">
@@ -38,7 +38,7 @@
             },
             "publisher": {
                 "@type": "Organization",
-                "name": "Event Schedule",
+                "name": "Planify",
                 "logo": {
                     "@type": "ImageObject",
                     "url": "{{ $structuredLogo }}"
@@ -113,7 +113,7 @@
             
             <!-- CTA Card -->
             <div class="mb-8">
-                <a href="https://www.eventschedule.com" class="block group">
+                <a href="https://www.planify.com" class="block group">
                     <div class="rounded-lg p-6 shadow-md text-white transition-all duration-300 group-hover:shadow-lg brand-gradient-card" style="--tw-scale-x: 1; --tw-scale-y: 1; background: linear-gradient(90deg, var(--brand-secondary), var(--brand-primary));">
                         <style>
                             .group:hover .brand-gradient-card {
@@ -122,7 +122,7 @@
                         </style>
                         <div class="text-center">
                             <p class="text-white text-lg font-medium">
-                                {!! str_replace(':link', '<span class="font-bold underline">eventschedule.com</span>',  __('messages.try_event_schedule')) !!}
+                                {!! str_replace(':link', '<span class="font-bold underline">planify.com</span>',  __('messages.try_planify')) !!}
                             </p>
                         </div>
                     </div>
@@ -206,8 +206,8 @@
         class="container mx-auto flex flex-row justify-center items-center py-8 px-5"
       >
         <p class="text-[#F5F9FE] text-base text-center">
-            <!-- Per the AAL license, please do not remove the link to Event Schedule -->
-            {!! str_replace(':link', '<a href="https://www.eventschedule.com" class="hover:underline">eventschedule.com</a>',  __('messages.try_event_schedule')) !!}
+            <!-- Per the AAL license, please do not remove the link to Planify -->
+            {!! str_replace(':link', '<a href="https://www.planify.com" class="hover:underline">planify.com</a>',  __('messages.try_planify')) !!}
                 •
             {!! __('messages.supported_by', ['link' => '<a href="https://invoiceninja.com" target="_blank" class="hover:underline" title="Leading small-business platform to manage invoices, expenses & tasks">Invoice Ninja</a>']) !!}
         </p>

@@ -13,7 +13,7 @@ return [
     'rate_limit_per_minute' => env('MASS_EMAIL_RATE_LIMIT', 1200),
     'retry_attempts' => env('MASS_EMAIL_RETRY_ATTEMPTS', 3),
     'retry_backoff_seconds' => env('MASS_EMAIL_RETRY_BACKOFF', '60,300,900'),
-    'default_from_name' => env('MASS_EMAIL_FROM_NAME', env('MAIL_FROM_NAME', 'EventSchedule')),
+    'default_from_name' => env('MASS_EMAIL_FROM_NAME', env('MAIL_FROM_NAME', 'Planify')),
     'default_from_email' => env('MASS_EMAIL_FROM_EMAIL', env('MAIL_FROM_ADDRESS', 'no-reply@example.com')),
     'default_reply_to' => env('MASS_EMAIL_REPLY_TO'),
     'global_list_key' => env('MASS_EMAIL_GLOBAL_LIST_KEY', 'GLOBAL_UPDATES'),

@@ -1,6 +1,6 @@
 # E2E & Manual Testing Guide (Quickstart)
 
-This document summarizes how to run the manual and automated tests for EventSchedule.
+This document summarizes how to run the manual and automated tests for Planify.
 
 ## Manual testing - prerequisites
 1. Ensure local server is running: `php artisan serve --host=127.0.0.1 --port=8000`.

@@ -1,4 +1,4 @@
-<x-app-layout :title="(request()->path() != '/' ? implode(' > ', array_map('ucwords', array_slice(explode('/', str_replace(['-', '_'], ' ', request()->path())), 0, 2))) : '') . ' | Event Schedule'">
+<x-app-layout :title="(request()->path() != '/' ? implode(' > ', array_map('ucwords', array_slice(explode('/', str_replace(['-', '_'], ' ', request()->path())), 0, 2))) : '') . ' | Planify'">
 
     <x-slot name="head">
         <link rel="preconnect" href="https://rsms.me/">
@@ -381,15 +381,6 @@
 
                 </div>
             </main>
-
-            <div class="mt-auto pb-8 px-8 text-sm text-gray-500">
-                {!! str_replace(':link', '<a href="https://www.eventschedule.com" class="hover:underline" target="_blank">EventSchedule</a>', __('messages.powered_by_eventschedule')) !!}
-                @if (config('app.hosted'))
-                    • {!! str_replace(':email', '<a href="mailto:contact@eventschedule.com?subject=Feedback" class="hover:underline">contact@eventschedule.com</a>', __('messages.questions_or_suggestions')) !!}
-                @else
-                    • <a href="{{ config('self-update.repository_types.github.repository_url') }}" target="_blank" class="hover:underline">{{ config('self-update.version_installed') }}</a>
-                @endif
-            </div>
 
         </div>
     </div>

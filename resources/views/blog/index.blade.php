@@ -1,13 +1,13 @@
-<x-app-layout :title="'Blog | Event Schedule'">
+<x-app-layout :title="'Blog | Planify'">
     <x-slot name="meta">
-        <meta name="description" content="Read the latest news, tips, and insights about event scheduling and ticketing from the Event Schedule team.">
-        <meta property="og:title" content="Blog | Event Schedule">
-        <meta property="og:description" content="Read the latest news, tips, and insights about event scheduling and ticketing from the Event Schedule team.">
+        <meta name="description" content="Read the latest news, tips, and insights about event scheduling and ticketing from the Planify team.">
+        <meta property="og:title" content="Blog | Planify">
+        <meta property="og:description" content="Read the latest news, tips, and insights about event scheduling and ticketing from the Planify team.">
         <meta property="og:image" content="{{ url('/images/background.jpg') }}">
         <meta property="og:url" content="{{ url()->current() }}">
-        <meta property="og:site_name" content="Event Schedule">
-        <meta name="twitter:title" content="Blog | Event Schedule">
-        <meta name="twitter:description" content="Read the latest news, tips, and insights about event scheduling and ticketing from the Event Schedule team.">
+        <meta property="og:site_name" content="Planify">
+        <meta name="twitter:title" content="Blog | Planify">
+        <meta name="twitter:description" content="Read the latest news, tips, and insights about event scheduling and ticketing from the Planify team.">
         <meta name="twitter:image" content="{{ url('/images/background.jpg') }}">
         <meta name="twitter:card" content="summary_large_image">
         <link rel="canonical" href="{{ url()->current() }}">
@@ -16,7 +16,7 @@
     <div class="bg-gray-900 py-12">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="w-full flex flex-col sm:flex-row items-center gap-4 sm:gap-8 mb-4 text-center sm:text-left">
-                <a href="https://www.eventschedule.com" class="hover:opacity-80 transition-opacity flex-shrink-0 flex justify-center sm:block">
+                <a href="https://www.planify.com" class="hover:opacity-80 transition-opacity flex-shrink-0 flex justify-center sm:block">
                     @php($blogLogoAlt = branding_logo_alt())
                     @if (config('branding.logo_path'))
                         <img class="h-12 w-auto sm:h-14 mb-4 sm:mb-0" src="{{ branding_logo_url() }}" alt="{{ $blogLogoAlt }}" />
@@ -175,8 +175,8 @@
         class="container mx-auto flex flex-row justify-center items-center py-8 px-5"
       >
         <p class="text-[#F5F9FE] text-base text-center">
-            <!-- Per the AAL license, please do not remove the link to Event Schedule -->
-            {!! str_replace(':link', '<a href="https://www.eventschedule.com" class="hover:underline">eventschedule.com</a>',  __('messages.try_event_schedule')) !!}
+            <!-- Per the AAL license, please do not remove the link to Planify -->
+            {!! str_replace(':link', '<a href="https://www.planify.com" class="hover:underline">planify.com</a>',  __('messages.try_planify')) !!}
                 •
             {!! __('messages.supported_by', ['link' => '<a href="https://invoiceninja.com" target="_blank" class="hover:underline" title="Leading small-business platform to manage invoices, expenses & tasks">Invoice Ninja</a>']) !!}
         </p>

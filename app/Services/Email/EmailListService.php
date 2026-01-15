@@ -13,7 +13,7 @@ class EmailListService
 
         return EmailList::query()->firstOrCreate(
             ['key' => $key],
-            ['type' => EmailList::TYPE_GLOBAL, 'name' => 'EventSchedule Updates']
+            ['type' => EmailList::TYPE_GLOBAL, 'name' => 'Planify Updates']
         );
     }
 

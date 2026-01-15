@@ -141,7 +141,7 @@ class UrlUtils
             CURLOPT_TIMEOUT => 10,
             CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_MAXREDIRS => 3,
-            CURLOPT_USERAGENT => 'EventSchedule/1.0',
+            CURLOPT_USERAGENT => 'Planify/1.0',
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_FOLLOWLOCATION => true,
@@ -244,7 +244,7 @@ class UrlUtils
                 CURLOPT_MAXREDIRS => 3, // Reduced from 10
                 CURLOPT_TIMEOUT => 15, // Reduced from 30
                 CURLOPT_CONNECTTIMEOUT => 10, // Reduced from 30
-                CURLOPT_USERAGENT => 'EventSchedule/1.0', // Don't impersonate browsers
+                CURLOPT_USERAGENT => 'Planify/1.0', // Don't impersonate browsers
                 CURLOPT_HTTPHEADER => [
                     'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
                     'Accept-Language: en-US,en;q=0.5',
@@ -351,7 +351,7 @@ class UrlUtils
             CURLOPT_TIMEOUT => 10,
             CURLOPT_CONNECTTIMEOUT => 5,
             CURLOPT_MAXREDIRS => 2,
-            CURLOPT_USERAGENT => 'EventSchedule/1.0',
+            CURLOPT_USERAGENT => 'Planify/1.0',
             CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
             CURLOPT_MAXFILESIZE => 5242880, // 5MB limit for images

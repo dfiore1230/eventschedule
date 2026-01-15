@@ -68,7 +68,7 @@
         @if ($version_installed != $version_available)
             @php
                 $downloadUrl = $version_available ? \App\Support\UpdateConfigManager::makeReleaseDownloadUrl($version_available) : null;
-                $downloadLabel = config('self-update.repository_types.github.package_file_name', 'eventschedule.zip');
+                $downloadLabel = config('self-update.repository_types.github.package_file_name', 'planify.zip');
 
                 if ($downloadUrl) {
                     $path = parse_url($downloadUrl, PHP_URL_PATH);

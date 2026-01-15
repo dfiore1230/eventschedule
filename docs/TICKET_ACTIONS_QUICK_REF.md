@@ -161,7 +161,7 @@ cancel → cancelled    refund → refunded
 
 ### Mark a paid ticket as cancelled
 ```bash
-curl -X PATCH https://api.eventschedule.app/api/tickets/42 \
+curl -X PATCH https://api.planify.app/api/tickets/42 \
   -H "X-API-Key: abc123def456" \
   -H "Content-Type: application/json" \
   -d '{
@@ -171,7 +171,7 @@ curl -X PATCH https://api.eventschedule.app/api/tickets/42 \
 
 ### Refund a paid ticket and update holder email
 ```bash
-curl -X PATCH https://api.eventschedule.app/api/tickets/42 \
+curl -X PATCH https://api.planify.app/api/tickets/42 \
   -H "X-API-Key: abc123def456" \
   -H "Content-Type: application/json" \
   -d '{
@@ -182,7 +182,7 @@ curl -X PATCH https://api.eventschedule.app/api/tickets/42 \
 
 ### Mark all ticket entries as used (checked in)
 ```bash
-curl -X PATCH https://api.eventschedule.app/api/tickets/42 \
+curl -X PATCH https://api.planify.app/api/tickets/42 \
   -H "X-API-Key: abc123def456" \
   -H "Content-Type: application/json" \
   -d '{

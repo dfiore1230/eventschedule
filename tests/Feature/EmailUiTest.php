@@ -81,13 +81,13 @@ class EmailUiTest extends TestCase
             'mail_password' => 'secret',
             'mail_encryption' => 'tls',
             'mail_from_address' => 'no-reply@example.test',
-            'mail_from_name' => 'EventSchedule',
+            'mail_from_name' => 'Planify',
             'mail_disable_delivery' => false,
             'mass_email_provider' => 'sendgrid',
             'mass_email_api_key' => 'sg-secret',
             'mass_email_sending_domain' => 'mail.example.test',
             'mass_email_webhook_secret' => 'whsec-secret',
-            'mass_email_from_name' => 'EventSchedule',
+            'mass_email_from_name' => 'Planify',
             'mass_email_from_email' => 'no-reply@example.test',
             'mass_email_reply_to' => 'reply@example.test',
             'mass_email_batch_size' => 250,
@@ -106,7 +106,7 @@ class EmailUiTest extends TestCase
         $this->assertSame('sg-secret', $stored['api_key'] ?? null);
         $this->assertSame('mail.example.test', $stored['sending_domain'] ?? null);
         $this->assertSame('whsec-secret', $stored['webhook_secret'] ?? null);
-        $this->assertSame('EventSchedule', $stored['from_name'] ?? null);
+        $this->assertSame('Planify', $stored['from_name'] ?? null);
         $this->assertSame('no-reply@example.test', $stored['from_email'] ?? null);
         $this->assertSame('reply@example.test', $stored['reply_to'] ?? null);
         $this->assertSame('250', $stored['batch_size'] ?? null);
@@ -307,7 +307,7 @@ class EmailUiTest extends TestCase
 
         $response = $this->actingAs($admin)->post(route('email.store'), [
             'subject' => 'Template Subject',
-            'from_name' => 'EventSchedule',
+            'from_name' => 'Planify',
             'from_email' => 'no-reply@example.test',
             'reply_to' => '',
             'email_type' => 'marketing',
@@ -336,7 +336,7 @@ class EmailUiTest extends TestCase
             'hash' => \App\Utils\UrlUtils::encodeId($event->id),
         ]), [
             'subject' => 'Event Template',
-            'from_name' => 'EventSchedule',
+            'from_name' => 'Planify',
             'from_email' => 'no-reply@example.test',
             'reply_to' => '',
             'email_type' => 'marketing',

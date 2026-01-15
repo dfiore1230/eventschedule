@@ -131,7 +131,7 @@ class InvoiceNinja
 
         curl_setopt($response, CURLOPT_HTTPHEADER, [
             'X-API-TOKEN: ' . $this->apiKey,
-            'X-CLIENT-PLATFORM: ' . 'Event Schedule', 
+            'X-CLIENT-PLATFORM: ' . 'Planify', 
             'Content-Type: application/json',
         ]);
 

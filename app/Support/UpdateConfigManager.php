@@ -35,7 +35,7 @@ class UpdateConfigManager
     public static function makeReleaseDownloadUrl(string $version): ?string
     {
         $repositoryUrl = config('self-update.repository_types.github.repository_url');
-        $packageName = config('self-update.repository_types.github.package_file_name', 'eventschedule.zip');
+        $packageName = config('self-update.repository_types.github.package_file_name', 'planify.zip');
 
         if (empty($repositoryUrl)) {
             return null;

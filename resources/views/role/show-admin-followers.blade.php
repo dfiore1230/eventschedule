@@ -29,7 +29,7 @@
     <div class="mt-3">
         <a href="{{ $role->getGuestUrl() }}" target="_blank" class="hover:underline">
             @if (config('app.hosted'))
-                {{ $role->subdomain . '.eventschedule.com' }}
+                {{ $role->subdomain . '.planify.com' }}
             @else
                 {{ url('/' . $role->subdomain) }}
             @endif

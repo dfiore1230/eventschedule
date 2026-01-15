@@ -23,7 +23,7 @@ class AuthFlowTest extends TestCase
         $response = $this->post('/sign_up', [
             '_token' => $token,
             'name' => 'New User',
-            'email' => 'newuser@eventschedule.test',
+            'email' => 'newuser@planify.test',
             'password' => 'password123',
             'language_code' => 'en',
         ]);
@@ -31,7 +31,7 @@ class AuthFlowTest extends TestCase
         $response->assertRedirect(route('home'));
         $this->assertAuthenticated();
 
-        $user = User::where('email', 'newuser@eventschedule.test')->first();
+        $user = User::where('email', 'newuser@planify.test')->first();
         $this->assertNotNull($user);
         $this->assertNotNull($user->email_verified_at);
     }

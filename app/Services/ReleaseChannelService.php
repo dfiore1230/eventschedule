@@ -63,7 +63,7 @@ class ReleaseChannelService
             ->acceptJson()
             ->timeout(120)
             ->withHeaders([
-                'User-Agent' => 'eventschedule-updater',
+                'User-Agent' => 'planify-updater',
             ]);
 
         $token = config('self-update.repository_types.github.private_access_token');

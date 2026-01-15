@@ -8,7 +8,7 @@ class DiscoveryEndpointsTest extends TestCase
 {
     public function test_manifest_is_available_at_well_known_path(): void
     {
-        $response = $this->getJson('/.well-known/eventschedule.json');
+        $response = $this->getJson('/.well-known/planify.json');
 
         $response->assertOk()
             ->assertJson([

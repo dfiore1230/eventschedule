@@ -292,10 +292,10 @@ if (!function_exists('branding_logo_alt')) {
      */
     function branding_logo_alt(): string
     {
-        $alt = config('branding.logo_alt', 'Event Schedule');
+        $alt = config('branding.logo_alt', 'Planify');
 
         if (! is_string($alt) || trim($alt) === '') {
-            return 'Event Schedule';
+            return 'Planify';
         }
 
         return trim($alt);

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-$defaultGithubVendor = env('SELF_UPDATER_REPO_VENDOR', 'eventschedule');
-$defaultGithubName = env('SELF_UPDATER_REPO_NAME', 'eventschedule');
-$defaultGithubUrl = env('SELF_UPDATER_REPO_URL', 'https://github.com/eventschedule/eventschedule');
+$defaultGithubVendor = env('SELF_UPDATER_REPO_VENDOR', 'planify');
+$defaultGithubName = env('SELF_UPDATER_REPO_NAME', 'planify');
+$defaultGithubUrl = env('SELF_UPDATER_REPO_URL', 'https://github.com/planify/planify');
 
 return [
 
@@ -72,7 +72,7 @@ return [
             'download_path'        => env('SELF_UPDATER_DOWNLOAD_PATH', '/tmp'),
             'private_access_token' => env('SELF_UPDATER_GITHUB_PRIVATE_ACCESS_TOKEN', ''),
             'use_branch'           => env('SELF_UPDATER_USE_BRANCH', ''),
-            'package_file_name'    => env('SELF_UPDATER_PACKAGE_FILE_NAME', 'eventschedule.zip'),
+            'package_file_name'    => env('SELF_UPDATER_PACKAGE_FILE_NAME', 'planify.zip'),
         ],
         'gitlab' => [
             'base_url'             => '',
