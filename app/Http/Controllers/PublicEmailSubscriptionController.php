@@ -12,6 +12,7 @@ use App\Services\Email\EmailSubscriptionService;
 use App\Utils\UrlUtils;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 
 class PublicEmailSubscriptionController extends Controller
@@ -35,9 +36,16 @@ class PublicEmailSubscriptionController extends Controller
         );
 
         $doubleOptIn = (bool) config('mass_email.double_opt_in_marketing', true);
+        $deliveryDisabled = (bool) config('mail.disable_delivery', false);
+
         $status = $doubleOptIn ? EmailSubscription::STATUS_PENDING : EmailSubscription::STATUS_SUBSCRIBED;
 
-        $subscriptionService->upsertSubscription(
+        // If delivery is disabled, skip double opt-in to avoid transport errors
+        if ($deliveryDisabled) {
+            $status = EmailSubscription::STATUS_SUBSCRIBED;
+        }
+
+        $subscription = $subscriptionService->upsertSubscription(
             $subscriber,
             $list,
             $status,
@@ -47,8 +55,19 @@ class PublicEmailSubscriptionController extends Controller
         );
 
         if ($status === EmailSubscription::STATUS_PENDING) {
-            $confirmUrl = $this->buildConfirmUrl($subscriber, $list);
-            Mail::to($subscriber->email)->send(new ConfirmSubscriptionMail($confirmUrl, $list->name));
+            try {
+                $confirmUrl = $this->buildConfirmUrl($subscriber, $list);
+                Mail::to($subscriber->email)->send(new ConfirmSubscriptionMail($confirmUrl, $list->name));
+            } catch (\Throwable $e) {
+                Log::warning('Public subscribe confirmation email skipped due to mail transport issue', [
+                    'email' => $subscriber->email,
+                    'list_id' => $list->id,
+                    'error' => $e->getMessage(),
+                ]);
+
+                // Fail open: mark subscribed so signups work even when mail is disabled
+                $subscriptionService->markSubscriptionStatus($subscription, EmailSubscription::STATUS_SUBSCRIBED, 'system');
+            }
         }
 
         return response()->json([
