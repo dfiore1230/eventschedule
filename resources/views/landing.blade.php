@@ -608,7 +608,7 @@
                     @php
                         $globalList = app(\App\Services\Email\EmailListService::class)->getGlobalList();
                     @endphp
-                    <form method="POST" action="{{ route('public.subscribe') }}" class="flex w-full max-w-xl flex-col items-center gap-3 rounded-2xl bg-slate-900/70 px-4 py-3 sm:flex-row sm:gap-4 sm:px-5 sm:py-4">
+                    <form method="POST" action="{{ route('public.subscribe') }}" class="flex w-full max-w-xl flex-col items-center gap-3 rounded-2xl bg-slate-900/70 px-4 py-3 sm:flex-row sm:gap-4 sm:px-5 sm:py-4" data-subscribe-inline>
                         @csrf
                         <input type="hidden" name="list_id" value="{{ $globalList->id }}">
                         <label for="landing-subscribe-email" class="sr-only">Email</label>
@@ -633,3 +633,39 @@
         </footer>
     </x-slot>
 </x-app-layout>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.querySelector('[data-subscribe-inline]');
+    if (!form) return;
+
+    const emailInput = form.querySelector('input[name="email"]');
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const formData = new FormData(form);
+        try {
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': form.querySelector('input[name="_token"]').value,
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                throw new Error('Request failed');
+            }
+
+            emailInput.value = '';
+            alert('Thank you! You are subscribed.');
+        } catch (error) {
+            alert('Could not subscribe right now. Please try again later.');
+        }
+    });
+});
+</script>
+@endpush

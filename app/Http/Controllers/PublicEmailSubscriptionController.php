@@ -70,10 +70,18 @@ class PublicEmailSubscriptionController extends Controller
             }
         }
 
-        return response()->json([
-            'status' => 'ok',
-            'message' => 'If this email is eligible, a confirmation email will be sent shortly.',
-        ], 202);
+        $message = $status === EmailSubscription::STATUS_PENDING
+            ? 'If this email is eligible, a confirmation email will be sent shortly.'
+            : 'You are subscribed. Thank you!';
+
+        if ($request->expectsJson() || $request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'status' => 'ok',
+                'message' => $message,
+            ], 200);
+        }
+
+        return redirect()->back()->with('subscription_status', $message);
     }
 
     public function confirm(Request $request, EmailSubscriptionService $subscriptionService)
