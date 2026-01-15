@@ -279,10 +279,10 @@ if (!function_exists('branding_logo_url')) {
         $variant = strtolower($variant);
 
         if ($variant === 'dark') {
-            return url('images/dark_logo.png');
+            return url('images/planify_horizontal_dark.png');
         }
 
-        return url('images/light_logo.png');
+        return url('images/planify_horizontal_light.png');
     }
 }
 

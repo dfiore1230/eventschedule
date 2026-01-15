@@ -1,7 +1,7 @@
 <div align="center">
     <picture>
-        <source srcset="public/images/dark_logo.png" media="(prefers-color-scheme: light)">
-        <img src="public/images/light_logo.png" alt="Planify Logo" width="350" media="(prefers-color-scheme: dark)">
+        <source srcset="public/images/planify_horizontal_dark.png" media="(prefers-color-scheme: light)">
+        <img src="public/images/planify_horizontal_light.png" alt="Planify Logo" width="350" media="(prefers-color-scheme: dark)">
     </picture>
 </div>
 
@@ -16,7 +16,7 @@
 **Choose your setup**
 
 - [Hosted](https://www.planify.com): Our hosted version is a Software as a Service (SaaS) solution. You're up and running in under 5 minutes, with no need to worry about hosting or server infrastructure.
-- [Self-Hosted](https://github.com/planify/planify?tab=readme-ov-file#installation-guide): For those who prefer to manage their own hosting and server infrastructure. This version gives you full control and flexibility.
+- [Self-Hosted](https://github.com/dfiore1230/planify?tab=readme-ov-file#installation-guide): For those who prefer to manage their own hosting and server infrastructure. This version gives you full control and flexibility.
 
 > [!NOTE]  
 > You can use [Softaculous](https://www.softaculous.com/apps/calendars/Event_Schedule) (legacy identifier) to automatically install the selfhost app.
@@ -24,7 +24,7 @@
 ### Rename migration (required)
 
 - New product name: **Planify**. Legacy references (Event Schedule/eventschedule) are deprecated.
-- Update scripts, pipelines, and bookmarks to the new repository path https://github.com/planify/planify; redirects are not relied upon.
+- Update scripts, pipelines, and bookmarks to the new repository path https://github.com/dfiore1230/planify; redirects are not relied upon.
 - Planify originates from the open-source Event Schedule project by Hillel Coren (Attribution Assurance License). See LICENSE and the Open Source Attribution page for required runtime attribution.
 
 ## Features
@@ -54,16 +54,16 @@
 
 ## API Reference
 
-Comprehensive request/response samples for every REST endpoint, including authentication and failure handling, are available in [docs/API_REFERENCE.md](docs/API_REFERENCE.md).
+Comprehensive request/response samples for every REST endpoint, including authentication and failure handling, are available in [docs/COMPLETE_API_REFERENCE.md](docs/COMPLETE_API_REFERENCE.md).
 
 <div style="display: flex; gap: 10px;">
-    <img src="https://github.com/planify/planify/blob/main/public/images/screenshots/screen_1.png?raw=true" width="49%" alt="Guest > Schedule">
-    <img src="https://github.com/planify/planify/blob/main/public/images/screenshots/screen_2.png?raw=true" width="49%" alt="Guest > Event">
+    <img src="https://github.com/dfiore1230/planify/blob/main/public/images/screenshots/screen_1.png?raw=true" width="49%" alt="Guest > Schedule">
+    <img src="https://github.com/dfiore1230/planify/blob/main/public/images/screenshots/screen_2.png?raw=true" width="49%" alt="Guest > Event">
 </div>
 
 <div style="display: flex; gap: 10px;">
-    <img src="https://github.com/planify/planify/blob/main/public/images/screenshots/screen_3.png?raw=true" width="49%" alt="Admin > Schedule">
-    <img src="https://github.com/planify/planify/blob/main/public/images/screenshots/screen_4.png?raw=true" width="49%" alt="Admin > Event">
+    <img src="https://github.com/dfiore1230/planify/blob/main/public/images/screenshots/screen_3.png?raw=true" width="49%" alt="Admin > Schedule">
+    <img src="https://github.com/dfiore1230/planify/blob/main/public/images/screenshots/screen_4.png?raw=true" width="49%" alt="Admin > Event">
 </div>
 
 ## Installation Guide
@@ -84,7 +84,7 @@ GRANT ALL PRIVILEGES ON planify.* TO 'planify'@'localhost';
 
 ### 2. Set Up the Application
 
-Copy [planify.zip](https://github.com/planify/planify/releases/latest) to your server and unzip it.
+Copy [planify.zip](https://github.com/dfiore1230/planify/releases/latest) to your server and unzip it.
 
 ---
 
@@ -111,7 +111,7 @@ Copy the `.env.example` file to `.env` and then access the application at `https
 cp .env.example .env
 ```
 
-<img src="https://github.com/planify/planify/blob/main/public/images/screenshots/setup.png?raw=true" width="100%" alt="Setup"/>
+<img src="https://github.com/dfiore1230/planify/blob/main/public/images/screenshots/setup.png?raw=true" width="100%" alt="Setup"/>
 
 ---
 

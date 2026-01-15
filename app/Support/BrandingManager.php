@@ -94,7 +94,7 @@ class BrandingManager
     protected static function resolveLogoUrl(?string $path, ?string $disk): string
     {
         if (! is_string($path) || trim($path) === '') {
-            return url('images/light_logo.png');
+            return url('images/planify_horizontal_light.png');
         }
 
         $diskName = is_string($disk) && trim($disk) !== '' ? $disk : storage_public_disk();

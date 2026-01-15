@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-$defaultGithubVendor = env('SELF_UPDATER_REPO_VENDOR', 'planify');
+$defaultGithubVendor = env('SELF_UPDATER_REPO_VENDOR', 'dfiore1230');
 $defaultGithubName = env('SELF_UPDATER_REPO_NAME', 'planify');
-$defaultGithubUrl = env('SELF_UPDATER_REPO_URL', 'https://github.com/planify/planify');
+$defaultGithubUrl = env('SELF_UPDATER_REPO_URL', 'https://github.com/dfiore1230/planify');
 
 return [
 
