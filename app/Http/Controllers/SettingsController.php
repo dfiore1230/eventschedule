@@ -667,8 +667,16 @@ class SettingsController extends Controller
             $previousLogoDisk = $storedBrandingSettings['logo_disk'] ?? null;
             $previousMediaAssetId = $storedBrandingSettings['logo_media_asset_id'] ?? null;
 
+            $previousDarkLogoPath = $storedBrandingSettings['logo_dark_path'] ?? null;
+            $previousDarkLogoDisk = $storedBrandingSettings['logo_dark_disk'] ?? null;
+            $previousDarkMediaAssetId = $storedBrandingSettings['logo_dark_media_asset_id'] ?? null;
+
             if ($previousLogoPath && empty($previousMediaAssetId)) {
                 $this->deleteStoredFile($previousLogoPath, $previousLogoDisk);
+            }
+
+            if ($previousDarkLogoPath && empty($previousDarkMediaAssetId)) {
+                $this->deleteStoredFile($previousDarkLogoPath, $previousDarkLogoDisk);
             }
 
             Setting::clearGroup('branding');
@@ -701,6 +709,8 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'branding_logo_media_asset_id' => ['nullable', 'integer', 'exists:media_assets,id'],
             'branding_logo_media_variant_id' => ['nullable', 'integer', 'exists:media_asset_variants,id'],
+            'branding_logo_dark_media_asset_id' => ['nullable', 'integer', 'exists:media_assets,id'],
+            'branding_logo_dark_media_variant_id' => ['nullable', 'integer', 'exists:media_asset_variants,id'],
             'branding_logo_alt' => ['nullable', 'string', 'max:255'],
             'branding_primary_color' => ['required', new AccessibleColor(__('messages.branding_primary_color'), 4.5, $buttonTextColors)],
             'branding_secondary_color' => ['required', new AccessibleColor(__('messages.branding_secondary_color'), 4.5, $buttonTextColors)],
@@ -710,6 +720,8 @@ class SettingsController extends Controller
 
         $logoAssetId = $request->input('branding_logo_media_asset_id');
         $logoVariantId = $request->input('branding_logo_media_variant_id');
+        $logoDarkAssetId = $request->input('branding_logo_dark_media_asset_id');
+        $logoDarkVariantId = $request->input('branding_logo_dark_media_variant_id');
 
         if ($logoVariantId && ! $logoAssetId) {
             throw ValidationException::withMessages([
@@ -717,57 +729,84 @@ class SettingsController extends Controller
             ]);
         }
 
-        $previousLogoPath = $storedBrandingSettings['logo_path'] ?? null;
-        $previousLogoDisk = $storedBrandingSettings['logo_disk'] ?? null;
-        $previousMediaAssetId = $storedBrandingSettings['logo_media_asset_id'] ?? null;
+        if ($logoDarkVariantId && ! $logoDarkAssetId) {
+            throw ValidationException::withMessages([
+                'branding_logo_dark_media_variant_id' => __('messages.branding_logo_variant_mismatch'),
+            ]);
+        }
 
-        $logoPath = $previousLogoPath;
-        $logoDisk = $previousLogoDisk;
-        $logoMediaAssetId = $storedBrandingSettings['logo_media_asset_id'] ?? null;
-        $logoMediaVariantId = $storedBrandingSettings['logo_media_variant_id'] ?? null;
+        $resolveLogo = function (?int $assetId, ?int $variantId, string $assetField, string $variantField, string $storedPrefix) use ($request, $storedBrandingSettings) {
+            $previousPath = $storedBrandingSettings[$storedPrefix . '_path'] ?? null;
+            $previousDisk = $storedBrandingSettings[$storedPrefix . '_disk'] ?? null;
+            $previousMediaAssetId = $storedBrandingSettings[$storedPrefix . '_media_asset_id'] ?? null;
+            $previousMediaVariantId = $storedBrandingSettings[$storedPrefix . '_media_variant_id'] ?? null;
 
-        if ($logoAssetId) {
-            $asset = MediaAsset::find((int) $logoAssetId);
+            $path = $previousPath;
+            $disk = $previousDisk;
+            $mediaAssetId = $previousMediaAssetId;
+            $mediaVariantId = $previousMediaVariantId;
 
-            if (! $asset) {
-                throw ValidationException::withMessages([
-                    'branding_logo_media_asset_id' => __('messages.branding_logo_missing'),
-                ]);
-            }
+            if ($assetId) {
+                $asset = MediaAsset::find((int) $assetId);
 
-            if ($previousLogoPath && empty($previousMediaAssetId)) {
-                $this->deleteStoredFile($previousLogoPath, $previousLogoDisk);
-            }
-
-            $logoMediaAssetId = $asset->id;
-            $logoMediaVariantId = null;
-            $logoPath = $asset->path;
-            $logoDisk = $asset->disk ?: storage_public_disk();
-
-            if ($logoVariantId) {
-                $variant = MediaAssetVariant::where('media_asset_id', $asset->id)
-                    ->find((int) $logoVariantId);
-
-                if (! $variant) {
+                if (! $asset) {
                     throw ValidationException::withMessages([
-                        'branding_logo_media_variant_id' => __('messages.branding_logo_variant_mismatch'),
+                        $assetField => __('messages.branding_logo_missing'),
                     ]);
                 }
 
-                $logoMediaVariantId = $variant->id;
-                $logoPath = $variant->path;
-                $logoDisk = $variant->disk ?: $logoDisk;
-            }
-        } elseif ($request->exists('branding_logo_media_asset_id')) {
-            if ($previousLogoPath && empty($previousMediaAssetId)) {
-                $this->deleteStoredFile($previousLogoPath, $previousLogoDisk);
+                if ($previousPath && empty($previousMediaAssetId)) {
+                    $this->deleteStoredFile($previousPath, $previousDisk);
+                }
+
+                $mediaAssetId = $asset->id;
+                $mediaVariantId = null;
+                $path = $asset->path;
+                $disk = $asset->disk ?: storage_public_disk();
+
+                if ($variantId) {
+                    $variant = MediaAssetVariant::where('media_asset_id', $asset->id)
+                        ->find((int) $variantId);
+
+                    if (! $variant) {
+                        throw ValidationException::withMessages([
+                            $variantField => __('messages.branding_logo_variant_mismatch'),
+                        ]);
+                    }
+
+                    $mediaVariantId = $variant->id;
+                    $path = $variant->path;
+                    $disk = $variant->disk ?: $disk;
+                }
+            } elseif ($request->exists($assetField)) {
+                if ($previousPath && empty($previousMediaAssetId)) {
+                    $this->deleteStoredFile($previousPath, $previousDisk);
+                }
+
+                $path = null;
+                $disk = null;
+                $mediaAssetId = null;
+                $mediaVariantId = null;
             }
 
-            $logoPath = null;
-            $logoDisk = null;
-            $logoMediaAssetId = null;
-            $logoMediaVariantId = null;
-        }
+            return [$path, $disk, $mediaAssetId, $mediaVariantId];
+        };
+
+        [$logoPath, $logoDisk, $logoMediaAssetId, $logoMediaVariantId] = $resolveLogo(
+            $logoAssetId,
+            $logoVariantId,
+            'branding_logo_media_asset_id',
+            'branding_logo_media_variant_id',
+            'logo'
+        );
+
+        [$logoDarkPath, $logoDarkDisk, $logoDarkMediaAssetId, $logoDarkMediaVariantId] = $resolveLogo(
+            $logoDarkAssetId,
+            $logoDarkVariantId,
+            'branding_logo_dark_media_asset_id',
+            'branding_logo_dark_media_variant_id',
+            'logo_dark'
+        );
 
         $logoAlt = $this->nullableTrim($validated['branding_logo_alt'] ?? null);
         $primaryColor = ColorUtils::normalizeHexColor($validated['branding_primary_color']) ?? '#1F2937';
@@ -781,11 +820,24 @@ class SettingsController extends Controller
         }
 
         $brandingSettings = [
+            // Legacy keys (kept for backward compatibility)
             'logo_path' => $logoPath,
             'logo_disk' => $logoPath ? ($logoDisk ?: storage_public_disk()) : null,
-            'logo_alt' => $logoAlt,
             'logo_media_asset_id' => $logoMediaAssetId ? (int) $logoMediaAssetId : null,
             'logo_media_variant_id' => $logoMediaVariantId ? (int) $logoMediaVariantId : null,
+
+            // Explicit light/dark variants
+            'logo_light_path' => $logoPath,
+            'logo_light_disk' => $logoPath ? ($logoDisk ?: storage_public_disk()) : null,
+            'logo_light_media_asset_id' => $logoMediaAssetId ? (int) $logoMediaAssetId : null,
+            'logo_light_media_variant_id' => $logoMediaVariantId ? (int) $logoMediaVariantId : null,
+
+            'logo_dark_path' => $logoDarkPath,
+            'logo_dark_disk' => $logoDarkPath ? ($logoDarkDisk ?: storage_public_disk()) : null,
+            'logo_dark_media_asset_id' => $logoDarkMediaAssetId ? (int) $logoDarkMediaAssetId : null,
+            'logo_dark_media_variant_id' => $logoDarkMediaVariantId ? (int) $logoDarkMediaVariantId : null,
+
+            'logo_alt' => $logoAlt,
             'primary_color' => $primaryColor,
             'secondary_color' => $secondaryColor,
             'tertiary_color' => $tertiaryColor,

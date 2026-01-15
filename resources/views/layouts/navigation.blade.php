@@ -49,7 +49,6 @@
 @endphp
 
 @php
-    $navigationLogo = config('branding.logo_path');
     $logoAlt = branding_logo_alt();
 @endphp
 

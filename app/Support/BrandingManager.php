@@ -19,6 +19,10 @@ class BrandingManager
         $defaults = [
             'logo_path' => config('branding.logo_path'),
             'logo_disk' => config('branding.logo_disk'),
+            'logo_light_path' => config('branding.logo_light_path'),
+            'logo_light_disk' => config('branding.logo_light_disk'),
+            'logo_dark_path' => config('branding.logo_dark_path'),
+            'logo_dark_disk' => config('branding.logo_dark_disk'),
             'logo_alt' => config('branding.logo_alt', 'Planify'),
             'primary_color' => data_get(config('branding'), 'colors.primary', '#1F2937'),
             'secondary_color' => data_get(config('branding'), 'colors.secondary', '#111827'),
@@ -26,11 +30,16 @@ class BrandingManager
             'default_language' => config('branding.default_language', config('app.fallback_locale', 'en')),
         ];
 
-        $logoPath = Arr::get($settings, 'logo_path', $defaults['logo_path']);
-        $logoDisk = Arr::get($settings, 'logo_disk', $defaults['logo_disk']);
+        // Backward compatibility: if only legacy logo_path exists, treat it as the light logo.
+        $logoLightPath = Arr::get($settings, 'logo_light_path', Arr::get($settings, 'logo_path', $defaults['logo_light_path']));
+        $logoLightDisk = Arr::get($settings, 'logo_light_disk', Arr::get($settings, 'logo_disk', $defaults['logo_light_disk']));
+        $logoDarkPath = Arr::get($settings, 'logo_dark_path', $defaults['logo_dark_path']);
+        $logoDarkDisk = Arr::get($settings, 'logo_dark_disk', $defaults['logo_dark_disk']);
         $logoAlt = Arr::get($settings, 'logo_alt', $defaults['logo_alt']);
-        $logoMediaAssetId = Arr::get($settings, 'logo_media_asset_id');
-        $logoMediaVariantId = Arr::get($settings, 'logo_media_variant_id');
+        $logoLightMediaAssetId = Arr::get($settings, 'logo_light_media_asset_id', Arr::get($settings, 'logo_media_asset_id'));
+        $logoLightMediaVariantId = Arr::get($settings, 'logo_light_media_variant_id', Arr::get($settings, 'logo_media_variant_id'));
+        $logoDarkMediaAssetId = Arr::get($settings, 'logo_dark_media_asset_id');
+        $logoDarkMediaVariantId = Arr::get($settings, 'logo_dark_media_variant_id');
 
         $primary = ColorUtils::normalizeHexColor(
             Arr::get($settings, 'primary_color', $defaults['primary_color'])
@@ -58,17 +67,33 @@ class BrandingManager
             $defaultLanguage = config('app.fallback_locale', 'en');
         }
 
-        $logoUrl = self::resolveLogoUrl($logoPath, $logoDisk);
+        $logoLightUrl = self::resolveLogoUrl($logoLightPath, $logoLightDisk, url('images/planify_horizontal_light.png'));
+        $logoDarkUrl = self::resolveLogoUrl($logoDarkPath, $logoDarkDisk, url('images/planify_horizontal_dark.png'));
+
+        // Fallback: if no dark logo provided, use light for both.
+        if (! $logoDarkUrl) {
+            $logoDarkUrl = $logoLightUrl;
+        }
 
         $resolved = [
-            'logo_path' => $logoPath,
-            'logo_disk' => $logoDisk,
-            'logo_url' => $logoUrl,
+            'logo_path' => $logoLightPath,
+            'logo_disk' => $logoLightDisk,
+            'logo_url' => $logoLightUrl,
+            'logo_light_path' => $logoLightPath,
+            'logo_light_disk' => $logoLightDisk,
+            'logo_light_url' => $logoLightUrl,
+            'logo_dark_path' => $logoDarkPath,
+            'logo_dark_disk' => $logoDarkDisk,
+            'logo_dark_url' => $logoDarkUrl,
             'logo_alt' => is_string($logoAlt) && trim($logoAlt) !== ''
                 ? trim($logoAlt)
                 : 'Planify',
-            'logo_media_asset_id' => $logoMediaAssetId ? (int) $logoMediaAssetId : null,
-            'logo_media_variant_id' => $logoMediaVariantId ? (int) $logoMediaVariantId : null,
+            'logo_media_asset_id' => $logoLightMediaAssetId ? (int) $logoLightMediaAssetId : null,
+            'logo_media_variant_id' => $logoLightMediaVariantId ? (int) $logoLightMediaVariantId : null,
+            'logo_light_media_asset_id' => $logoLightMediaAssetId ? (int) $logoLightMediaAssetId : null,
+            'logo_light_media_variant_id' => $logoLightMediaVariantId ? (int) $logoLightMediaVariantId : null,
+            'logo_dark_media_asset_id' => $logoDarkMediaAssetId ? (int) $logoDarkMediaAssetId : null,
+            'logo_dark_media_variant_id' => $logoDarkMediaVariantId ? (int) $logoDarkMediaVariantId : null,
             'colors' => [
                 'primary' => $primary,
                 'secondary' => $secondary,
@@ -91,10 +116,10 @@ class BrandingManager
         Config::set('app.locale', $defaultLanguage);
     }
 
-    protected static function resolveLogoUrl(?string $path, ?string $disk): string
+    protected static function resolveLogoUrl(?string $path, ?string $disk, string $fallback): ?string
     {
         if (! is_string($path) || trim($path) === '') {
-            return url('images/planify_horizontal_light.png');
+            return $fallback;
         }
 
         $diskName = is_string($disk) && trim($disk) !== '' ? $disk : storage_public_disk();

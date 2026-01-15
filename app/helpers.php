@@ -270,19 +270,19 @@ if (!function_exists('branding_logo_url')) {
      */
     function branding_logo_url(string $variant = 'light'): string
     {
-        $configured = config('branding.logo_url');
-
-        if (is_string($configured) && trim($configured) !== '') {
-            return $configured;
-        }
-
         $variant = strtolower($variant);
 
+        $light = config('branding.logo_light_url') ?: config('branding.logo_url');
+        $dark = config('branding.logo_dark_url');
+
+        $defaultLight = url('images/planify_horizontal_light.png');
+        $defaultDark = url('images/planify_horizontal_dark.png');
+
         if ($variant === 'dark') {
-            return url('images/planify_horizontal_dark.png');
+            return $dark ?: $light ?: $defaultDark;
         }
 
-        return url('images/planify_horizontal_light.png');
+        return $light ?: $defaultLight;
     }
 }
 

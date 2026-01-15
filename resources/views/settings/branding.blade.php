@@ -22,9 +22,13 @@
             ->filter(fn ($label, $code) => is_string($code) && is_string($label))
             ->toArray();
 
-        $initialLogoAssetId = old('branding_logo_media_asset_id', data_get($brandingSettings, 'logo_media_asset_id'));
-        $initialLogoVariantId = old('branding_logo_media_variant_id', data_get($brandingSettings, 'logo_media_variant_id'));
-        $initialLogoUrl = data_get($brandingSettings, 'logo_url');
+        $initialLogoAssetId = old('branding_logo_media_asset_id', data_get($brandingSettings, 'logo_light_media_asset_id', data_get($brandingSettings, 'logo_media_asset_id')));
+        $initialLogoVariantId = old('branding_logo_media_variant_id', data_get($brandingSettings, 'logo_light_media_variant_id', data_get($brandingSettings, 'logo_media_variant_id')));
+        $initialLogoUrl = data_get($brandingSettings, 'logo_light_url', data_get($brandingSettings, 'logo_url'));
+
+        $initialDarkLogoAssetId = old('branding_logo_dark_media_asset_id', data_get($brandingSettings, 'logo_dark_media_asset_id'));
+        $initialDarkLogoVariantId = old('branding_logo_dark_media_variant_id', data_get($brandingSettings, 'logo_dark_media_variant_id'));
+        $initialDarkLogoUrl = data_get($brandingSettings, 'logo_dark_url');
 
         if ($initialLogoAssetId) {
             $asset = \App\Models\MediaAsset::find($initialLogoAssetId);
@@ -38,6 +42,23 @@
 
                     if ($variant) {
                         $initialLogoUrl = $variant->url;
+                    }
+                }
+            }
+        }
+
+        if ($initialDarkLogoAssetId) {
+            $asset = \App\Models\MediaAsset::find($initialDarkLogoAssetId);
+
+            if ($asset) {
+                $initialDarkLogoUrl = $asset->url;
+
+                if ($initialDarkLogoVariantId) {
+                    $variant = \App\Models\MediaAssetVariant::where('media_asset_id', $asset->id)
+                        ->find($initialDarkLogoVariantId);
+
+                    if ($variant) {
+                        $initialDarkLogoUrl = $variant->url;
                     }
                 }
             }
@@ -149,6 +170,25 @@
 
                                     <x-input-error class="mt-2" :messages="$errors->get('branding_logo_media_asset_id')" />
                                     <x-input-error class="mt-2" :messages="$errors->get('branding_logo_media_variant_id')" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <x-input-label value="Dark mode logo (optional)" />
+                                <div class="mt-4 space-y-4">
+                                    <x-media-picker
+                                        name="branding_logo_dark_media_variant_id"
+                                        asset-input-name="branding_logo_dark_media_asset_id"
+                                        context="branding-logo-dark"
+                                        :initial-url="$initialDarkLogoUrl"
+                                        :initial-asset-id="$initialDarkLogoAssetId"
+                                        :initial-variant-id="$initialDarkLogoVariantId"
+                                        label="Upload dark logo"
+                                        help="Provide a logo optimized for dark backgrounds; falls back to the light logo if omitted."
+                                    />
+
+                                    <x-input-error class="mt-2" :messages="$errors->get('branding_logo_dark_media_asset_id')" />
+                                    <x-input-error class="mt-2" :messages="$errors->get('branding_logo_dark_media_variant_id')" />
                                 </div>
                             </div>
 
