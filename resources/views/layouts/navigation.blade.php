@@ -55,12 +55,8 @@
 
 <a href="{{ app_public_url() }}" class="block">
     <div class="sidebar-logo flex min-h-20 shrink-0 items-center pt-2">
-        @if ($navigationLogo)
-            <img class="w-[240px] max-w-[240px] h-auto" src="{{ branding_logo_url() }}" alt="{{ $logoAlt }}">
-        @else
-            <img class="w-[240px] max-w-[240px] h-auto dark:hidden" src="{{ branding_logo_url('light') }}" alt="{{ $logoAlt }}">
-            <img class="hidden w-[240px] max-w-[240px] h-auto dark:block" src="{{ branding_logo_url('dark') }}" alt="{{ $logoAlt }}">
-        @endif
+        <img class="w-[240px] max-w-[240px] h-auto dark:hidden" src="{{ branding_logo_url('light') }}" alt="{{ $logoAlt }}">
+        <img class="hidden w-[240px] max-w-[240px] h-auto dark:block" src="{{ branding_logo_url('dark') }}" alt="{{ $logoAlt }}">
     </div>
 </a>
 <nav class="flex flex-1 flex-col">
