@@ -11,10 +11,36 @@
                         class="inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">
                         Subscribers
                     </a>
+                    <a href="{{ route('email.suppressions.index') }}"
+                        class="inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">
+                        Suppressions
+                    </a>
+                    <a href="{{ route('email.templates.index') }}"
+                        class="inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">
+                        Templates
+                    </a>
                     <a href="{{ route('email.create') }}"
                         class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
                         New Campaign
                     </a>
+                </div>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <p class="text-sm text-gray-500">Subscribers</p>
+                    <p class="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{{ $summary['subscribers'] }}</p>
+                    <p class="mt-1 text-xs text-gray-500">Marketing opt-outs: {{ $summary['marketing_opt_outs'] }}</p>
+                </div>
+                <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <p class="text-sm text-gray-500">Suppressions</p>
+                    <p class="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{{ $summary['suppressions'] }}</p>
+                    <p class="mt-1 text-xs text-gray-500">Bounces (30 days): {{ $summary['bounced_last_30_days'] }}</p>
+                </div>
+                <div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                    <p class="text-sm text-gray-500">Delivery (30 days)</p>
+                    <p class="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{{ $summary['sent_last_30_days'] }}</p>
+                    <p class="mt-1 text-xs text-gray-500">Complaints (30 days): {{ $summary['complaints_last_30_days'] }}</p>
                 </div>
             </div>
 

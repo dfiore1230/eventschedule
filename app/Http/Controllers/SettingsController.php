@@ -210,7 +210,6 @@ class SettingsController extends Controller
                 'laravel_mail' => 'SMTP (Laravel mailer)',
                 'sendgrid' => 'SendGrid',
                 'mailgun' => 'Mailgun',
-                'mailchimp' => 'Mailchimp',
             ],
             'availableEncryptions' => [
                 '' => __('messages.none'),
@@ -1284,6 +1283,10 @@ class SettingsController extends Controller
             'reply_to' => $stored['reply_to'] ?? config('mass_email.default_reply_to'),
             'batch_size' => $stored['batch_size'] ?? config('mass_email.batch_size'),
             'rate_limit_per_minute' => $stored['rate_limit_per_minute'] ?? config('mass_email.rate_limit_per_minute'),
+            'unsubscribe_footer' => $stored['unsubscribe_footer'] ?? config('mass_email.unsubscribe_footer'),
+            'physical_address' => $stored['physical_address'] ?? config('mass_email.physical_address'),
+            'retry_attempts' => $stored['retry_attempts'] ?? config('mass_email.retry_attempts'),
+            'retry_backoff_seconds' => $stored['retry_backoff_seconds'] ?? config('mass_email.retry_backoff_seconds'),
         ];
     }
 
@@ -1648,6 +1651,10 @@ class SettingsController extends Controller
             'mass_email_reply_to' => ['nullable', 'email', 'max:255'],
             'mass_email_batch_size' => ['nullable', 'integer', 'min:1', 'max:5000'],
             'mass_email_rate_limit' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'mass_email_unsubscribe_footer' => ['nullable', 'string', 'max:2000'],
+            'mass_email_physical_address' => ['nullable', 'string', 'max:255'],
+            'mass_email_retry_attempts' => ['nullable', 'integer', 'min:1', 'max:10'],
+            'mass_email_retry_backoff' => ['nullable', 'string', 'max:255'],
         ]);
     }
 
@@ -1694,6 +1701,10 @@ class SettingsController extends Controller
             'reply_to' => $this->nullableTrim($validated['mass_email_reply_to'] ?? null),
             'batch_size' => isset($validated['mass_email_batch_size']) ? (string) $validated['mass_email_batch_size'] : null,
             'rate_limit_per_minute' => isset($validated['mass_email_rate_limit']) ? (string) $validated['mass_email_rate_limit'] : null,
+            'unsubscribe_footer' => $this->nullableTrim($validated['mass_email_unsubscribe_footer'] ?? null),
+            'physical_address' => $this->nullableTrim($validated['mass_email_physical_address'] ?? null),
+            'retry_attempts' => isset($validated['mass_email_retry_attempts']) ? (string) $validated['mass_email_retry_attempts'] : null,
+            'retry_backoff_seconds' => $this->nullableTrim($validated['mass_email_retry_backoff'] ?? null),
         ];
     }
 }

@@ -270,6 +270,40 @@
                                 <x-input-error class="mt-2" :messages="$errors->get('mass_email_rate_limit')" />
                             </div>
 
+                            <div class="grid gap-6 sm:grid-cols-2">
+                                <div>
+                                    <x-input-label for="mass_email_retry_attempts" value="Retry attempts" />
+                                    <x-text-input id="mass_email_retry_attempts" name="mass_email_retry_attempts" type="number" class="mt-1 block w-full"
+                                        :value="old('mass_email_retry_attempts', $massEmailSettings['retry_attempts'] ?? '')" min="1" max="10" />
+                                    <x-input-error class="mt-2" :messages="$errors->get('mass_email_retry_attempts')" />
+                                </div>
+                                <div>
+                                    <x-input-label for="mass_email_retry_backoff" value="Retry backoff (seconds)" />
+                                    <x-text-input id="mass_email_retry_backoff" name="mass_email_retry_backoff" type="text" class="mt-1 block w-full"
+                                        :value="old('mass_email_retry_backoff', $massEmailSettings['retry_backoff_seconds'] ?? '')" placeholder="60,300,900" />
+                                    <x-input-error class="mt-2" :messages="$errors->get('mass_email_retry_backoff')" />
+                                </div>
+                            </div>
+
+                            <div class="grid gap-6 sm:grid-cols-2">
+                                <div>
+                                    <x-input-label for="mass_email_physical_address" value="Physical mailing address" />
+                                    <x-text-input id="mass_email_physical_address" name="mass_email_physical_address" type="text" class="mt-1 block w-full"
+                                        :value="old('mass_email_physical_address', $massEmailSettings['physical_address'] ?? '')" />
+                                    <x-input-error class="mt-2" :messages="$errors->get('mass_email_physical_address')" />
+                                </div>
+                            </div>
+
+                            <div>
+                                <x-input-label for="mass_email_unsubscribe_footer" value="Compliance footer" />
+                                <textarea id="mass_email_unsubscribe_footer" name="mass_email_unsubscribe_footer" rows="4"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#4E81FA] focus:ring-[#4E81FA] dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">{{ old('mass_email_unsubscribe_footer', $massEmailSettings['unsubscribe_footer'] ?? '') }}</textarea>
+                                <p class="mt-2 text-xs text-gray-500">
+                                    Supports {{ '{{unsubscribeUrl}}' }}, {{ '{{unsubscribeAllUrl}}' }}, and {{ '{{physicalAddress}}' }} placeholders.
+                                </p>
+                                <x-input-error class="mt-2" :messages="$errors->get('mass_email_unsubscribe_footer')" />
+                            </div>
+
                             <div class="flex flex-wrap items-center gap-4">
                                 <x-primary-button>{{ __('messages.save') }}</x-primary-button>
 

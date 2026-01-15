@@ -13,9 +13,25 @@
                 <form method="POST" action="{{ route('event.email.store', ['subdomain' => $subdomain, 'hash' => \App\Utils\UrlUtils::encodeId($event->id)]) }}" class="p-4 sm:p-6 space-y-6">
                     @csrf
 
+                    @if ($templates->isNotEmpty())
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200" for="template_id">Template</label>
+                            <select id="template_id"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                                onchange="if (this.value) { window.location = '{{ route('event.email.create', ['subdomain' => $subdomain, 'hash' => \App\Utils\UrlUtils::encodeId($event->id)]) }}' + '?template_id=' + this.value; }">
+                                <option value="">Select a template</option>
+                                @foreach ($templates as $template)
+                                    <option value="{{ $template->id }}" {{ $selectedTemplate && $selectedTemplate->id === $template->id ? 'selected' : '' }}>
+                                        {{ $template->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
+
                     <div>
                         <x-input-label for="subject" value="Subject" />
-                        <x-text-input id="subject" name="subject" type="text" class="mt-1 block w-full" :value="old('subject')" required />
+                        <x-text-input id="subject" name="subject" type="text" class="mt-1 block w-full" :value="old('subject', $defaults['subject'] ?? '')" required />
                         <x-input-error class="mt-2" :messages="$errors->get('subject')" />
                     </div>
 
@@ -42,8 +58,8 @@
                         <div>
                             <x-input-label for="email_type" value="Email type" />
                             <select id="email_type" name="email_type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100">
-                                <option value="marketing" {{ old('email_type') === 'marketing' ? 'selected' : '' }}>Marketing</option>
-                                <option value="notification" {{ old('email_type') === 'notification' ? 'selected' : '' }}>Notification</option>
+                                <option value="marketing" {{ old('email_type', $defaults['email_type'] ?? 'marketing') === 'marketing' ? 'selected' : '' }}>Marketing</option>
+                                <option value="notification" {{ old('email_type', $defaults['email_type'] ?? 'marketing') === 'notification' ? 'selected' : '' }}>Notification</option>
                             </select>
                             <x-input-error class="mt-2" :messages="$errors->get('email_type')" />
                         </div>
@@ -56,8 +72,20 @@
 
                     <div>
                         <x-input-label for="content_markdown" value="Content (Markdown)" />
-                        <textarea id="content_markdown" name="content_markdown" rows="12" class="html-editor mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100">{{ old('content_markdown') }}</textarea>
+                        <textarea id="content_markdown" name="content_markdown" rows="12" class="html-editor mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100">{{ old('content_markdown', $defaults['content_markdown'] ?? '') }}</textarea>
                         <x-input-error class="mt-2" :messages="$errors->get('content_markdown')" />
+                    </div>
+
+                    <div class="rounded-md border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900">
+                        <div class="flex items-center gap-3">
+                            <input id="save_template" name="save_template" type="checkbox" value="1" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <label class="text-sm text-gray-700 dark:text-gray-200" for="save_template">Save as template</label>
+                        </div>
+                        <div class="mt-3">
+                            <x-input-label for="template_name" value="Template name" />
+                            <x-text-input id="template_name" name="template_name" type="text" class="mt-1 block w-full" :value="old('template_name')" />
+                            <x-input-error class="mt-2" :messages="$errors->get('template_name')" />
+                        </div>
                     </div>
 
                     <div class="flex flex-wrap items-center gap-3">

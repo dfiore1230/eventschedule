@@ -134,6 +134,9 @@ Route::middleware(['auth', 'verified', 'active'])->group(function ()
     Route::get('/{subdomain}/event-email/{hash}', [EventEmailCampaignController::class, 'index'])->name('event.email.index');
     Route::get('/{subdomain}/event-email/{hash}/compose', [EventEmailCampaignController::class, 'create'])->name('event.email.create');
     Route::post('/{subdomain}/event-email/{hash}', [EventEmailCampaignController::class, 'store'])->name('event.email.store');
+    Route::post('/{subdomain}/event-email/{hash}/subscribers', [EventEmailCampaignController::class, 'updateSubscribers'])->name('event.email.subscribers.update');
+    Route::get('/{subdomain}/event-email/{hash}/export/{format}', [EventEmailCampaignController::class, 'exportSubscribers'])->name('event.email.export');
+    Route::delete('/{subdomain}/event-email/{hash}/templates/{template}', [EventEmailCampaignController::class, 'templateDestroy'])->name('event.email.templates.destroy');
     Route::get('/{subdomain}/event-email/{hash}/{campaign}', [EventEmailCampaignController::class, 'show'])->name('event.email.show');
     Route::get('/manage/venues', [RoleController::class, 'venues'])->name('role.venues');
     Route::get('/manage/curators', [RoleController::class, 'curators'])->name('role.curators');
@@ -245,6 +248,16 @@ Route::middleware(['auth', 'verified', 'active'])->group(function ()
     Route::get('/email/campaigns/{campaign}', [EmailCampaignController::class, 'show'])->name('email.campaigns.show');
     Route::get('/email/subscribers', [EmailCampaignController::class, 'subscribers'])->name('email.subscribers.index');
     Route::get('/email/subscribers/{subscriber}', [EmailCampaignController::class, 'subscriberShow'])->name('email.subscribers.show');
+    Route::patch('/email/subscribers/{subscriber}', [EmailCampaignController::class, 'subscriberUpdate'])->name('email.subscribers.update');
+    Route::patch('/email/subscribers', [EmailCampaignController::class, 'subscriberBulkUpdate'])->name('email.subscribers.bulk');
+    Route::post('/email/subscribers/add', [EmailCampaignController::class, 'subscriberAdd'])->name('email.subscribers.add');
+    Route::delete('/email/subscribers/{subscriber}/lists/{list}', [EmailCampaignController::class, 'subscriberRemoveList'])->name('email.subscribers.remove_list');
+    Route::get('/email/subscribers/export/{format}', [EmailCampaignController::class, 'exportSubscribers'])->name('email.subscribers.export');
+    Route::get('/email/templates', [EmailCampaignController::class, 'templates'])->name('email.templates.index');
+    Route::delete('/email/templates/{template}', [EmailCampaignController::class, 'templateDestroy'])->name('email.templates.destroy');
+    Route::get('/email/suppressions', [EmailCampaignController::class, 'suppressions'])->name('email.suppressions.index');
+    Route::post('/email/suppressions', [EmailCampaignController::class, 'suppressionStore'])->name('email.suppressions.store');
+    Route::delete('/email/suppressions/{suppression}', [EmailCampaignController::class, 'suppressionDestroy'])->name('email.suppressions.destroy');
 
     Route::middleware('ability:users.manage')->prefix('settings/users')->name('settings.users.')->group(function () {
         Route::get('/', [UserManagementController::class, 'index'])->name('index');

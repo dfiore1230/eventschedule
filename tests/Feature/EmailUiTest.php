@@ -9,6 +9,7 @@ use App\Models\Event;
 use App\Models\Role;
 use App\Models\Setting;
 use App\Services\Authorization\AuthorizationService;
+use App\Services\Email\EmailListService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -91,6 +92,10 @@ class EmailUiTest extends TestCase
             'mass_email_reply_to' => 'reply@example.test',
             'mass_email_batch_size' => 250,
             'mass_email_rate_limit' => 1500,
+            'mass_email_unsubscribe_footer' => 'Unsubscribe: {{unsubscribeUrl}} | {{physicalAddress}}',
+            'mass_email_physical_address' => '123 Test St',
+            'mass_email_retry_attempts' => 4,
+            'mass_email_retry_backoff' => '60,300',
         ];
 
         $response = $this->actingAs($admin)->patch(route('settings.mail.update'), $payload);
@@ -106,6 +111,294 @@ class EmailUiTest extends TestCase
         $this->assertSame('reply@example.test', $stored['reply_to'] ?? null);
         $this->assertSame('250', $stored['batch_size'] ?? null);
         $this->assertSame('1500', $stored['rate_limit_per_minute'] ?? null);
+        $this->assertSame('Unsubscribe: {{unsubscribeUrl}} | {{physicalAddress}}', $stored['unsubscribe_footer'] ?? null);
+        $this->assertSame('123 Test St', $stored['physical_address'] ?? null);
+        $this->assertSame('4', $stored['retry_attempts'] ?? null);
+        $this->assertSame('60,300', $stored['retry_backoff_seconds'] ?? null);
+    }
+
+    public function test_admin_can_opt_out_subscriber(): void
+    {
+        $admin = $this->createManagerWithPermission('settings.manage');
+        $subscriber = \App\Models\EmailSubscriber::query()->create(['email' => 'optout@example.com']);
+
+        $response = $this->actingAs($admin)->patch(route('email.subscribers.update', ['subscriber' => $subscriber->id]), [
+            'marketing_status' => 'opt_out',
+            'list_id' => '',
+            'list_status' => '',
+        ]);
+
+        $response->assertRedirect(route('email.subscribers.show', ['subscriber' => $subscriber->id]));
+        $this->assertNotNull($subscriber->fresh()->marketing_unsubscribed_at);
+    }
+
+    public function test_admin_can_bulk_opt_out_subscribers(): void
+    {
+        $admin = $this->createManagerWithPermission('settings.manage');
+        $subscriberOne = \App\Models\EmailSubscriber::query()->create(['email' => 'bulk1@example.com']);
+        $subscriberTwo = \App\Models\EmailSubscriber::query()->create(['email' => 'bulk2@example.com']);
+
+        $response = $this->actingAs($admin)->patch(route('email.subscribers.bulk'), [
+            'subscriber_ids' => [$subscriberOne->id, $subscriberTwo->id],
+            'action' => 'marketing',
+            'marketing_status' => 'opt_out',
+            'list_id' => '',
+            'list_status' => '',
+        ]);
+
+        $response->assertRedirect(route('email.subscribers.index'));
+        $this->assertNotNull($subscriberOne->fresh()->marketing_unsubscribed_at);
+        $this->assertNotNull($subscriberTwo->fresh()->marketing_unsubscribed_at);
+    }
+
+    public function test_admin_can_bulk_update_list_status(): void
+    {
+        $admin = $this->createManagerWithPermission('settings.manage');
+        $subscriber = \App\Models\EmailSubscriber::query()->create(['email' => 'listbulk@example.com']);
+        $list = \App\Models\EmailList::query()->create([
+            'type' => \App\Models\EmailList::TYPE_GLOBAL,
+            'name' => 'Global Updates',
+            'key' => 'GLOBAL_TEST',
+        ]);
+
+        \App\Models\EmailSubscription::query()->create([
+            'subscriber_id' => $subscriber->id,
+            'list_id' => $list->id,
+            'status' => 'pending',
+        ]);
+
+        $response = $this->actingAs($admin)->patch(route('email.subscribers.bulk'), [
+            'subscriber_ids' => [$subscriber->id],
+            'action' => 'list',
+            'marketing_status' => '',
+            'list_id' => $list->id,
+            'list_status' => 'subscribed',
+        ]);
+
+        $response->assertRedirect(route('email.subscribers.index'));
+        $this->assertDatabaseHas('email_subscriptions', [
+            'subscriber_id' => $subscriber->id,
+            'list_id' => $list->id,
+            'status' => 'subscribed',
+        ]);
+    }
+
+    public function test_admin_can_add_and_remove_subscriber_from_list(): void
+    {
+        $admin = $this->createManagerWithPermission('settings.manage');
+        $list = \App\Models\EmailList::query()->create([
+            'type' => \App\Models\EmailList::TYPE_GLOBAL,
+            'name' => 'Global Updates',
+            'key' => 'GLOBAL_TEST',
+        ]);
+
+        $response = $this->actingAs($admin)->post(route('email.subscribers.add'), [
+            'email' => 'newlist@example.com',
+            'first_name' => 'New',
+            'last_name' => 'List',
+            'list_id' => $list->id,
+            'intent' => 'subscribe',
+        ]);
+
+        $response->assertRedirect(route('email.subscribers.index'));
+
+        $subscriber = \App\Models\EmailSubscriber::query()->where('email', 'newlist@example.com')->first();
+        $this->assertNotNull($subscriber);
+        $this->assertDatabaseHas('email_subscriptions', [
+            'subscriber_id' => $subscriber->id,
+            'list_id' => $list->id,
+            'status' => 'subscribed',
+        ]);
+
+        $removeResponse = $this->actingAs($admin)->delete(route('email.subscribers.remove_list', [
+            'subscriber' => $subscriber->id,
+            'list' => $list->id,
+        ]));
+
+        $removeResponse->assertRedirect(route('email.subscribers.show', ['subscriber' => $subscriber->id]));
+        $this->assertDatabaseMissing('email_subscriptions', [
+            'subscriber_id' => $subscriber->id,
+            'list_id' => $list->id,
+        ]);
+    }
+
+    public function test_event_admin_can_add_and_remove_event_list_subscriber(): void
+    {
+        $owner = User::factory()->create();
+        $event = Event::factory()->create(['user_id' => $owner->id]);
+        $role = Role::factory()->create();
+
+        $list = app(EmailListService::class)->getEventList($event);
+
+        $addResponse = $this->actingAs($owner)->post(route('event.email.subscribers.update', [
+            'subdomain' => $role->subdomain,
+            'hash' => \App\Utils\UrlUtils::encodeId($event->id),
+        ]), [
+            'action' => 'add',
+            'email' => 'eventlist@example.com',
+            'first_name' => 'Event',
+            'last_name' => 'Subscriber',
+            'intent' => 'subscribe',
+        ]);
+
+        $addResponse->assertRedirect(route('event.email.index', [
+            'subdomain' => $role->subdomain,
+            'hash' => \App\Utils\UrlUtils::encodeId($event->id),
+        ]));
+
+        $subscription = \App\Models\EmailSubscription::query()
+            ->where('list_id', $list->id)
+            ->whereHas('subscriber', function ($query) {
+                $query->where('email', 'eventlist@example.com');
+            })
+            ->first();
+
+        $this->assertNotNull($subscription);
+
+        $removeResponse = $this->actingAs($owner)->post(route('event.email.subscribers.update', [
+            'subdomain' => $role->subdomain,
+            'hash' => \App\Utils\UrlUtils::encodeId($event->id),
+        ]), [
+            'action' => 'remove',
+            'subscription_id' => $subscription->id,
+        ]);
+
+        $removeResponse->assertRedirect(route('event.email.index', [
+            'subdomain' => $role->subdomain,
+            'hash' => \App\Utils\UrlUtils::encodeId($event->id),
+        ]));
+
+        $this->assertDatabaseMissing('email_subscriptions', [
+            'id' => $subscription->id,
+        ]);
+    }
+
+    public function test_admin_can_manage_suppressions(): void
+    {
+        $admin = $this->createManagerWithPermission('settings.manage');
+
+        $response = $this->actingAs($admin)->post(route('email.suppressions.store'), [
+            'email' => 'suppressed@example.com',
+            'reason' => 'manual',
+        ]);
+
+        $response->assertRedirect(route('email.suppressions.index'));
+        $this->assertDatabaseHas('email_suppressions', [
+            'email' => 'suppressed@example.com',
+            'reason' => 'manual',
+        ]);
+
+        $suppression = \App\Models\EmailSuppression::query()->where('email', 'suppressed@example.com')->first();
+        $this->assertNotNull($suppression);
+
+        $deleteResponse = $this->actingAs($admin)->delete(route('email.suppressions.destroy', [
+            'suppression' => $suppression->id,
+        ]));
+
+        $deleteResponse->assertRedirect(route('email.suppressions.index'));
+        $this->assertDatabaseMissing('email_suppressions', [
+            'id' => $suppression->id,
+        ]);
+    }
+
+    public function test_admin_can_save_global_template_from_campaign(): void
+    {
+        $admin = $this->createManagerWithPermission('settings.manage');
+
+        $response = $this->actingAs($admin)->post(route('email.store'), [
+            'subject' => 'Template Subject',
+            'from_name' => 'EventSchedule',
+            'from_email' => 'no-reply@example.test',
+            'reply_to' => '',
+            'email_type' => 'marketing',
+            'content_markdown' => 'Hello {{firstName}}',
+            'scheduled_at' => null,
+            'action' => 'draft',
+            'save_template' => true,
+            'template_name' => 'Global Template',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('email_campaign_templates', [
+            'name' => 'Global Template',
+            'scope' => \App\Models\EmailCampaignTemplate::SCOPE_GLOBAL,
+        ]);
+    }
+
+    public function test_event_admin_can_save_event_template_from_campaign(): void
+    {
+        $owner = User::factory()->create();
+        $event = Event::factory()->create(['user_id' => $owner->id]);
+        $role = Role::factory()->create();
+
+        $response = $this->actingAs($owner)->post(route('event.email.store', [
+            'subdomain' => $role->subdomain,
+            'hash' => \App\Utils\UrlUtils::encodeId($event->id),
+        ]), [
+            'subject' => 'Event Template',
+            'from_name' => 'EventSchedule',
+            'from_email' => 'no-reply@example.test',
+            'reply_to' => '',
+            'email_type' => 'marketing',
+            'content_markdown' => 'Hello {{firstName}}',
+            'scheduled_at' => null,
+            'action' => 'draft',
+            'save_template' => true,
+            'template_name' => 'Event Template',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('email_campaign_templates', [
+            'name' => 'Event Template',
+            'scope' => \App\Models\EmailCampaignTemplate::SCOPE_EVENT,
+            'event_id' => $event->id,
+        ]);
+    }
+
+    public function test_admin_can_export_subscribers(): void
+    {
+        $admin = $this->createManagerWithPermission('settings.manage');
+        $list = \App\Models\EmailList::query()->create([
+            'type' => \App\Models\EmailList::TYPE_GLOBAL,
+            'name' => 'Global Updates',
+            'key' => 'GLOBAL_EXPORT',
+        ]);
+
+        $subscriber = \App\Models\EmailSubscriber::query()->create(['email' => 'export@example.com']);
+        \App\Models\EmailSubscription::query()->create([
+            'subscriber_id' => $subscriber->id,
+            'list_id' => $list->id,
+            'status' => 'subscribed',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('email.subscribers.export', ['format' => 'csv', 'list_id' => $list->id]));
+
+        $response->assertStatus(200);
+        $this->assertStringContainsString('text/csv', $response->headers->get('Content-Type'));
+    }
+
+    public function test_event_admin_can_export_event_subscribers(): void
+    {
+        $owner = User::factory()->create();
+        $event = Event::factory()->create(['user_id' => $owner->id]);
+        $role = Role::factory()->create();
+
+        $list = app(EmailListService::class)->getEventList($event);
+        $subscriber = \App\Models\EmailSubscriber::query()->create(['email' => 'eventexport@example.com']);
+        \App\Models\EmailSubscription::query()->create([
+            'subscriber_id' => $subscriber->id,
+            'list_id' => $list->id,
+            'status' => 'subscribed',
+        ]);
+
+        $response = $this->actingAs($owner)->get(route('event.email.export', [
+            'subdomain' => $role->subdomain,
+            'hash' => \App\Utils\UrlUtils::encodeId($event->id),
+            'format' => 'csv',
+        ]));
+
+        $response->assertStatus(200);
+        $this->assertStringContainsString('text/csv', $response->headers->get('Content-Type'));
     }
 
     protected function createManagerWithPermission(string $permissionKey): User

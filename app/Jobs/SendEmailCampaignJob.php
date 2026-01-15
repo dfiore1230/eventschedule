@@ -23,8 +23,13 @@ class SendEmailCampaignJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $tries;
+    public array|int $backoff;
+
     public function __construct(public int $campaignId)
     {
+        $this->tries = max((int) config('mass_email.retry_attempts', 3), 1);
+        $this->backoff = $this->resolveBackoff(config('mass_email.retry_backoff_seconds', [60, 300, 900]));
     }
 
     public function handle(EmailProviderInterface $provider, EmailTemplateRenderer $renderer): void
@@ -153,8 +158,10 @@ class SendEmailCampaignJob implements ShouldQueue
 
                 if ($campaign->email_type === EmailCampaign::TYPE_MARKETING) {
                     $mergeData['unsubscribeUrl'] = $this->buildUnsubscribeUrl($subscriber->getKey(), $subscription->list_id);
+                    $mergeData['unsubscribeAllUrl'] = $this->buildUnsubscribeAllUrl($subscriber->getKey());
                 } else {
                     $mergeData['unsubscribeUrl'] = '';
+                    $mergeData['unsubscribeAllUrl'] = '';
                 }
 
                 $subject = $renderer->render($campaign->subject, $mergeData);
@@ -162,8 +169,8 @@ class SendEmailCampaignJob implements ShouldQueue
                 $text = $renderer->render($campaign->content_text, $mergeData);
 
                 if ($campaign->email_type === EmailCampaign::TYPE_MARKETING) {
-                    $html = $this->ensureUnsubscribeFooter($html, $mergeData['unsubscribeUrl'], true);
-                    $text = $this->ensureUnsubscribeFooter($text, $mergeData['unsubscribeUrl'], false);
+                    $html = $this->ensureUnsubscribeFooter($html, $mergeData['unsubscribeUrl'], $mergeData['unsubscribeAllUrl'], true);
+                    $text = $this->ensureUnsubscribeFooter($text, $mergeData['unsubscribeUrl'], $mergeData['unsubscribeAllUrl'], false);
                 }
 
                 $headers = [
@@ -175,6 +182,9 @@ class SendEmailCampaignJob implements ShouldQueue
 
                 if ($campaign->email_type === EmailCampaign::TYPE_MARKETING && $mergeData['unsubscribeUrl']) {
                     $headers['List-Unsubscribe'] = '<' . $mergeData['unsubscribeUrl'] . '>';
+                    if (! empty($mergeData['unsubscribeAllUrl'])) {
+                        $headers['List-Unsubscribe'] .= ', <' . $mergeData['unsubscribeAllUrl'] . '>';
+                    }
                 }
 
                 $recipientAttributes = [
@@ -250,6 +260,42 @@ class SendEmailCampaignJob implements ShouldQueue
         ]);
     }
 
+    public function failed(\Throwable $exception): void
+    {
+        $campaign = EmailCampaign::query()->find($this->campaignId);
+
+        if (! $campaign) {
+            return;
+        }
+
+        $campaign->status = EmailCampaign::STATUS_FAILED;
+        $campaign->save();
+
+        Log::error('Email campaign failed', [
+            'campaign_id' => $campaign->id,
+            'error' => $exception->getMessage(),
+        ]);
+    }
+
+    private function resolveBackoff(mixed $configValue): array|int
+    {
+        if (is_array($configValue)) {
+            return $configValue;
+        }
+
+        if (is_numeric($configValue)) {
+            return (int) $configValue;
+        }
+
+        $parts = array_filter(array_map('trim', explode(',', (string) $configValue)));
+
+        if ($parts === []) {
+            return 60;
+        }
+
+        return array_map(static fn ($part) => (int) $part, $parts);
+    }
+
     private function buildUnsubscribeUrl(int $subscriberId, int $listId): string
     {
         $ttlMinutes = (int) config('mass_email.unsubscribe_token_ttl_minutes', 525600);
@@ -261,7 +307,22 @@ class SendEmailCampaignJob implements ShouldQueue
         ]);
     }
 
-    private function ensureUnsubscribeFooter(string $content, string $unsubscribeUrl, bool $isHtml): string
+    private function buildUnsubscribeAllUrl(int $subscriberId): string
+    {
+        $ttlMinutes = (int) config('mass_email.unsubscribe_token_ttl_minutes', 525600);
+
+        return URL::temporarySignedRoute('public.unsubscribe', now()->addMinutes($ttlMinutes), [
+            'subscriber' => $subscriberId,
+            'scope' => 'all',
+        ]);
+    }
+
+    private function ensureUnsubscribeFooter(
+        string $content,
+        string $unsubscribeUrl,
+        string $unsubscribeAllUrl,
+        bool $isHtml
+    ): string
     {
         if ($content === '') {
             return $content;
@@ -271,12 +332,23 @@ class SendEmailCampaignJob implements ShouldQueue
             return $content;
         }
 
-        $footer = config('mass_email.unsubscribe_footer', '');
+        $footer = (string) config('mass_email.unsubscribe_footer', '');
+        $physicalAddress = (string) config('mass_email.physical_address', '');
 
         if ($footer === '') {
             $footer = 'Unsubscribe: ' . $unsubscribeUrl;
+            if ($unsubscribeAllUrl !== '') {
+                $footer .= ' | Unsubscribe from all: ' . $unsubscribeAllUrl;
+            }
+            if ($physicalAddress !== '') {
+                $footer .= ' | ' . $physicalAddress;
+            }
         } else {
-            $footer = str_replace('{{unsubscribeUrl}}', $unsubscribeUrl, $footer);
+            $footer = str_replace(
+                ['{{unsubscribeUrl}}', '{{unsubscribeAllUrl}}', '{{physicalAddress}}'],
+                [$unsubscribeUrl, $unsubscribeAllUrl, $physicalAddress],
+                $footer
+            );
         }
 
         if ($isHtml && Str::contains($content, '</body>')) {

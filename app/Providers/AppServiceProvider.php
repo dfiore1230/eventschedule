@@ -14,6 +14,8 @@ use App\Services\Audit\AuditLogger;
 use App\Services\Authorization\AuthorizationService;
 use App\Services\Email\EmailProviderInterface;
 use App\Services\Email\Providers\LaravelMailProvider;
+use App\Services\Email\Providers\MailgunProvider;
+use App\Services\Email\Providers\SendGridProvider;
 use App\Support\BrandingManager;
 use App\Support\Logging\LoggingConfigManager;
 use App\Support\MailConfigManager;
@@ -52,8 +54,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(EmailProviderInterface::class, function () {
             $provider = config('mass_email.provider', 'laravel_mail');
 
-            if ($provider === 'laravel_mail') {
-                return new LaravelMailProvider();
+            if ($provider === 'sendgrid') {
+                return new SendGridProvider();
+            }
+
+            if ($provider === 'mailgun') {
+                return new MailgunProvider();
             }
 
             return new LaravelMailProvider();
