@@ -8,7 +8,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 use Throwable;
 
-class TermsController extends Controller
+class PrivacyController extends Controller
 {
     public function show(): View
     {
@@ -20,14 +20,15 @@ class TermsController extends Controller
             $storedGeneralSettings = [];
         }
 
-        $storedMarkdown = $storedGeneralSettings['terms_markdown'] ?? null;
+        $storedMarkdown = $storedGeneralSettings['privacy_markdown'] ?? null;
+        $storedHtml = $storedGeneralSettings['privacy_html'] ?? null;
 
-        $termsHtml = $storedMarkdown
+        $privacyHtml = $storedMarkdown
             ? MarkdownUtils::convertToHtml($storedMarkdown)
-            : ($storedGeneralSettings['terms_html'] ?? MarkdownUtils::convertToHtml(config('terms.default_markdown')));
+            : ($storedHtml ?? MarkdownUtils::convertToHtml(config('privacy.default_markdown')));
 
-        $lastUpdatedRaw = $storedGeneralSettings['terms_updated_at']
-            ?? config('terms.default_last_updated');
+        $lastUpdatedRaw = $storedGeneralSettings['privacy_updated_at']
+            ?? config('privacy.default_last_updated');
 
         $lastUpdated = null;
 
@@ -39,8 +40,8 @@ class TermsController extends Controller
             }
         }
 
-        return view('terms.show', [
-            'termsHtml' => $termsHtml,
+        return view('privacy.show', [
+            'privacyHtml' => $privacyHtml,
             'lastUpdated' => $lastUpdated,
         ]);
     }

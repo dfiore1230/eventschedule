@@ -190,7 +190,7 @@
                         @if (config('app.hosted'))
                             {!! str_replace([':terms', ':privacy'], [
                                 $termsLink,
-                                '<a href="https://www.planify.com/privacy" target="_blank" class="hover:underline">' . __('messages.privacy_policy') . '</a>'
+                                '<a href="' . route('privacy.show') . '" target="_blank" class="hover:underline">' . __('messages.privacy_policy') . '</a>'
                             ], __('messages.i_accept_the_terms_and_privacy')) !!}
                         @else
                             {!! str_replace([':terms'], [

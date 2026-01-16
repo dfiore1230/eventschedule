@@ -153,6 +153,15 @@ class SettingsController extends Controller
         ]);
     }
 
+    public function privacy(Request $request): View
+    {
+        $this->authorizeAdmin($request->user());
+
+        return view('settings.privacy', [
+            'privacySettings' => $this->getPrivacySettings(),
+        ]);
+    }
+
     public function integrations(Request $request): View
     {
         $this->authorizeAdmin($request->user());
@@ -1328,6 +1337,36 @@ class SettingsController extends Controller
         return redirect()->route('settings.terms')->with('status', 'terms-settings-updated');
     }
 
+    public function updatePrivacy(Request $request): RedirectResponse
+    {
+        $this->authorizeAdmin($request->user());
+
+        $validated = $request->validate([
+            'privacy_markdown' => ['nullable', 'string', 'max:65000'],
+        ]);
+
+        $storedGeneralSettings = Setting::forGroup('general');
+
+        $privacyMarkdown = $this->nullableTrim($validated['privacy_markdown'] ?? null);
+        $privacyHtml = $privacyMarkdown ? MarkdownUtils::convertToHtml($privacyMarkdown) : null;
+
+        $privacySettings = [
+            'privacy_markdown' => $privacyMarkdown,
+            'privacy_html' => $privacyHtml,
+            'privacy_updated_at' => (($storedGeneralSettings['privacy_markdown'] ?? null) !== $privacyMarkdown)
+                ? now()->toDateTimeString()
+                : ($storedGeneralSettings['privacy_updated_at'] ?? null),
+        ];
+
+        Setting::setGroup('general', array_merge($storedGeneralSettings, $privacySettings));
+
+        $this->auditSettingsChange($request, 'settings.privacy.update', [
+            'privacy_length' => $privacyMarkdown ? mb_strlen($privacyMarkdown) : 0,
+        ]);
+
+        return redirect()->route('settings.privacy')->with('status', 'privacy-settings-updated');
+    }
+
     public function updateMailTemplate(Request $request, MailTemplateManager $mailTemplates, string $template): RedirectResponse
     {
         $this->authorizeAdmin($request->user());
@@ -1867,6 +1906,16 @@ class SettingsController extends Controller
         return [
             'terms_markdown' => $storedGeneralSettings['terms_markdown']
                 ?? config('terms.default_markdown'),
+        ];
+    }
+
+    protected function getPrivacySettings(): array
+    {
+        $storedGeneralSettings = Setting::forGroup('general');
+
+        return [
+            'privacy_markdown' => $storedGeneralSettings['privacy_markdown']
+                ?? config('privacy.default_markdown'),
         ];
     }
 

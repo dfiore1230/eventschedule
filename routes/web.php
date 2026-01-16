@@ -22,6 +22,7 @@ use App\Http\Controllers\PublicEmailSignupController;
 use App\Http\Controllers\EmailCampaignController;
 use App\Http\Controllers\EventEmailCampaignController;
 use App\Http\Controllers\TermsController;
+use App\Http\Controllers\PrivacyController;
 use App\Http\Controllers\DiscoveryController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\GoogleCalendarController;
@@ -98,7 +99,7 @@ Route::get('/branding.json', [DiscoveryController::class, 'branding'])
 Route::post('/clear-pending-request', [EventController::class, 'clearPendingRequest'])->name('event.clear_pending_request');
 
 Route::get('/terms', [TermsController::class, 'show'])->name('terms.show');
-Route::view('/privacy', 'privacy.show')->name('privacy.show');
+Route::get('/privacy', [PrivacyController::class, 'show'])->name('privacy.show');
 Route::view('/open-source-attribution', 'public.open-source-attribution')->name('open-source.attribution');
 
 Route::post('/stripe/webhook', [StripeController::class, 'webhook'])->name('stripe.webhook')->middleware('throttle:60,1');
@@ -205,6 +206,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function ()
         Route::get('/branding', [SettingsController::class, 'branding'])->name('branding');
         Route::get('/home', [SettingsController::class, 'home'])->name('home');
         Route::get('/terms', [SettingsController::class, 'terms'])->name('terms');
+        Route::get('/privacy', [SettingsController::class, 'privacy'])->name('privacy');
         Route::get('/integrations', [SettingsController::class, 'integrations'])->name('integrations');
         Route::get('/wallet', [SettingsController::class, 'wallet'])->name('wallet');
         Route::get('/email', [SettingsController::class, 'email'])->name('email');
@@ -216,6 +218,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function ()
         Route::patch('/branding', [SettingsController::class, 'updateBranding'])->name('branding.update');
         Route::patch('/home', [SettingsController::class, 'updateHome'])->name('home.update');
         Route::patch('/terms', [SettingsController::class, 'updateTerms'])->name('terms.update');
+        Route::patch('/privacy', [SettingsController::class, 'updatePrivacy'])->name('privacy.update');
         Route::patch('/wallet/apple', [SettingsController::class, 'updateAppleWallet'])->name('wallet.apple.update');
         Route::patch('/wallet/google', [SettingsController::class, 'updateGoogleWallet'])->name('wallet.google.update');
         Route::patch('/email', [SettingsController::class, 'updateMail'])->name('mail.update');
