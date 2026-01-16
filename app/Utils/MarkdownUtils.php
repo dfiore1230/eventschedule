@@ -33,6 +33,27 @@ class MarkdownUtils
 
         try {
             $config = HTMLPurifier_Config::createDefault();
+            $config->set('HTML.Allowed', implode(',', [
+                'a[href|title|target|rel]',
+                'blockquote',
+                'br',
+                'code',
+                'em',
+                'h1',
+                'h2',
+                'h3',
+                'h4',
+                'h5',
+                'h6',
+                'hr',
+                'img[src|alt|title|width|height]',
+                'li',
+                'ol',
+                'p',
+                'pre',
+                'strong',
+                'ul',
+            ]));
             $cachePath = storage_path('app/htmlpurifier');
 
             if (! File::exists($cachePath)) {
