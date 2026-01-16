@@ -364,4 +364,9 @@ class FakeEmailProvider implements EmailProviderInterface
     {
         return new EmailProviderWebhookResult();
     }
+
+    public function syncSuppressions(array $emails, string $reason): void
+    {
+        // No-op for tests.
+    }
 }
