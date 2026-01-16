@@ -21,10 +21,14 @@ class TermsController extends Controller
         }
 
         $storedMarkdown = $storedGeneralSettings['terms_markdown'] ?? null;
+        $storedHtml = $storedGeneralSettings['terms_html'] ?? null;
+        $storedHtmlLooksLikeHtml = $storedHtml !== null && preg_match('/<[^>]+>/', $storedHtml) === 1;
 
         $termsHtml = $storedMarkdown
             ? MarkdownUtils::convertToHtml($storedMarkdown)
-            : ($storedGeneralSettings['terms_html'] ?? MarkdownUtils::convertToHtml(config('terms.default_markdown')));
+            : ($storedHtml
+                ? ($storedHtmlLooksLikeHtml ? $storedHtml : MarkdownUtils::convertToHtml($storedHtml))
+                : MarkdownUtils::convertToHtml(config('terms.default_markdown')));
 
         $lastUpdatedRaw = $storedGeneralSettings['terms_updated_at']
             ?? config('terms.default_last_updated');

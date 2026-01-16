@@ -1337,6 +1337,28 @@ class SettingsController extends Controller
         return redirect()->route('settings.terms')->with('status', 'terms-settings-updated');
     }
 
+    public function refreshTermsFormatting(Request $request): RedirectResponse
+    {
+        $this->authorizeAdmin($request->user());
+
+        $storedGeneralSettings = Setting::forGroup('general');
+
+        $termsHtml = $this->regenerateMarkdownHtml(
+            $storedGeneralSettings['terms_markdown'] ?? null,
+            $storedGeneralSettings['terms_html'] ?? null
+        );
+
+        Setting::setGroup('general', array_merge($storedGeneralSettings, [
+            'terms_html' => $termsHtml,
+        ]));
+
+        $this->auditSettingsChange($request, 'settings.terms.refresh', [
+            'terms_refreshed' => true,
+        ]);
+
+        return redirect()->route('settings.terms')->with('status', 'terms-formatting-refreshed');
+    }
+
     public function updatePrivacy(Request $request): RedirectResponse
     {
         $this->authorizeAdmin($request->user());
@@ -1365,6 +1387,28 @@ class SettingsController extends Controller
         ]);
 
         return redirect()->route('settings.privacy')->with('status', 'privacy-settings-updated');
+    }
+
+    public function refreshPrivacyFormatting(Request $request): RedirectResponse
+    {
+        $this->authorizeAdmin($request->user());
+
+        $storedGeneralSettings = Setting::forGroup('general');
+
+        $privacyHtml = $this->regenerateMarkdownHtml(
+            $storedGeneralSettings['privacy_markdown'] ?? null,
+            $storedGeneralSettings['privacy_html'] ?? null
+        );
+
+        Setting::setGroup('general', array_merge($storedGeneralSettings, [
+            'privacy_html' => $privacyHtml,
+        ]));
+
+        $this->auditSettingsChange($request, 'settings.privacy.refresh', [
+            'privacy_refreshed' => true,
+        ]);
+
+        return redirect()->route('settings.privacy')->with('status', 'privacy-formatting-refreshed');
     }
 
     public function updateMailTemplate(Request $request, MailTemplateManager $mailTemplates, string $template): RedirectResponse
@@ -1966,6 +2010,31 @@ class SettingsController extends Controller
         $value = is_string($value) ? trim($value) : $value;
 
         return $value === '' ? null : $value;
+    }
+
+    protected function regenerateMarkdownHtml(?string $markdown, ?string $storedHtml): ?string
+    {
+        $markdown = $this->nullableTrim($markdown);
+        $storedHtml = $this->nullableTrim($storedHtml);
+
+        if ($markdown !== null) {
+            return MarkdownUtils::convertToHtml($markdown);
+        }
+
+        if ($storedHtml === null) {
+            return null;
+        }
+
+        if ($this->looksLikeHtml($storedHtml)) {
+            return $storedHtml;
+        }
+
+        return MarkdownUtils::convertToHtml($storedHtml);
+    }
+
+    protected function looksLikeHtml(string $value): bool
+    {
+        return preg_match('/<[^>]+>/', $value) === 1;
     }
 
     protected function sanitizeUrl(string $url): string

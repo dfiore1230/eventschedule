@@ -35,14 +35,24 @@
                                 <x-input-error class="mt-2" :messages="$errors->get('terms_markdown')" />
                             </div>
 
-                            <div class="flex items-center gap-4">
+                            <div class="flex flex-wrap items-center gap-4">
                                 <x-primary-button>{{ __('messages.save') }}</x-primary-button>
+                                <x-secondary-button type="submit" form="terms-refresh-form">
+                                    {{ __('messages.terms_settings_refresh') }}
+                                </x-secondary-button>
 
                                 @if (session('status') === 'terms-settings-updated')
                                     <p x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(() => show = false, 2000)"
                                        class="text-sm text-gray-600 dark:text-gray-400">{{ __('messages.terms_settings_saved') }}</p>
                                 @endif
+                                @if (session('status') === 'terms-formatting-refreshed')
+                                    <p x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(() => show = false, 2000)"
+                                       class="text-sm text-gray-600 dark:text-gray-400">{{ __('messages.terms_settings_refreshed') }}</p>
+                                @endif
                             </div>
+                        </form>
+                        <form id="terms-refresh-form" method="post" action="{{ route('settings.terms.refresh') }}" class="hidden">
+                            @csrf
                         </form>
                     </section>
                 </div>

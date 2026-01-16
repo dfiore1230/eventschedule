@@ -218,7 +218,9 @@ Route::middleware(['auth', 'verified', 'active'])->group(function ()
         Route::patch('/branding', [SettingsController::class, 'updateBranding'])->name('branding.update');
         Route::patch('/home', [SettingsController::class, 'updateHome'])->name('home.update');
         Route::patch('/terms', [SettingsController::class, 'updateTerms'])->name('terms.update');
+        Route::post('/terms/refresh', [SettingsController::class, 'refreshTermsFormatting'])->name('terms.refresh');
         Route::patch('/privacy', [SettingsController::class, 'updatePrivacy'])->name('privacy.update');
+        Route::post('/privacy/refresh', [SettingsController::class, 'refreshPrivacyFormatting'])->name('privacy.refresh');
         Route::patch('/wallet/apple', [SettingsController::class, 'updateAppleWallet'])->name('wallet.apple.update');
         Route::patch('/wallet/google', [SettingsController::class, 'updateGoogleWallet'])->name('wallet.google.update');
         Route::patch('/email', [SettingsController::class, 'updateMail'])->name('mail.update');

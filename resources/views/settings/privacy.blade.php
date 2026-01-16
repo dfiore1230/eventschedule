@@ -35,14 +35,24 @@
                                 <x-input-error class="mt-2" :messages="$errors->get('privacy_markdown')" />
                             </div>
 
-                            <div class="flex items-center gap-4">
+                            <div class="flex flex-wrap items-center gap-4">
                                 <x-primary-button>{{ __('messages.save') }}</x-primary-button>
+                                <x-secondary-button type="submit" form="privacy-refresh-form">
+                                    {{ __('messages.privacy_settings_refresh') }}
+                                </x-secondary-button>
 
                                 @if (session('status') === 'privacy-settings-updated')
                                     <p x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(() => show = false, 2000)"
                                        class="text-sm text-gray-600 dark:text-gray-400">{{ __('messages.privacy_settings_saved') }}</p>
                                 @endif
+                                @if (session('status') === 'privacy-formatting-refreshed')
+                                    <p x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(() => show = false, 2000)"
+                                       class="text-sm text-gray-600 dark:text-gray-400">{{ __('messages.privacy_settings_refreshed') }}</p>
+                                @endif
                             </div>
+                        </form>
+                        <form id="privacy-refresh-form" method="post" action="{{ route('settings.privacy.refresh') }}" class="hidden">
+                            @csrf
                         </form>
                     </section>
                 </div>
