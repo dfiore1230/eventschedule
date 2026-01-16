@@ -6,6 +6,7 @@ return [
     'api_key' => env('MASS_EMAIL_API_KEY'),
     'sending_domain' => env('MASS_EMAIL_SENDING_DOMAIN'),
     'webhook_secret' => env('MASS_EMAIL_WEBHOOK_SECRET'),
+    'webhook_public_key' => env('MASS_EMAIL_WEBHOOK_PUBLIC_KEY'),
     'event_list_membership_on_refund' => env('EVENT_LIST_MEMBERSHIP_ON_REFUND', 'retain'),
     'confirmation_token_ttl_minutes' => env('MASS_EMAIL_CONFIRM_TTL', 10080), // 7 days
     'unsubscribe_token_ttl_minutes' => env('MASS_EMAIL_UNSUBSCRIBE_TTL', 525600), // 365 days
@@ -19,4 +20,5 @@ return [
     'global_list_key' => env('MASS_EMAIL_GLOBAL_LIST_KEY', 'GLOBAL_UPDATES'),
     'unsubscribe_footer' => env('MASS_EMAIL_UNSUBSCRIBE_FOOTER', ''),
     'physical_address' => env('MASS_EMAIL_PHYSICAL_ADDRESS', ''),
+    'sendgrid_unsubscribe_group_id' => env('MASS_EMAIL_SENDGRID_UNSUBSCRIBE_GROUP_ID'),
 ];

@@ -14,6 +14,7 @@ use App\Services\Audit\AuditLogger;
 use App\Services\Authorization\AuthorizationService;
 use App\Services\Email\EmailProviderInterface;
 use App\Services\Email\Providers\LaravelMailProvider;
+use App\Services\Email\Providers\MailchimpProvider;
 use App\Services\Email\Providers\MailgunProvider;
 use App\Services\Email\Providers\SendGridProvider;
 use App\Support\BrandingManager;
@@ -60,6 +61,10 @@ class AppServiceProvider extends ServiceProvider
 
             if ($provider === 'mailgun') {
                 return new MailgunProvider();
+            }
+
+            if ($provider === 'mailchimp') {
+                return new MailchimpProvider();
             }
 
             return new LaravelMailProvider();

@@ -58,6 +58,11 @@ class LaravelMailProvider implements EmailProviderInterface
         return new EmailProviderWebhookResult($bounces, $complaints, $unsubscribes);
     }
 
+    public function syncSuppressions(array $emails, string $reason): void
+    {
+        // SMTP mailers do not provide suppression APIs.
+    }
+
     private function sendMessage(EmailMessage $message): void
     {
         Mail::send([], [], function ($mail) use ($message) {

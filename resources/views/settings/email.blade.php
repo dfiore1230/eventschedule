@@ -50,6 +50,8 @@
                             x-data="{
                                 testing: false,
                                 result: null,
+                                massEmailTesting: false,
+                                massEmailResult: null,
                                 async sendTestEmail() {
                                     this.testing = true;
                                     this.result = null;
@@ -99,9 +101,54 @@
                                     } finally {
                                         this.testing = false;
                                     }
+                                },
+                                async sendMassEmailTest() {
+                                    this.massEmailTesting = true;
+                                    this.massEmailResult = null;
+
+                                    const formData = new FormData(this.$refs.form);
+                                    formData.delete('_method');
+
+                                    try {
+                                        const response = await fetch('{{ route('settings.mail.mass_email.test', [], false) }}', {
+                                            method: 'POST',
+                                            headers: {
+                                                'Accept': 'application/json',
+                                                'X-Requested-With': 'XMLHttpRequest',
+                                            },
+                                            body: formData,
+                                        });
+
+                                        const data = await response.json().catch(() => ({}));
+                                        const logs = Array.isArray(data.logs) ? data.logs : [];
+
+                                        if (response.ok && data.status === 'success') {
+                                            this.massEmailResult = {
+                                                success: true,
+                                                message: data.message || 'Provider validated.',
+                                                logs,
+                                            };
+                                        } else {
+                                            this.massEmailResult = {
+                                                success: false,
+                                                message: data.message || 'Provider validation failed.',
+                                                error: data.error || null,
+                                                logs,
+                                            };
+                                        }
+                                    } catch (error) {
+                                        this.massEmailResult = {
+                                            success: false,
+                                            message: 'Provider validation failed.',
+                                            error: error.message,
+                                            logs: [],
+                                        };
+                                    } finally {
+                                        this.massEmailTesting = false;
+                                    }
                                 }
                             }"
-                            x-on:submit="result = null">
+                            x-on:submit="result = null; massEmailResult = null">
                             @csrf
                             @method('patch')
 
@@ -248,6 +295,13 @@
                                 </div>
                             </div>
 
+                            <div>
+                                <x-input-label for="mass_email_webhook_public_key" value="Webhook public key (SendGrid)" />
+                                <x-text-input id="mass_email_webhook_public_key" name="mass_email_webhook_public_key" type="text" class="mt-1 block w-full"
+                                    :value="old('mass_email_webhook_public_key', $massEmailSettings['webhook_public_key'] ?? '')" />
+                                <x-input-error class="mt-2" :messages="$errors->get('mass_email_webhook_public_key')" />
+                            </div>
+
                             <div class="grid gap-6 sm:grid-cols-2">
                                 <div>
                                     <x-input-label for="mass_email_sending_domain" :value="__('messages.mass_email_sending_domain')" />
@@ -285,6 +339,13 @@
                                 </div>
                             </div>
 
+                            <div>
+                                <x-input-label for="mass_email_sendgrid_unsubscribe_group_id" value="SendGrid unsubscribe group ID (optional)" />
+                                <x-text-input id="mass_email_sendgrid_unsubscribe_group_id" name="mass_email_sendgrid_unsubscribe_group_id" type="number" class="mt-1 block w-full"
+                                    :value="old('mass_email_sendgrid_unsubscribe_group_id', $massEmailSettings['sendgrid_unsubscribe_group_id'] ?? '')" min="1" />
+                                <x-input-error class="mt-2" :messages="$errors->get('mass_email_sendgrid_unsubscribe_group_id')" />
+                            </div>
+
                             <div class="grid gap-6 sm:grid-cols-2">
                                 <div>
                                     <x-input-label for="mass_email_physical_address" value="Physical mailing address" />
@@ -309,6 +370,11 @@
 
                                 <x-secondary-button type="button" x-on:click="sendTestEmail" x-bind:disabled="testing">
                                     <span x-text="testing ? '{{ __('messages.sending_test_email') }}' : '{{ __('messages.send_test_email') }}'"
+                                        class="whitespace-nowrap"></span>
+                                </x-secondary-button>
+
+                                <x-secondary-button type="button" x-on:click="sendMassEmailTest" x-bind:disabled="massEmailTesting">
+                                    <span x-text="massEmailTesting ? 'Validating provider...' : 'Validate provider'"
                                         class="whitespace-nowrap"></span>
                                 </x-secondary-button>
 
@@ -344,6 +410,29 @@
                                         </p>
                                         <div class="space-y-1">
                                             <template x-for="(logLine, index) in result.logs" :key="index">
+                                                <div class="font-mono" x-text="logLine"></div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+
+                            <div x-cloak x-show="massEmailResult" x-transition
+                                :class="massEmailResult?.success ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'"
+                                class="rounded-md border px-4 py-3 text-sm">
+                                <p class="font-medium" x-text="massEmailResult?.message ?? ''"></p>
+                                <template x-if="!massEmailResult?.success && massEmailResult?.error">
+                                    <p class="mt-2"><span class="font-medium">{{ __('messages.error_details') }}</span>
+                                        <span x-text="massEmailResult.error"></span>
+                                    </p>
+                                </template>
+                                <template x-if="massEmailResult?.logs?.length">
+                                    <div class="mt-4 rounded-md border border-gray-200 bg-white p-3 text-xs text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                                        <p class="mb-2 font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 text-[11px]">
+                                            Provider logs
+                                        </p>
+                                        <div class="space-y-1">
+                                            <template x-for="(logLine, index) in massEmailResult.logs" :key="index">
                                                 <div class="font-mono" x-text="logLine"></div>
                                             </template>
                                         </div>

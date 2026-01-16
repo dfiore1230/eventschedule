@@ -19,6 +19,7 @@ class EmailCampaignRecipient extends Model
         'email',
         'status',
         'suppression_reason',
+        'provider_message_id',
         'sent_at',
         'bounced_at',
         'complained_at',

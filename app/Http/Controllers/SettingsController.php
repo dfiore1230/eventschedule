@@ -15,10 +15,15 @@ use App\Support\Logging\LogLevelNormalizer;
 use App\Support\Logging\LoggingConfigManager;
 use App\Support\MailConfigManager;
 use App\Support\MailTemplateManager;
+use App\Support\MassEmailConfigManager;
 use App\Support\ReleaseChannelManager;
 use App\Support\UpdateConfigManager;
 use App\Support\UrlUtilsConfigManager;
 use App\Support\WalletConfigManager;
+use App\Services\Email\Providers\LaravelMailProvider;
+use App\Services\Email\Providers\MailchimpProvider;
+use App\Services\Email\Providers\MailgunProvider;
+use App\Services\Email\Providers\SendGridProvider;
 use App\Services\Audit\AuditLogger;
 use App\Utils\MarkdownUtils;
 use Codedge\Updater\UpdaterManager;
@@ -26,6 +31,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -210,6 +216,7 @@ class SettingsController extends Controller
                 'laravel_mail' => 'SMTP (Laravel mailer)',
                 'sendgrid' => 'SendGrid',
                 'mailgun' => 'Mailgun',
+                'mailchimp' => 'Mailchimp Transactional',
             ],
             'availableEncryptions' => [
                 '' => __('messages.none'),
@@ -543,6 +550,153 @@ class SettingsController extends Controller
             $this->applyMailConfig($originalSettings);
             MailConfigManager::purgeResolvedMailer($originalSettings['mailer'] ?? null);
         }
+    }
+
+    public function testMassEmailProvider(Request $request): JsonResponse
+    {
+        $this->authorizeAdmin($request->user());
+
+        $validated = $this->validateMassEmailSettings($request);
+        $massEmailSettings = $this->buildMassEmailSettings($request, $validated);
+
+        MassEmailConfigManager::apply($massEmailSettings);
+
+        $providerKey = $massEmailSettings['provider'] ?? config('mass_email.provider', 'laravel_mail');
+        $provider = $this->resolveMassEmailProvider($providerKey);
+        $logs = ['Provider: ' . $providerKey];
+
+        $fromEmail = $massEmailSettings['from_email'] ?? '';
+        if (! $provider->validateFromAddress($fromEmail)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Provider validation failed.',
+                'error' => 'From email address or provider credentials are invalid.',
+                'logs' => $logs,
+            ], 422);
+        }
+
+        try {
+            if ($providerKey === 'sendgrid') {
+                $apiKey = (string) ($massEmailSettings['api_key'] ?? '');
+                if ($apiKey === '') {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'SendGrid API key is required.',
+                        'error' => 'Missing API key.',
+                        'logs' => $logs,
+                    ], 422);
+                }
+
+                $response = Http::withToken($apiKey)->acceptJson()->get('https://api.sendgrid.com/v3/scopes');
+                $logs[] = 'SendGrid scopes status: ' . $response->status();
+
+                return $this->handleProviderTestResponse($response, $logs, 'SendGrid settings are valid.');
+            }
+
+            if ($providerKey === 'mailgun') {
+                $apiKey = (string) ($massEmailSettings['api_key'] ?? '');
+                $domain = (string) ($massEmailSettings['sending_domain'] ?? '');
+
+                if ($apiKey === '' || $domain === '') {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Mailgun API key and domain are required.',
+                        'error' => 'Missing API key or sending domain.',
+                        'logs' => $logs,
+                    ], 422);
+                }
+
+                $response = Http::withBasicAuth('api', $apiKey)->acceptJson()->get('https://api.mailgun.net/v3/domains/' . $domain);
+                $logs[] = 'Mailgun domain status: ' . $response->status();
+
+                return $this->handleProviderTestResponse($response, $logs, 'Mailgun settings are valid.');
+            }
+
+            if ($providerKey === 'mailchimp') {
+                $apiKey = (string) ($massEmailSettings['api_key'] ?? '');
+
+                if ($apiKey === '') {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Mailchimp Transactional API key is required.',
+                        'error' => 'Missing API key.',
+                        'logs' => $logs,
+                    ], 422);
+                }
+
+                $response = Http::acceptJson()->post('https://mandrillapp.com/api/1.0/users/ping.json', [
+                    'key' => $apiKey,
+                ]);
+
+                $logs[] = 'Mailchimp ping status: ' . $response->status();
+                $body = trim((string) $response->body());
+
+                if ($response->successful() && stripos($body, 'pong') !== false) {
+                    return response()->json([
+                        'status' => 'success',
+                        'message' => 'Mailchimp settings are valid.',
+                        'logs' => $logs,
+                    ]);
+                }
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Mailchimp validation failed.',
+                    'error' => $body !== '' ? $body : 'Unexpected response from Mailchimp.',
+                    'logs' => $logs,
+                ], 422);
+            }
+
+            if ($providerKey === 'laravel_mail') {
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'SMTP provider is configured.',
+                    'logs' => $logs,
+                ]);
+            }
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Unsupported provider.',
+                'error' => 'Provider is not recognized.',
+                'logs' => $logs,
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Provider validation failed.',
+                'error' => $e->getMessage(),
+                'logs' => $logs,
+            ], 422);
+        }
+    }
+
+    protected function handleProviderTestResponse(\Illuminate\Http\Client\Response $response, array $logs, string $successMessage): JsonResponse
+    {
+        if ($response->successful()) {
+            return response()->json([
+                'status' => 'success',
+                'message' => $successMessage,
+                'logs' => $logs,
+            ]);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Provider validation failed.',
+            'error' => $response->body() ?: 'Unexpected response from provider.',
+            'logs' => $logs,
+        ], 422);
+    }
+
+    protected function resolveMassEmailProvider(string $providerKey)
+    {
+        return match ($providerKey) {
+            'sendgrid' => new SendGridProvider(),
+            'mailgun' => new MailgunProvider(),
+            'mailchimp' => new MailchimpProvider(),
+            default => new LaravelMailProvider(),
+        };
     }
 
     public function updateGeneral(Request $request): RedirectResponse
@@ -1330,6 +1484,7 @@ class SettingsController extends Controller
             'api_key' => $stored['api_key'] ?? null,
             'sending_domain' => $stored['sending_domain'] ?? null,
             'webhook_secret' => $stored['webhook_secret'] ?? null,
+            'webhook_public_key' => $stored['webhook_public_key'] ?? null,
             'from_name' => $stored['from_name'] ?? config('mass_email.default_from_name'),
             'from_email' => $stored['from_email'] ?? config('mass_email.default_from_email'),
             'reply_to' => $stored['reply_to'] ?? config('mass_email.default_reply_to'),
@@ -1339,6 +1494,7 @@ class SettingsController extends Controller
             'physical_address' => $stored['physical_address'] ?? config('mass_email.physical_address'),
             'retry_attempts' => $stored['retry_attempts'] ?? config('mass_email.retry_attempts'),
             'retry_backoff_seconds' => $stored['retry_backoff_seconds'] ?? config('mass_email.retry_backoff_seconds'),
+            'sendgrid_unsubscribe_group_id' => $stored['sendgrid_unsubscribe_group_id'] ?? config('mass_email.sendgrid_unsubscribe_group_id'),
         ];
     }
 
@@ -1698,6 +1854,7 @@ class SettingsController extends Controller
             'mass_email_api_key' => ['nullable', 'string', 'max:255'],
             'mass_email_sending_domain' => ['nullable', 'string', 'max:255'],
             'mass_email_webhook_secret' => ['nullable', 'string', 'max:255'],
+            'mass_email_webhook_public_key' => ['nullable', 'string', 'max:255'],
             'mass_email_from_name' => ['required', 'string', 'max:255'],
             'mass_email_from_email' => ['required', 'email', 'max:255'],
             'mass_email_reply_to' => ['nullable', 'email', 'max:255'],
@@ -1707,6 +1864,7 @@ class SettingsController extends Controller
             'mass_email_physical_address' => ['nullable', 'string', 'max:255'],
             'mass_email_retry_attempts' => ['nullable', 'integer', 'min:1', 'max:10'],
             'mass_email_retry_backoff' => ['nullable', 'string', 'max:255'],
+            'mass_email_sendgrid_unsubscribe_group_id' => ['nullable', 'integer', 'min:1'],
         ]);
     }
 
@@ -1748,6 +1906,7 @@ class SettingsController extends Controller
             'api_key' => $this->nullableTrim($apiKey),
             'sending_domain' => $this->nullableTrim($validated['mass_email_sending_domain'] ?? null),
             'webhook_secret' => $this->nullableTrim($webhookSecret),
+            'webhook_public_key' => $this->nullableTrim($validated['mass_email_webhook_public_key'] ?? null),
             'from_name' => trim($validated['mass_email_from_name']),
             'from_email' => trim($validated['mass_email_from_email']),
             'reply_to' => $this->nullableTrim($validated['mass_email_reply_to'] ?? null),
@@ -1757,6 +1916,9 @@ class SettingsController extends Controller
             'physical_address' => $this->nullableTrim($validated['mass_email_physical_address'] ?? null),
             'retry_attempts' => isset($validated['mass_email_retry_attempts']) ? (string) $validated['mass_email_retry_attempts'] : null,
             'retry_backoff_seconds' => $this->nullableTrim($validated['mass_email_retry_backoff'] ?? null),
+            'sendgrid_unsubscribe_group_id' => isset($validated['mass_email_sendgrid_unsubscribe_group_id'])
+                ? (string) $validated['mass_email_sendgrid_unsubscribe_group_id']
+                : null,
         ];
     }
 }

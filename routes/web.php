@@ -220,6 +220,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function ()
         Route::patch('/wallet/google', [SettingsController::class, 'updateGoogleWallet'])->name('wallet.google.update');
         Route::patch('/email', [SettingsController::class, 'updateMail'])->name('mail.update');
         Route::post('/email/test', [SettingsController::class, 'testMail'])->name('mail.test');
+        Route::post('/email/mass-email/test', [SettingsController::class, 'testMassEmailProvider'])->name('mail.mass_email.test');
         Route::patch('/email-templates/{template}', [SettingsController::class, 'updateMailTemplate'])->name('mail_templates.update');
         Route::post('/email-templates/{template}/test', [SettingsController::class, 'testMailTemplate'])->name('mail_templates.test');
 

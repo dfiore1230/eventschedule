@@ -70,6 +70,7 @@ class SendEmailCampaignJob implements ShouldQueue
         $acceptedCount = 0;
         $messages = [];
         $seenEmails = [];
+        $providerUnsubscribes = [];
 
         $listIds = $campaign->lists->pluck('id')->all();
 
@@ -93,7 +94,8 @@ class SendEmailCampaignJob implements ShouldQueue
             &$suppressedCount,
             &$acceptedCount,
             &$messages,
-            &$seenEmails
+            &$seenEmails,
+            &$providerUnsubscribes
         ) {
             $emails = $subscriptions
                 ->pluck('subscriber.email')
@@ -130,6 +132,7 @@ class SendEmailCampaignJob implements ShouldQueue
                 if ($campaign->email_type === EmailCampaign::TYPE_MARKETING && $subscriber->marketing_unsubscribed_at) {
                     $suppressedCount++;
                     $suppressionReason = 'marketing_unsubscribed';
+                    $providerUnsubscribes[$email] = true;
                 }
 
                 if ($campaign->email_type === EmailCampaign::TYPE_MARKETING && $suppressionReason === null) {
@@ -137,6 +140,7 @@ class SendEmailCampaignJob implements ShouldQueue
                     if ($marketingOptIn === false) {
                         $suppressedCount++;
                         $suppressionReason = 'marketing_opt_out';
+                        $providerUnsubscribes[$email] = true;
                     }
                 }
 
@@ -227,6 +231,7 @@ class SendEmailCampaignJob implements ShouldQueue
                 if (count($messages) >= $batchSize) {
                     $result = $provider->sendBatch($messages);
                     $acceptedCount += $result->acceptedCount;
+                    $this->updateProviderMessageIds($campaign->id, $result->messageIds);
                     $messages = [];
 
                     if ($sleepSeconds > 0) {
@@ -234,11 +239,17 @@ class SendEmailCampaignJob implements ShouldQueue
                     }
                 }
             }
+
+            if ($providerUnsubscribes !== []) {
+                $provider->syncSuppressions(array_keys($providerUnsubscribes), 'unsubscribe');
+                $providerUnsubscribes = [];
+            }
         });
 
         if ($messages !== []) {
             $result = $provider->sendBatch($messages);
             $acceptedCount += $result->acceptedCount;
+            $this->updateProviderMessageIds($campaign->id, $result->messageIds);
         }
 
         $stats = $campaign->stats ?: new EmailCampaignRecipientStat(['campaign_id' => $campaign->id]);
@@ -258,6 +269,20 @@ class SendEmailCampaignJob implements ShouldQueue
             'suppressed' => $suppressedCount,
             'accepted' => $acceptedCount,
         ]);
+    }
+
+    private function updateProviderMessageIds(int $campaignId, array $messageIds): void
+    {
+        foreach ($messageIds as $email => $messageId) {
+            if (! $email || ! $messageId) {
+                continue;
+            }
+
+            EmailCampaignRecipient::query()
+                ->where('campaign_id', $campaignId)
+                ->where('email', $email)
+                ->update(['provider_message_id' => $messageId]);
+        }
     }
 
     public function failed(\Throwable $exception): void

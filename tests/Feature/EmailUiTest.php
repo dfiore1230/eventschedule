@@ -11,6 +11,7 @@ use App\Models\Setting;
 use App\Services\Authorization\AuthorizationService;
 use App\Services\Email\EmailListService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class EmailUiTest extends TestCase
@@ -399,6 +400,96 @@ class EmailUiTest extends TestCase
 
         $response->assertStatus(200);
         $this->assertStringContainsString('text/csv', $response->headers->get('Content-Type'));
+    }
+
+    public function test_admin_can_validate_sendgrid_provider_settings(): void
+    {
+        Http::fake([
+            'https://api.sendgrid.com/v3/scopes' => Http::response(['scopes' => []], 200),
+        ]);
+
+        $admin = $this->createManagerWithPermission('settings.manage');
+
+        $response = $this->actingAs($admin)->post(route('settings.mail.mass_email.test'), [
+            'mass_email_provider' => 'sendgrid',
+            'mass_email_api_key' => 'sg-test-key',
+            'mass_email_sending_domain' => '',
+            'mass_email_webhook_secret' => '',
+            'mass_email_webhook_public_key' => '',
+            'mass_email_from_name' => 'EventSchedule',
+            'mass_email_from_email' => 'no-reply@example.test',
+            'mass_email_reply_to' => '',
+            'mass_email_batch_size' => 100,
+            'mass_email_rate_limit' => 1000,
+            'mass_email_unsubscribe_footer' => '',
+            'mass_email_physical_address' => '',
+            'mass_email_retry_attempts' => 3,
+            'mass_email_retry_backoff' => '60,300',
+            'mass_email_sendgrid_unsubscribe_group_id' => '',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['status' => 'success']);
+    }
+
+    public function test_admin_can_validate_mailgun_provider_settings(): void
+    {
+        Http::fake([
+            'https://api.mailgun.net/v3/domains/example.test' => Http::response(['domain' => []], 200),
+        ]);
+
+        $admin = $this->createManagerWithPermission('settings.manage');
+
+        $response = $this->actingAs($admin)->post(route('settings.mail.mass_email.test'), [
+            'mass_email_provider' => 'mailgun',
+            'mass_email_api_key' => 'mg-test-key',
+            'mass_email_sending_domain' => 'example.test',
+            'mass_email_webhook_secret' => 'whsec',
+            'mass_email_webhook_public_key' => '',
+            'mass_email_from_name' => 'EventSchedule',
+            'mass_email_from_email' => 'no-reply@example.test',
+            'mass_email_reply_to' => '',
+            'mass_email_batch_size' => 100,
+            'mass_email_rate_limit' => 1000,
+            'mass_email_unsubscribe_footer' => '',
+            'mass_email_physical_address' => '',
+            'mass_email_retry_attempts' => 3,
+            'mass_email_retry_backoff' => '60,300',
+            'mass_email_sendgrid_unsubscribe_group_id' => '',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['status' => 'success']);
+    }
+
+    public function test_admin_can_validate_mailchimp_provider_settings(): void
+    {
+        Http::fake([
+            'https://mandrillapp.com/api/1.0/users/ping.json' => Http::response('PONG!', 200),
+        ]);
+
+        $admin = $this->createManagerWithPermission('settings.manage');
+
+        $response = $this->actingAs($admin)->post(route('settings.mail.mass_email.test'), [
+            'mass_email_provider' => 'mailchimp',
+            'mass_email_api_key' => 'mc-test-key',
+            'mass_email_sending_domain' => '',
+            'mass_email_webhook_secret' => '',
+            'mass_email_webhook_public_key' => '',
+            'mass_email_from_name' => 'EventSchedule',
+            'mass_email_from_email' => 'no-reply@example.test',
+            'mass_email_reply_to' => '',
+            'mass_email_batch_size' => 100,
+            'mass_email_rate_limit' => 1000,
+            'mass_email_unsubscribe_footer' => '',
+            'mass_email_physical_address' => '',
+            'mass_email_retry_attempts' => 3,
+            'mass_email_retry_backoff' => '60,300',
+            'mass_email_sendgrid_unsubscribe_group_id' => '',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['status' => 'success']);
     }
 
     protected function createManagerWithPermission(string $permissionKey): User

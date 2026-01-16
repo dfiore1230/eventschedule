@@ -11,4 +11,6 @@ interface EmailProviderInterface
     public function validateFromAddress(string $fromEmail): bool;
 
     public function parseWebhook(Request $request): EmailProviderWebhookResult;
+
+    public function syncSuppressions(array $emails, string $reason): void;
 }
