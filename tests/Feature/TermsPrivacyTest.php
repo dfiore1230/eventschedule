@@ -40,6 +40,14 @@ class TermsPrivacyTest extends TestCase
         $response->assertSee('<strong>', false);
     }
 
+    public function test_markdown_converter_renders_headings(): void
+    {
+        $html = \App\Utils\MarkdownUtils::convertToHtml("# Heading\n\nContent");
+
+        $this->assertStringContainsString('<h1>', $html);
+        $this->assertStringContainsString('Heading', $html);
+    }
+
     public function test_admin_can_update_privacy_settings(): void
     {
         $admin = $this->createManagerWithPermission('settings.manage');

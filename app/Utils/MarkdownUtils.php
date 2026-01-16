@@ -16,8 +16,6 @@ class MarkdownUtils
         }
 
         try {
-            $markdown = strip_tags($markdown);
-
             $converter = new CommonMarkConverter([
                 'renderer' => [
                     'soft_break' => '<br>'
