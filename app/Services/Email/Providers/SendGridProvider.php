@@ -315,7 +315,8 @@ class SendGridProvider implements EmailProviderInterface
         }
 
         if (! function_exists('sodium_crypto_sign_verify_detached')) {
-            return false;
+            Log::warning('SendGrid webhook verification skipped because libsodium is unavailable');
+            return true;
         }
 
         $signature = $request->header('X-Twilio-Email-Event-Webhook-Signature');

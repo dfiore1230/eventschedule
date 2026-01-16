@@ -30,6 +30,7 @@
                                             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Email</th>
                                             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Status</th>
                                             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Reason</th>
+                                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Provider ID</th>
                                             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Sent</th>
                                         </tr>
                                     </thead>
@@ -39,11 +40,12 @@
                                                 <td class="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">{{ $recipient->email }}</td>
                                                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300 capitalize">{{ $recipient->status }}</td>
                                                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ $recipient->suppression_reason ?? '—' }}</td>
+                                                <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ $recipient->provider_message_id ?? '—' }}</td>
                                                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">{{ $recipient->sent_at ? $recipient->sent_at->toDateTimeString() : '—' }}</td>
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="4" class="px-4 py-6 text-center text-sm text-gray-500">No recipients yet.</td>
+                                                <td colspan="5" class="px-4 py-6 text-center text-sm text-gray-500">No recipients yet.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>

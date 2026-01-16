@@ -564,6 +564,7 @@ class SettingsController extends Controller
         $providerKey = $massEmailSettings['provider'] ?? config('mass_email.provider', 'laravel_mail');
         $provider = $this->resolveMassEmailProvider($providerKey);
         $logs = ['Provider: ' . $providerKey];
+        $validationMode = (string) $request->input('mass_email_validation_mode', 'online');
 
         $fromEmail = $massEmailSettings['from_email'] ?? '';
         if (! $provider->validateFromAddress($fromEmail)) {
@@ -573,6 +574,12 @@ class SettingsController extends Controller
                 'error' => 'From email address or provider credentials are invalid.',
                 'logs' => $logs,
             ], 422);
+        }
+
+        if ($validationMode === 'offline') {
+            $offlineResult = $this->offlineProviderValidation($providerKey, $massEmailSettings, $logs);
+
+            return response()->json($offlineResult['payload'], $offlineResult['status']);
         }
 
         try {
@@ -590,7 +597,40 @@ class SettingsController extends Controller
                 $response = Http::withToken($apiKey)->acceptJson()->get('https://api.sendgrid.com/v3/scopes');
                 $logs[] = 'SendGrid scopes status: ' . $response->status();
 
-                return $this->handleProviderTestResponse($response, $logs, 'SendGrid settings are valid.');
+                if (! $response->successful()) {
+                    return $this->handleProviderTestResponse($response, $logs, 'SendGrid settings are valid.');
+                }
+
+                $verifiedResponse = Http::withToken($apiKey)->acceptJson()->get('https://api.sendgrid.com/v3/verified_senders');
+                $logs[] = 'SendGrid verified sender status: ' . $verifiedResponse->status();
+
+                if (! $verifiedResponse->successful()) {
+                    return $this->handleProviderTestResponse($verifiedResponse, $logs, 'SendGrid settings are valid.');
+                }
+
+                $verifiedSenders = $verifiedResponse->json('results') ?? [];
+                $matched = collect($verifiedSenders)->contains(function ($sender) use ($fromEmail) {
+                    return isset($sender['from_email']) && strtolower((string) $sender['from_email']) === strtolower($fromEmail);
+                });
+
+                if (! $matched) {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'SendGrid sender identity not verified.',
+                        'error' => 'The from address is not in the verified sender list.',
+                        'logs' => $logs,
+                    ], 422);
+                }
+
+                if (! empty($massEmailSettings['webhook_public_key']) && ! function_exists('sodium_crypto_sign_verify_detached')) {
+                    $logs[] = 'libsodium not available; SendGrid webhook signatures will not be verified.';
+                }
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'SendGrid settings are valid.',
+                    'logs' => $logs,
+                ]);
             }
 
             if ($providerKey === 'mailgun') {
@@ -609,7 +649,25 @@ class SettingsController extends Controller
                 $response = Http::withBasicAuth('api', $apiKey)->acceptJson()->get('https://api.mailgun.net/v3/domains/' . $domain);
                 $logs[] = 'Mailgun domain status: ' . $response->status();
 
-                return $this->handleProviderTestResponse($response, $logs, 'Mailgun settings are valid.');
+                if (! $response->successful()) {
+                    return $this->handleProviderTestResponse($response, $logs, 'Mailgun settings are valid.');
+                }
+
+                $state = $response->json('domain.state');
+                if ($state !== 'active') {
+                    return response()->json([
+                        'status' => 'error',
+                        'message' => 'Mailgun domain is not active.',
+                        'error' => $state ? 'Domain state is ' . $state . '.' : 'Domain state was not returned.',
+                        'logs' => $logs,
+                    ], 422);
+                }
+
+                return response()->json([
+                    'status' => 'success',
+                    'message' => 'Mailgun settings are valid.',
+                    'logs' => $logs,
+                ]);
             }
 
             if ($providerKey === 'mailchimp') {
@@ -632,6 +690,35 @@ class SettingsController extends Controller
                 $body = trim((string) $response->body());
 
                 if ($response->successful() && stripos($body, 'pong') !== false) {
+                    $sendersResponse = Http::acceptJson()->post('https://mandrillapp.com/api/1.0/senders/list.json', [
+                        'key' => $apiKey,
+                    ]);
+                    $logs[] = 'Mailchimp senders status: ' . $sendersResponse->status();
+
+                    if (! $sendersResponse->successful()) {
+                        return $this->handleProviderTestResponse($sendersResponse, $logs, 'Mailchimp settings are valid.');
+                    }
+
+                    $senders = $sendersResponse->json() ?? [];
+                    $fromDomain = strtolower((string) strrchr($fromEmail, '@'));
+                    $matched = collect($senders)->contains(function ($sender) use ($fromEmail, $fromDomain) {
+                        $email = strtolower((string) ($sender['email'] ?? ''));
+                        $domain = strtolower((string) ($sender['domain'] ?? ''));
+                        $status = strtolower((string) ($sender['status'] ?? ''));
+
+                        return $status === 'verified'
+                            && ($email === strtolower($fromEmail) || $domain === ltrim($fromDomain, '@'));
+                    });
+
+                    if (! $matched) {
+                        return response()->json([
+                            'status' => 'error',
+                            'message' => 'Mailchimp sender identity not verified.',
+                            'error' => 'The from address is not verified in Mailchimp Transactional.',
+                            'logs' => $logs,
+                        ], 422);
+                    }
+
                     return response()->json([
                         'status' => 'success',
                         'message' => 'Mailchimp settings are valid.',
@@ -669,6 +756,52 @@ class SettingsController extends Controller
                 'logs' => $logs,
             ], 422);
         }
+    }
+
+    protected function offlineProviderValidation(string $providerKey, array $settings, array $logs): array
+    {
+        $logs[] = 'Validation mode: offline (no network calls)';
+        $status = 200;
+        $payload = [
+            'status' => 'success',
+            'message' => 'Offline validation succeeded.',
+            'logs' => $logs,
+        ];
+
+        if ($providerKey === 'sendgrid' && empty($settings['api_key'])) {
+            $status = 422;
+            $payload = [
+                'status' => 'error',
+                'message' => 'SendGrid API key is required.',
+                'error' => 'Missing API key.',
+                'logs' => $logs,
+            ];
+        }
+
+        if ($providerKey === 'mailgun' && (empty($settings['api_key']) || empty($settings['sending_domain']))) {
+            $status = 422;
+            $payload = [
+                'status' => 'error',
+                'message' => 'Mailgun API key and domain are required.',
+                'error' => 'Missing API key or sending domain.',
+                'logs' => $logs,
+            ];
+        }
+
+        if ($providerKey === 'mailchimp' && empty($settings['api_key'])) {
+            $status = 422;
+            $payload = [
+                'status' => 'error',
+                'message' => 'Mailchimp Transactional API key is required.',
+                'error' => 'Missing API key.',
+                'logs' => $logs,
+            ];
+        }
+
+        return [
+            'status' => $status,
+            'payload' => $payload,
+        ];
     }
 
     protected function handleProviderTestResponse(\Illuminate\Http\Client\Response $response, array $logs, string $successMessage): JsonResponse

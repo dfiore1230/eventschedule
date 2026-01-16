@@ -52,6 +52,41 @@
                                 result: null,
                                 massEmailTesting: false,
                                 massEmailResult: null,
+                                mailer: '{{ old('mail_mailer', $mailSettings['mailer']) }}',
+                                massProvider: '{{ old('mass_email_provider', $massEmailSettings['provider'] ?? 'laravel_mail') }}',
+                                sanitizeSettings() {
+                                    if (this.mailer !== 'smtp') {
+                                        if (this.$refs.mailHost) this.$refs.mailHost.value = '';
+                                        if (this.$refs.mailPort) this.$refs.mailPort.value = '';
+                                        if (this.$refs.mailUsername) this.$refs.mailUsername.value = '';
+                                        if (this.$refs.mailPassword) this.$refs.mailPassword.value = '';
+                                        if (this.$refs.mailEncryption) this.$refs.mailEncryption.value = '';
+                                    }
+
+                                    if (this.massProvider === 'laravel_mail') {
+                                        if (this.$refs.massEmailApiKey) this.$refs.massEmailApiKey.value = '';
+                                        if (this.$refs.massEmailWebhookSecret) this.$refs.massEmailWebhookSecret.value = '';
+                                        if (this.$refs.massEmailWebhookPublicKey) this.$refs.massEmailWebhookPublicKey.value = '';
+                                        if (this.$refs.massEmailSendingDomain) this.$refs.massEmailSendingDomain.value = '';
+                                        if (this.$refs.massEmailSendgridGroupId) this.$refs.massEmailSendgridGroupId.value = '';
+                                    }
+
+                                    if (this.massProvider !== 'sendgrid' && this.$refs.massEmailWebhookPublicKey) {
+                                        this.$refs.massEmailWebhookPublicKey.value = '';
+                                    }
+
+                                    if (this.massProvider !== 'mailgun' && this.$refs.massEmailWebhookSecret) {
+                                        this.$refs.massEmailWebhookSecret.value = '';
+                                    }
+
+                                    if (this.massProvider !== 'mailgun' && this.$refs.massEmailSendingDomain) {
+                                        this.$refs.massEmailSendingDomain.value = '';
+                                    }
+
+                                    if (this.massProvider !== 'sendgrid' && this.$refs.massEmailSendgridGroupId) {
+                                        this.$refs.massEmailSendgridGroupId.value = '';
+                                    }
+                                },
                                 async sendTestEmail() {
                                     this.testing = true;
                                     this.result = null;
@@ -106,8 +141,14 @@
                                     this.massEmailTesting = true;
                                     this.massEmailResult = null;
 
+                                    this.sanitizeSettings();
+
                                     const formData = new FormData(this.$refs.form);
                                     formData.delete('_method');
+
+                                    if (this.$refs.massEmailValidationMode && this.$refs.massEmailValidationMode.checked) {
+                                        formData.set('mass_email_validation_mode', 'offline');
+                                    }
 
                                     try {
                                         const response = await fetch('{{ route('settings.mail.mass_email.test', [], false) }}', {
@@ -148,13 +189,14 @@
                                     }
                                 }
                             }"
-                            x-on:submit="result = null; massEmailResult = null">
+                            x-on:submit="result = null; massEmailResult = null; sanitizeSettings()">
                             @csrf
                             @method('patch')
 
                             <div>
                                 <x-input-label for="mail_mailer" :value="__('messages.mail_mailer')" />
                                 <select id="mail_mailer" name="mail_mailer"
+                                    x-model="mailer"
                                     class="mt-1 block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-[#4E81FA] dark:focus:border-[#4E81FA] focus:ring-[#4E81FA] dark:focus:ring-[#4E81FA] rounded-md shadow-sm">
                                     @foreach($availableMailers as $value => $label)
                                         <option value="{{ $value }}" {{ old('mail_mailer', $mailSettings['mailer']) === $value ? 'selected' : '' }}>
@@ -165,42 +207,43 @@
                                 <x-input-error class="mt-2" :messages="$errors->get('mail_mailer')" />
                             </div>
 
-                            <div class="grid gap-6 sm:grid-cols-2">
+                            <div class="grid gap-6 sm:grid-cols-2" x-show="mailer === 'smtp'">
                                 <div>
                                     <x-input-label for="mail_host" :value="__('messages.mail_host')" />
-                                    <x-text-input id="mail_host" name="mail_host" type="text" class="mt-1 block w-full"
+                                    <x-text-input id="mail_host" name="mail_host" type="text" class="mt-1 block w-full" x-ref="mailHost"
                                         :value="old('mail_host', $mailSettings['host'])" autocomplete="off" />
                                     <x-input-error class="mt-2" :messages="$errors->get('mail_host')" />
                                 </div>
 
                                 <div>
                                     <x-input-label for="mail_port" :value="__('messages.mail_port')" />
-                                    <x-text-input id="mail_port" name="mail_port" type="number" class="mt-1 block w-full"
+                                    <x-text-input id="mail_port" name="mail_port" type="number" class="mt-1 block w-full" x-ref="mailPort"
                                         :value="old('mail_port', $mailSettings['port'])" min="1" max="65535" />
                                     <x-input-error class="mt-2" :messages="$errors->get('mail_port')" />
                                 </div>
                             </div>
 
-                            <div class="grid gap-6 sm:grid-cols-2">
+                            <div class="grid gap-6 sm:grid-cols-2" x-show="mailer === 'smtp'">
                                 <div>
                                     <x-input-label for="mail_username" :value="__('messages.mail_username')" />
-                                    <x-text-input id="mail_username" name="mail_username" type="text" class="mt-1 block w-full"
+                                    <x-text-input id="mail_username" name="mail_username" type="text" class="mt-1 block w-full" x-ref="mailUsername"
                                         :value="old('mail_username', $mailSettings['username'])" autocomplete="off" />
                                     <x-input-error class="mt-2" :messages="$errors->get('mail_username')" />
                                 </div>
 
                                 <div>
                                     <x-input-label for="mail_password" :value="__('messages.mail_password')" />
-                                    <x-text-input id="mail_password" name="mail_password" type="password" class="mt-1 block w-full"
+                                    <x-text-input id="mail_password" name="mail_password" type="password" class="mt-1 block w-full" x-ref="mailPassword"
                                         :value="old('mail_password')" autocomplete="new-password" />
                                     <x-input-error class="mt-2" :messages="$errors->get('mail_password')" />
                                 </div>
                             </div>
 
                             <div class="grid gap-6 sm:grid-cols-2">
-                                <div>
-                                    <x-input-label for="mail_encryption" :value="__('messages.mail_encryption')" />
-                                    <select id="mail_encryption" name="mail_encryption"
+                                <div x-show="mailer === 'smtp'">
+                                <x-input-label for="mail_encryption" :value="__('messages.mail_encryption')" />
+                                <select id="mail_encryption" name="mail_encryption"
+                                        x-ref="mailEncryption"
                                         class="mt-1 block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-[#4E81FA] dark:focus:border-[#4E81FA] focus:ring-[#4E81FA] dark:focus:ring-[#4E81FA] rounded-md shadow-sm">
                                         @foreach($availableEncryptions as $value => $label)
                                             <option value="{{ $value }}" {{ old('mail_encryption', $mailSettings['encryption'] ?? '') === $value ? 'selected' : '' }}>
@@ -242,6 +285,7 @@
                             <div>
                                 <x-input-label for="mass_email_provider" :value="__('messages.mass_email_provider')" />
                                 <select id="mass_email_provider" name="mass_email_provider"
+                                    x-model="massProvider"
                                     class="mt-1 block w-full border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 focus:border-[#4E81FA] dark:focus:border-[#4E81FA] focus:ring-[#4E81FA] dark:focus:ring-[#4E81FA] rounded-md shadow-sm">
                                     @foreach($availableEmailProviders as $value => $label)
                                         <option value="{{ $value }}" {{ old('mass_email_provider', $massEmailSettings['provider']) === $value ? 'selected' : '' }}>
@@ -250,6 +294,18 @@
                                     @endforeach
                                 </select>
                                 <x-input-error class="mt-2" :messages="$errors->get('mass_email_provider')" />
+                                <p class="mt-2 text-xs text-gray-500" x-show="massProvider === 'sendgrid'">
+                                    Requires a SendGrid API key and optional webhook public key for signature verification.
+                                </p>
+                                <p class="mt-2 text-xs text-gray-500" x-show="massProvider === 'mailgun'">
+                                    Requires a Mailgun API key and verified sending domain.
+                                </p>
+                                <p class="mt-2 text-xs text-gray-500" x-show="massProvider === 'mailchimp'">
+                                    Uses Mailchimp Transactional (Mandrill) API key.
+                                </p>
+                                <p class="mt-2 text-xs text-gray-500" x-show="massProvider === 'laravel_mail'">
+                                    Uses the configured SMTP mailer settings above.
+                                </p>
                             </div>
 
                             <div class="grid gap-6 sm:grid-cols-2">
@@ -274,19 +330,19 @@
                                 <x-input-error class="mt-2" :messages="$errors->get('mass_email_reply_to')" />
                             </div>
 
-                            <div class="grid gap-6 sm:grid-cols-2">
+                            <div class="grid gap-6 sm:grid-cols-2" x-show="massProvider !== 'laravel_mail'">
                                 <div>
                                     <x-input-label for="mass_email_api_key" :value="__('messages.mass_email_api_key')" />
-                                    <x-text-input id="mass_email_api_key" name="mass_email_api_key" type="password" class="mt-1 block w-full"
+                                    <x-text-input id="mass_email_api_key" name="mass_email_api_key" type="password" class="mt-1 block w-full" x-ref="massEmailApiKey"
                                         :value="old('mass_email_api_key')" autocomplete="new-password" />
                                     @if (!empty($massEmailSettings['api_key']))
                                         <p class="mt-1 text-xs text-gray-500">{{ __('messages.secret_stored') }}</p>
                                     @endif
                                     <x-input-error class="mt-2" :messages="$errors->get('mass_email_api_key')" />
                                 </div>
-                                <div>
+                                <div x-show="massProvider === 'mailgun'">
                                     <x-input-label for="mass_email_webhook_secret" :value="__('messages.mass_email_webhook_secret')" />
-                                    <x-text-input id="mass_email_webhook_secret" name="mass_email_webhook_secret" type="password" class="mt-1 block w-full"
+                                    <x-text-input id="mass_email_webhook_secret" name="mass_email_webhook_secret" type="password" class="mt-1 block w-full" x-ref="massEmailWebhookSecret"
                                         :value="old('mass_email_webhook_secret')" autocomplete="new-password" />
                                     @if (!empty($massEmailSettings['webhook_secret']))
                                         <p class="mt-1 text-xs text-gray-500">{{ __('messages.secret_stored') }}</p>
@@ -295,19 +351,22 @@
                                 </div>
                             </div>
 
-                            <div>
+                            <div x-show="massProvider === 'sendgrid'">
                                 <x-input-label for="mass_email_webhook_public_key" value="Webhook public key (SendGrid)" />
-                                <x-text-input id="mass_email_webhook_public_key" name="mass_email_webhook_public_key" type="text" class="mt-1 block w-full"
+                                <x-text-input id="mass_email_webhook_public_key" name="mass_email_webhook_public_key" type="text" class="mt-1 block w-full" x-ref="massEmailWebhookPublicKey"
                                     :value="old('mass_email_webhook_public_key', $massEmailSettings['webhook_public_key'] ?? '')" />
                                 <x-input-error class="mt-2" :messages="$errors->get('mass_email_webhook_public_key')" />
                             </div>
 
                             <div class="grid gap-6 sm:grid-cols-2">
-                                <div>
+                                <div x-show="massProvider === 'mailgun'">
                                     <x-input-label for="mass_email_sending_domain" :value="__('messages.mass_email_sending_domain')" />
-                                    <x-text-input id="mass_email_sending_domain" name="mass_email_sending_domain" type="text" class="mt-1 block w-full"
+                                    <x-text-input id="mass_email_sending_domain" name="mass_email_sending_domain" type="text" class="mt-1 block w-full" x-ref="massEmailSendingDomain"
                                         :value="old('mass_email_sending_domain', $massEmailSettings['sending_domain'] ?? '')" />
                                     <x-input-error class="mt-2" :messages="$errors->get('mass_email_sending_domain')" />
+                                    <p class="mt-1 text-xs text-gray-500" x-show="massProvider === 'mailgun'">
+                                        Must match a verified Mailgun sending domain.
+                                    </p>
                                 </div>
                                 <div>
                                     <x-input-label for="mass_email_batch_size" :value="__('messages.mass_email_batch_size')" />
@@ -339,9 +398,9 @@
                                 </div>
                             </div>
 
-                            <div>
+                            <div x-show="massProvider === 'sendgrid'">
                                 <x-input-label for="mass_email_sendgrid_unsubscribe_group_id" value="SendGrid unsubscribe group ID (optional)" />
-                                <x-text-input id="mass_email_sendgrid_unsubscribe_group_id" name="mass_email_sendgrid_unsubscribe_group_id" type="number" class="mt-1 block w-full"
+                                <x-text-input id="mass_email_sendgrid_unsubscribe_group_id" name="mass_email_sendgrid_unsubscribe_group_id" type="number" class="mt-1 block w-full" x-ref="massEmailSendgridGroupId"
                                     :value="old('mass_email_sendgrid_unsubscribe_group_id', $massEmailSettings['sendgrid_unsubscribe_group_id'] ?? '')" min="1" />
                                 <x-input-error class="mt-2" :messages="$errors->get('mass_email_sendgrid_unsubscribe_group_id')" />
                             </div>
@@ -377,6 +436,11 @@
                                     <span x-text="massEmailTesting ? 'Validating provider...' : 'Validate provider'"
                                         class="whitespace-nowrap"></span>
                                 </x-secondary-button>
+
+                                <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                                    <input type="checkbox" x-ref="massEmailValidationMode" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                    Offline validation
+                                </label>
 
                                 @if (session('status') === 'mail-settings-updated')
                                     <p x-data="{ show: true }" x-show="show" x-transition x-init="setTimeout(() => show = false, 2000)"

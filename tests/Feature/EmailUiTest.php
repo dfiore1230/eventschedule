@@ -406,6 +406,11 @@ class EmailUiTest extends TestCase
     {
         Http::fake([
             'https://api.sendgrid.com/v3/scopes' => Http::response(['scopes' => []], 200),
+            'https://api.sendgrid.com/v3/verified_senders' => Http::response([
+                'results' => [
+                    ['from_email' => 'no-reply@example.test'],
+                ],
+            ], 200),
         ]);
 
         $admin = $this->createManagerWithPermission('settings.manage');
@@ -435,7 +440,9 @@ class EmailUiTest extends TestCase
     public function test_admin_can_validate_mailgun_provider_settings(): void
     {
         Http::fake([
-            'https://api.mailgun.net/v3/domains/example.test' => Http::response(['domain' => []], 200),
+            'https://api.mailgun.net/v3/domains/example.test' => Http::response([
+                'domain' => ['state' => 'active'],
+            ], 200),
         ]);
 
         $admin = $this->createManagerWithPermission('settings.manage');
@@ -466,6 +473,13 @@ class EmailUiTest extends TestCase
     {
         Http::fake([
             'https://mandrillapp.com/api/1.0/users/ping.json' => Http::response('PONG!', 200),
+            'https://mandrillapp.com/api/1.0/senders/list.json' => Http::response([
+                [
+                    'email' => 'no-reply@example.test',
+                    'domain' => 'example.test',
+                    'status' => 'verified',
+                ],
+            ], 200),
         ]);
 
         $admin = $this->createManagerWithPermission('settings.manage');
@@ -490,6 +504,32 @@ class EmailUiTest extends TestCase
 
         $response->assertOk();
         $response->assertJson(['status' => 'success']);
+    }
+
+    public function test_settings_email_page_includes_provider_hints(): void
+    {
+        $admin = $this->createManagerWithPermission('settings.manage');
+
+        $response = $this->actingAs($admin)->get(route('settings.email'));
+
+        $response->assertStatus(200);
+        $response->assertSeeText('Requires a SendGrid API key');
+        $response->assertSeeText('Requires a Mailgun API key and verified sending domain.');
+        $response->assertSeeText('Uses Mailchimp Transactional (Mandrill) API key.');
+        $response->assertSeeText('Uses the configured SMTP mailer settings above.');
+    }
+
+    public function test_settings_email_page_contains_provider_visibility_flags(): void
+    {
+        $admin = $this->createManagerWithPermission('settings.manage');
+
+        $response = $this->actingAs($admin)->get(route('settings.email'));
+
+        $response->assertStatus(200);
+        $response->assertSee('x-show="mailer === \\'smtp\\'"', false);
+        $response->assertSee('x-show="massProvider !== \\'laravel_mail\\'"', false);
+        $response->assertSee('x-show="massProvider === \\'sendgrid\\'"', false);
+        $response->assertSee('x-show="massProvider === \\'mailgun\\'"', false);
     }
 
     protected function createManagerWithPermission(string $permissionKey): User
