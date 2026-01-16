@@ -526,10 +526,10 @@ class EmailUiTest extends TestCase
         $response = $this->actingAs($admin)->get(route('settings.email'));
 
         $response->assertStatus(200);
-        $response->assertSee('x-show="mailer === \\'smtp\\'"', false);
-        $response->assertSee('x-show="massProvider !== \\'laravel_mail\\'"', false);
-        $response->assertSee('x-show="massProvider === \\'sendgrid\\'"', false);
-        $response->assertSee('x-show="massProvider === \\'mailgun\\'"', false);
+        $response->assertSee('x-show="mailer === \'smtp\'"', false);
+        $response->assertSee('x-show="massProvider !== \'laravel_mail\'"', false);
+        $response->assertSee('x-show="massProvider === \'sendgrid\'"', false);
+        $response->assertSee('x-show="massProvider === \'mailgun\'"', false);
     }
 
     protected function createManagerWithPermission(string $permissionKey): User
