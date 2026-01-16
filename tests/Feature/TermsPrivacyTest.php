@@ -40,6 +40,19 @@ class TermsPrivacyTest extends TestCase
         $response->assertSee('<strong>', false);
     }
 
+    public function test_terms_page_decodes_html_entities(): void
+    {
+        Setting::setGroup('general', [
+            'terms_html' => '&lt;h1&gt;Title&lt;/h1&gt;&lt;p&gt;Legacy&lt;/p&gt;',
+        ]);
+
+        $response = $this->get(route('terms.show'));
+
+        $response->assertStatus(200);
+        $response->assertSee('<h1>', false);
+        $response->assertSee('Legacy', false);
+    }
+
     public function test_privacy_page_renders_markdown_html(): void
     {
         Setting::setGroup('general', [
@@ -64,6 +77,19 @@ class TermsPrivacyTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('<h1>', false);
         $response->assertSee('<strong>', false);
+    }
+
+    public function test_privacy_page_decodes_html_entities(): void
+    {
+        Setting::setGroup('general', [
+            'privacy_html' => '&lt;h1&gt;Privacy&lt;/h1&gt;&lt;p&gt;Legacy&lt;/p&gt;',
+        ]);
+
+        $response = $this->get(route('privacy.show'));
+
+        $response->assertStatus(200);
+        $response->assertSee('<h1>', false);
+        $response->assertSee('Legacy', false);
     }
 
     public function test_markdown_converter_renders_headings(): void

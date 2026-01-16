@@ -22,26 +22,36 @@ class MarkdownUtils
                 ]
             ]);
             $html = $converter->convertToHtml($markdown);
-            
-            $config = HTMLPurifier_Config::createDefault();
+        } catch (\Throwable $e) {
+            // Fail-safe: if markdown conversion fails, log and return stripped markdown
+            if (class_exists('\Illuminate\Support\Facades\Log')) {
+                \Illuminate\Support\Facades\Log::error('Markdown conversion failed', ['exception' => $e]);
+            }
 
+            return strip_tags($markdown);
+        }
+
+        try {
+            $config = HTMLPurifier_Config::createDefault();
             $cachePath = storage_path('app/htmlpurifier');
 
             if (! File::exists($cachePath)) {
                 File::makeDirectory($cachePath, 0755, true);
             }
 
-            $config->set('Cache.SerializerPath', $cachePath);
+            if (File::exists($cachePath) && File::isWritable($cachePath)) {
+                $config->set('Cache.SerializerPath', $cachePath);
+            }
+
             $purifier = new HTMLPurifier($config);
 
             return $purifier->purify($html);
         } catch (\Throwable $e) {
-            // Fail-safe: if HTML conversion fails for any reason, log and return stripped markdown
             if (class_exists('\Illuminate\Support\Facades\Log')) {
-                \Illuminate\Support\Facades\Log::error('Markdown conversion failed', ['exception' => $e]);
+                \Illuminate\Support\Facades\Log::warning('Markdown HTML sanitization failed', ['exception' => $e]);
             }
 
-            return strip_tags($markdown);
+            return $html;
         }
     }
 }

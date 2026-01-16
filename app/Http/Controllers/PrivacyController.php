@@ -22,12 +22,15 @@ class PrivacyController extends Controller
 
         $storedMarkdown = $storedGeneralSettings['privacy_markdown'] ?? null;
         $storedHtml = $storedGeneralSettings['privacy_html'] ?? null;
-        $storedHtmlLooksLikeHtml = $storedHtml !== null && preg_match('/<[^>]+>/', $storedHtml) === 1;
+        $decodedHtml = $storedHtml !== null && str_contains($storedHtml, '&lt;')
+            ? html_entity_decode($storedHtml, ENT_QUOTES | ENT_HTML5, 'UTF-8')
+            : $storedHtml;
+        $storedHtmlLooksLikeHtml = $decodedHtml !== null && preg_match('/<[^>]+>/', $decodedHtml) === 1;
 
         $privacyHtml = $storedMarkdown
             ? MarkdownUtils::convertToHtml($storedMarkdown)
-            : ($storedHtml
-                ? ($storedHtmlLooksLikeHtml ? $storedHtml : MarkdownUtils::convertToHtml($storedHtml))
+            : ($decodedHtml
+                ? ($storedHtmlLooksLikeHtml ? $decodedHtml : MarkdownUtils::convertToHtml($decodedHtml))
                 : MarkdownUtils::convertToHtml(config('privacy.default_markdown')));
 
         $lastUpdatedRaw = $storedGeneralSettings['privacy_updated_at']

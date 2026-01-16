@@ -2016,6 +2016,7 @@ class SettingsController extends Controller
     {
         $markdown = $this->nullableTrim($markdown);
         $storedHtml = $this->nullableTrim($storedHtml);
+        $storedHtml = $this->decodeHtmlEntities($storedHtml);
 
         if ($markdown !== null) {
             return MarkdownUtils::convertToHtml($markdown);
@@ -2035,6 +2036,15 @@ class SettingsController extends Controller
     protected function looksLikeHtml(string $value): bool
     {
         return preg_match('/<[^>]+>/', $value) === 1;
+    }
+
+    protected function decodeHtmlEntities(?string $value): ?string
+    {
+        if ($value === null || ! str_contains($value, '&lt;')) {
+            return $value;
+        }
+
+        return html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
     protected function sanitizeUrl(string $url): string
