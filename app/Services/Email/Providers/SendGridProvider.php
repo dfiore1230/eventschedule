@@ -333,6 +333,10 @@ class SendGridProvider implements EmailProviderInterface
             return false;
         }
 
+        if (strlen($signatureBytes) !== SODIUM_CRYPTO_SIGN_BYTES) {
+            return false;
+        }
+
         return sodium_crypto_sign_verify_detached($signatureBytes, $signedPayload, $publicKeyBytes);
     }
 }
