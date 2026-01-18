@@ -118,6 +118,37 @@ Add the following line to your crontab to ensure scheduled tasks run automatical
 
 ---
 
+## Docker Deployment
+
+Planify ships with a Docker-based runtime that bundles PHP-FPM, Nginx, and MariaDB.
+
+### Multi-service stack (recommended)
+
+```bash
+cp .env.docker.example .env.docker
+# Update DB_PASSWORD and any other settings
+docker compose up --build -d
+```
+
+Visit `http://localhost:8080`.
+
+### Single-container stack (app + MariaDB)
+
+```bash
+cp .env.docker.example .env.docker
+mkdir -p bind/storage bind/mysql
+docker compose -f docker-compose.single.yml up --build -d
+```
+
+Visit `http://localhost:8080`.
+
+### Operational tips
+
+- `docker compose logs -f app` to follow application logs.
+- `docker compose exec app php artisan ...` to run artisan commands.
+
+---
+
 ## Logging
 
 Planify ships with a dedicated `syslog_server` channel for forwarding logs to a remote syslog endpoint.

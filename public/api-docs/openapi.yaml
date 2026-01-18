@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-	title: EventSchedule API (mutable endpoints)
+	title: Planify API (mutable endpoints)
 	version: 1.0.0
 	description: >-
 		Core mutable API endpoints (create/update/delete) useful to mobile clients.
@@ -255,7 +255,7 @@ components:
 					type: string
 				openapi: 3.0.3
 				info:
-					title: EventSchedule API (mutable endpoints)
+					title: Planify API (mutable endpoints)
 					version: 1.0.0
 					description: >-
 						Core mutable API endpoints (create/update/delete) useful to mobile clients.

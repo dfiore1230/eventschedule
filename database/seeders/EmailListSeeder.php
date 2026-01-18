@@ -20,7 +20,7 @@ class EmailListSeeder extends Seeder
             ['key' => $globalKey],
             [
                 'type' => EmailList::TYPE_GLOBAL,
-                'name' => 'EventSchedule Updates',
+                'name' => 'Planify Updates',
             ]
         );
     }
