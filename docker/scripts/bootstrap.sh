@@ -44,6 +44,17 @@ bootstrap_app() {
     cp .env.example .env
   fi
 
+  # Ensure APP_KEY exists before bootstrapping artisan commands
+  if ! grep -q "^APP_KEY=base64:" .env; then
+    app_key=$(php -r "echo 'base64:'.base64_encode(random_bytes(32));")
+    if grep -q "^APP_KEY=" .env; then
+      sed -i "s|^APP_KEY=.*|APP_KEY=${app_key}|" .env
+    else
+      printf "\nAPP_KEY=%s\n" "$app_key" >> .env
+    fi
+    export APP_KEY="$app_key"
+  fi
+
   if [ "${USE_SQLITE:-0}" = "1" ]; then
     # Ensure sqlite database exists and configure .env accordingly
     if [ ! -f database/database.sqlite ]; then
