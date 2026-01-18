@@ -34,7 +34,9 @@ COPY . /var/www/html
 COPY .docker/storage-seeds /var/www/html/.docker/storage-seeds
 
 # Ensure .env exists BEFORE composer (artisan post-scripts expect it)
-RUN [ -f .env ] || cp .env.example .env
+RUN if [ -f .env ]; then :; \
+    elif [ -f .env.docker.example ]; then cp .env.docker.example .env; \
+    else cp .env.example .env; fi
 
 # During image build we do not have a database available. Swap to a
 # temporary SQLite configuration so that artisan commands executed as part
