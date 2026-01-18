@@ -47,6 +47,10 @@ RUN cp .env .env.dockerbuild \
  && mkdir -p database \
  && touch database/database.sqlite
 
+# Ensure Laravel cache directories exist before composer post-scripts run
+RUN mkdir -p bootstrap/cache storage/framework/cache \
+ && chmod -R ug+rwX bootstrap/cache storage/framework/cache
+
 # PHP deps
 RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader \
  && mv .env.dockerbuild .env
