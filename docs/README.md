@@ -43,7 +43,7 @@ This file consolidates the supported documentation for Planify.
 
 | Date | Build Version | Docker Tags | Notes |
 | --- | --- | --- | --- |
-| 2026-01-19 | 20260116-07b | `latest`, `main`, `sha-7cfd50d` | Docs consolidated, single-container Docker only, repo cleanup; backup/restore support (Issue #577). |
+| 2026-01-19 | 20260119-01p | `20260119-01p`, `latest` | Automated build (dabaa8d). |\n| 2026-01-19 | 20260116-07b | `latest`, `main`, `sha-7cfd50d` | Docs consolidated, single-container Docker only, repo cleanup; backup/restore support (Issue #577). |
 
 <a id="file-readme-md"></a>
 <p>
