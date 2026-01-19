@@ -28,7 +28,7 @@
 
                         <div class="mt-6 space-y-6">
                             <div class="flex flex-wrap items-center gap-3">
-                                <x-primary-button type="button" x-on:click="createBackup" :disabled="loading">
+                                <x-primary-button type="button" x-on:click="createBackup" x-bind:disabled="loading">
                                     <span x-text="loading ? '{{ __('messages.backup_creating') }}' : '{{ __('messages.backup_create') }}'"></span>
                                 </x-primary-button>
 
@@ -47,7 +47,7 @@
 
                                 <div class="mt-4 flex flex-wrap items-center gap-3">
                                     <input type="file" x-ref="backupFile" class="text-sm text-gray-600 dark:text-gray-300" />
-                                    <x-danger-button type="button" x-on:click="restoreUploaded" :disabled="loading">
+                                    <x-danger-button type="button" x-on:click="restoreUploaded" x-bind:disabled="loading">
                                         {{ __('messages.backup_restore') }}
                                     </x-danger-button>
                                 </div>
@@ -101,7 +101,7 @@
                                                         <button type="button"
                                                                 class="ml-3 text-sm font-semibold text-red-600 hover:underline"
                                                                 x-on:click="restoreBackup(backup.name)"
-                                                                :disabled="loading">
+                                                                x-bind:disabled="loading">
                                                             {{ __('messages.backup_restore') }}
                                                         </button>
                                                     </td>
