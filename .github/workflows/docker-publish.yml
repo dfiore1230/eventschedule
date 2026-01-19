@@ -1,16 +1,21 @@
-name: Build and Publish Docker image
+name: Build and Publish
 
 on:
   workflow_dispatch:
     inputs:
       channel:
         description: "Release channel"
-        required: false
+        required: true
         type: choice
         options:
           - beta
           - production
         default: production
+      major_release:
+        description: "Mark this release as a major version"
+        required: false
+        type: boolean
+        default: false
       build_zip:
         description: "Build release zip for manual upload"
         required: false
@@ -53,18 +58,45 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Read release version
-        id: version
-        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+        with:
+          fetch-depth: 0
 
       - name: Set up PHP
-        if: inputs.build_zip == true
+        if: inputs.build_zip == true || inputs.build_docker == true
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
           extensions: mbstring, intl, pdo, sqlite
           tools: composer, npm
+
+      - name: Determine release version
+        id: version
+        if: inputs.build_zip == true || inputs.build_docker == true
+        run: |
+          MAJOR_FLAG=""
+
+          if [ "${{ inputs.major_release }}" = "true" ]; then
+            MAJOR_FLAG="--major"
+          fi
+
+          php scripts/bump-version.php "${{ inputs.channel }}" $MAJOR_FLAG
+
+      - name: Persist bumped version
+        if: inputs.build_zip == true || inputs.build_docker == true
+        run: |
+          if git diff --quiet --exit-code VERSION; then
+            echo "VERSION unchanged; skipping commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add VERSION
+          git commit -m "chore: bump version to ${{ steps.version.outputs.version }}"
+          git push origin HEAD:${GITHUB_REF_NAME}
+        env:
+          GITHUB_REF_NAME: ${{ github.ref_name }}
 
       - name: Set up QEMU
         if: inputs.build_docker == true
@@ -83,6 +115,7 @@ jobs:
 
       - name: Extract Docker metadata
         id: meta
+        if: inputs.build_docker == true || inputs.build_zip == true
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY_IMAGE }}
@@ -92,7 +125,7 @@ jobs:
             type=raw,value=latest,enable=${{ inputs.channel == 'production' }}
 
       - name: Update docs changelog
-        if: env.SHOULD_PUSH == 'true'
+        if: inputs.build_zip == true || env.SHOULD_PUSH == 'true'
         run: |
           DATE="$(date -u +%Y-%m-%d)"
           VERSION="${{ steps.version.outputs.version }}"
@@ -130,6 +163,7 @@ jobs:
         run: |
           release_dir="$(mktemp -d)"
           rsync -a --exclude ".git" --exclude ".github" --exclude "tests" --exclude "node_modules" ./ "$release_dir/"
+          rm -f "$release_dir/.gitattributes" "$release_dir/.gitignore" "$release_dir/phpunit.xml"
           (cd "$release_dir" && zip -r planify.zip .)
           mv "$release_dir/planify.zip" ./planify.zip
           rm -rf "$release_dir"
@@ -140,6 +174,19 @@ jobs:
         with:
           name: planify-zip
           path: planify.zip
+
+      - name: Create Release
+        if: inputs.build_zip == true
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
+          make_latest: true
+          name: "${{ steps.version.outputs.channel == 'beta' && 'Beta Release' || 'Latest Release' }}"
+          tag_name: "${{ steps.version.outputs.version }}"
+          files: |
+            planify.zip
 
       - name: Build image (no push)
         if: inputs.build_docker == true && env.SHOULD_PUSH != 'true'
