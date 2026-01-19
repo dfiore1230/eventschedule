@@ -11,6 +11,21 @@ on:
           - beta
           - production
         default: production
+      build_zip:
+        description: "Build release zip for manual upload"
+        required: false
+        type: boolean
+        default: true
+      build_docker:
+        description: "Build Docker image"
+        required: false
+        type: boolean
+        default: true
+      push:
+        description: "Push image to Docker Hub"
+        required: false
+        type: boolean
+        default: true
       notes:
         description: "Changelog notes (optional)"
         required: false
@@ -21,18 +36,13 @@ on:
         required: false
         type: boolean
         default: true
-      push:
-        description: "Push image to Docker Hub"
-        required: false
-        type: boolean
-        default: true
 
 permissions:
   contents: write
 
 env:
   REGISTRY_IMAGE: ${{ secrets.DOCKERHUB_REPOSITORY != '' && secrets.DOCKERHUB_REPOSITORY || format('ghcr.io/{0}', github.repository) }}
-  SHOULD_PUSH: ${{ (github.event_name == 'workflow_dispatch' && inputs.push != 'false') && secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' && secrets.DOCKERHUB_REPOSITORY != '' }}
+  SHOULD_PUSH: ${{ (github.event_name == 'workflow_dispatch' && inputs.push != 'false' && inputs.build_docker != 'false') && secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' && secrets.DOCKERHUB_REPOSITORY != '' }}
   PUSH_PLATFORMS: linux/amd64,linux/arm64
   TEST_PLATFORM: linux/amd64
 
@@ -48,10 +58,20 @@ jobs:
         id: version
         run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
 
+      - name: Set up PHP
+        if: inputs.build_zip == true
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, pdo, sqlite
+          tools: composer, npm
+
       - name: Set up QEMU
+        if: inputs.build_docker == true
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
+        if: inputs.build_docker == true
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to Docker Hub
@@ -91,8 +111,38 @@ jobs:
             git push
           fi
 
+      - name: Install Composer dependencies (zip build)
+        if: inputs.build_zip == true
+        run: composer install --prefer-dist --no-ansi --no-interaction --no-scripts --no-progress --no-dev --optimize-autoloader
+
+      - name: Build assets (zip build)
+        if: inputs.build_zip == true
+        run: |
+          npm install
+          npm run build
+
+          mkdir -p public/build/img
+          cp public/images/flags.png public/build/img/
+          cp public/images/flags@2x.png public/build/img/
+
+      - name: Create release zip (manual upload)
+        if: inputs.build_zip == true
+        run: |
+          release_dir="$(mktemp -d)"
+          rsync -a --exclude ".git" --exclude ".github" --exclude "tests" --exclude "node_modules" ./ "$release_dir/"
+          (cd "$release_dir" && zip -r planify.zip .)
+          mv "$release_dir/planify.zip" ./planify.zip
+          rm -rf "$release_dir"
+
+      - name: Upload release zip
+        if: inputs.build_zip == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: planify-zip
+          path: planify.zip
+
       - name: Build image (no push)
-        if: env.SHOULD_PUSH != 'true'
+        if: inputs.build_docker == true && env.SHOULD_PUSH != 'true'
         uses: docker/build-push-action@v5
         with:
           context: .
