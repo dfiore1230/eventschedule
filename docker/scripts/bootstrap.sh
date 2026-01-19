@@ -8,6 +8,8 @@ bootstrap_app() {
 
   mkdir -p \
     storage \
+    storage/app/public \
+    storage/app/images \
     storage/logs \
     storage/framework/cache \
     storage/framework/sessions \

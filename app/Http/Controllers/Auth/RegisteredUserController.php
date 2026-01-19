@@ -15,6 +15,7 @@ use Illuminate\View\View;
 use App\Rules\NoFakeEmail;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schema;
 use Dotenv\Dotenv;
 use App\Models\SystemRole;
 use App\Services\Authorization\AuthorizationService;
@@ -27,7 +28,16 @@ class RegisteredUserController extends Controller
      */
     public function create()
     {
-        if (! config('app.hosted') && config('app.url') && ! config('app.is_testing')) {
+        $hasUsers = false;
+        if (! config('app.hosted') && ! config('app.is_testing')) {
+            try {
+                $hasUsers = Schema::hasTable('users') && User::count() > 0;
+            } catch (\Throwable $e) {
+                $hasUsers = false;
+            }
+        }
+
+        if (! config('app.hosted') && config('app.url') && ! config('app.is_testing') && $hasUsers) {
             return redirect()->route('login');
         }
 
