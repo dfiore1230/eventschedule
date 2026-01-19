@@ -2,8 +2,8 @@
 
 <div align="center">
     <picture>
-        <source srcset="./public/images/planify_horizontal_dark.png" media="(prefers-color-scheme: light)">
-        <img src="./public/images/planify_horizontal_light.png" alt="Planify Logo" width="350" media="(prefers-color-scheme: dark)">
+        <source srcset="/public/images/planify_horizontal_dark.png" media="(prefers-color-scheme: light)">
+        <img src="/public/images/planify_horizontal_light.png" alt="Planify Logo" width="350" media="(prefers-color-scheme: dark)">
     </picture>
 </div>
 
