@@ -82,15 +82,6 @@ CMD ["php-fpm", "-F"]
 
 
 # =========================
-# Stage: web (nginx)
-# =========================
-FROM nginx:1.27-alpine AS web
-COPY --from=app /var/www/html /var/www/html
-COPY nginx.conf /etc/nginx/nginx.conf
-RUN test -d /var/www/html/public
-
-
-# =========================
 # Stage: single (nginx + php-fpm + scheduler)
 # =========================
 FROM app AS single

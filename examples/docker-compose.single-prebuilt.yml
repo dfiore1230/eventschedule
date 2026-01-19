@@ -2,7 +2,7 @@ version: "3.8"
 
 # This compose file runs the single-container variant from the
 # published Planify image. It mirrors
-# docker-compose.single.yml but skips the build step so you can
+# docker-compose.yml but skips the build step so you can
 # launch immediately after preparing the bind mounts and .env.docker file.
 
 services:
