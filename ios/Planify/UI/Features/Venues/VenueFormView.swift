@@ -95,7 +95,7 @@ struct VenueFormView: View {
         _showEmail = State(initialValue: venue?.showEmail ?? true)
         _scheduleBackgroundType = State(initialValue: venue?.scheduleBackgroundType ?? "gradient")
         _scheduleBackgroundImageUrl = State(initialValue: venue?.scheduleBackgroundImageUrl ?? "")
-        _scheduleAccentColor = State(initialValue: venue?.scheduleAccentColor ?? "#007AFF")
+        _scheduleAccentColor = State(initialValue: venue?.scheduleAccentColor ?? "#4E81FA")
         _scheduleLanguage = State(initialValue: venue?.scheduleLanguage ?? "en")
         _scheduleTimezone = State(initialValue: venue?.scheduleTimezone ?? TimeZone.current.identifier)
         _schedule24Hour = State(initialValue: venue?.schedule24Hour ?? false)

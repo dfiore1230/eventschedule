@@ -60,7 +60,7 @@ This file consolidates the supported documentation for Planify.
 - 🔁 **Recurring Events:** Schedule recurring events which occur on a regular basis.  
 - 📲 **QR Code Ticketing:** Generate and scan QR codes for easy and secure event check-ins.  
 - 💻 **Support for Online Events:** Use the platform to sell tickets to online events.  
-- 👥 **Team Scheduling:** Collaborate with team members to manage availability and coordinate event schedules.  
+- 👥 **Team Scheduling:** Collaborate with team members to manage availability and coordinate event calendars.  
 - 🤖 **AI Translation:** Automatically translate your entire schedule into multiple languages using AI.
 - 🎫 **Multiple Ticket Types:** Offer different ticket tiers, such as Standard or VIP, to meet various audience needs.  
 - 🔢 **Ticket Quantity Limits:** Set a maximum number of tickets available for each event to manage capacity.  

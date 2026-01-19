@@ -4,7 +4,7 @@ return [
     'templates' => [
         'claim_role' => [
             'label' => 'Role invitation email',
-            'description' => 'Sent to performers when they are added to an event schedule.',
+            'description' => 'Sent to performers when they are added to an event calendar.',
             'enabled' => true,
             'subject' => ':venue_name scheduled an event for :role_name',
             'subject_curated' => ':event_name at :venue_name was added to the :curator_name schedule',

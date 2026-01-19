@@ -76,7 +76,7 @@ struct TalentFormView: View {
         _showEmail = State(initialValue: talent?.showEmail ?? true)
         _scheduleBackgroundType = State(initialValue: talent?.scheduleBackgroundType ?? "gradient")
         _scheduleBackgroundImageUrl = State(initialValue: talent?.scheduleBackgroundImageUrl ?? "")
-        _scheduleAccentColor = State(initialValue: talent?.scheduleAccentColor ?? "#007AFF")
+        _scheduleAccentColor = State(initialValue: talent?.scheduleAccentColor ?? "#4E81FA")
         _scheduleLanguage = State(initialValue: talent?.scheduleLanguage ?? "en")
         _scheduleTimezone = State(initialValue: talent?.scheduleTimezone ?? TimeZone.current.identifier)
         _schedule24Hour = State(initialValue: talent?.schedule24Hour ?? false)
