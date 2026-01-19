@@ -1,3 +1,13 @@
+## Project Overview
+
+<div align="center">
+    <picture>
+        <source srcset="./public/images/planify_horizontal_dark.png" media="(prefers-color-scheme: light)">
+        <img src="./public/images/planify_horizontal_light.png" alt="Planify Logo" width="350" media="(prefers-color-scheme: dark)">
+    </picture>
+</div>
+
+---
 # Planify Documentation
 
 This file consolidates the supported documentation for Planify.
@@ -36,17 +46,6 @@ This file consolidates the supported documentation for Planify.
 | 2026-01-19 | 20260116-07b | `latest`, `main`, `sha-7cfd50d` | Docs consolidated, single-container Docker only, repo cleanup. |
 
 <a id="file-readme-md"></a>
-## Project Overview
-
-<div align="center">
-    <picture>
-        <source srcset="public/images/planify_horizontal_dark.png" media="(prefers-color-scheme: light)">
-        <img src="public/images/planify_horizontal_light.png" alt="Planify Logo" width="350" media="(prefers-color-scheme: dark)">
-    </picture>
-</div>
-
----
-
 <p>
     An open-source platform to create calendars, sell tickets and streamline event check-ins with QR codes
 </p>
