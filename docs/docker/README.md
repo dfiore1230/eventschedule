@@ -43,7 +43,7 @@ environment defaults, assets, or other customizations on top of the prebuilt
 runtime:
 
 ```Dockerfile
-FROM your-dockerhub-user/planify:latest
+FROM dfiore/planify:latest
 
 # Example override: copy a production-ready .env into the container
 # COPY .env.production /var/www/html/.env
