@@ -11,11 +11,6 @@ on:
           - beta
           - production
         default: production
-      major_release:
-        description: "Mark this release as a major version"
-        required: false
-        type: boolean
-        default: false
       build_zip:
         description: "Build release zip for manual upload"
         required: false
@@ -73,13 +68,7 @@ jobs:
         id: version
         if: inputs.build_zip == true || inputs.build_docker == true
         run: |
-          MAJOR_FLAG=""
-
-          if [ "${{ inputs.major_release }}" = "true" ]; then
-            MAJOR_FLAG="--major"
-          fi
-
-          php scripts/bump-version.php "${{ inputs.channel }}" $MAJOR_FLAG
+          php scripts/bump-version.php "${{ inputs.channel }}"
 
       - name: Persist bumped version
         if: inputs.build_zip == true || inputs.build_docker == true

@@ -14,7 +14,7 @@ function run(array $arguments): int
     $channelInput = $arguments[1] ?? null;
 
     if ($channelInput === null) {
-        fwrite(STDERR, "Usage: php scripts/bump-version.php <production|beta> [--major]\n");
+        fwrite(STDERR, "Usage: php scripts/bump-version.php <production|beta>\n");
 
         return 1;
     }
@@ -31,10 +31,8 @@ function run(array $arguments): int
         return 1;
     }
 
-    try {
-        $forceMajor = parseFlags(array_slice($arguments, 2));
-    } catch (InvalidArgumentException $exception) {
-        fwrite(STDERR, $exception->getMessage() . PHP_EOL);
+    if (count($arguments) > 2) {
+        fwrite(STDERR, "Unknown option. Usage: php scripts/bump-version.php <production|beta>\n");
 
         return 1;
     }
@@ -56,7 +54,7 @@ function run(array $arguments): int
     }
 
     try {
-        $nextVersion = bumpVersion($currentVersion, $channel, $forceMajor);
+        $nextVersion = bumpVersion($currentVersion, $channel);
     } catch (InvalidArgumentException $exception) {
         fwrite(STDERR, $exception->getMessage() . PHP_EOL);
 
@@ -75,13 +73,9 @@ function run(array $arguments): int
 
     file_put_contents($versionFile, $nextVersion . PHP_EOL);
 
-    writeGithubOutputs($nextVersion, $channel, $forceMajor);
+    writeGithubOutputs($nextVersion, $channel);
 
     $details = sprintf('%s channel', $channel);
-
-    if ($forceMajor) {
-        $details .= ', major release';
-    }
 
     fwrite(STDOUT, sprintf(
         "Bumped version: %s -> %s (%s)\n",
@@ -93,28 +87,7 @@ function run(array $arguments): int
     return 0;
 }
 
-function parseFlags(array $flags): bool
-{
-    $forceMajor = false;
-
-    foreach ($flags as $flag) {
-        if ($flag === '--major') {
-            $forceMajor = true;
-
-            continue;
-        }
-
-        if ($flag === '' || $flag === null) {
-            continue;
-        }
-
-        throw new InvalidArgumentException(sprintf('Unknown option: %s', $flag));
-    }
-
-    return $forceMajor;
-}
-
-function writeGithubOutputs(string $version, string $channel, bool $forceMajor): void
+function writeGithubOutputs(string $version, string $channel): void
 {
     $githubOutput = getenv('GITHUB_OUTPUT');
 
@@ -126,13 +99,12 @@ function writeGithubOutputs(string $version, string $channel, bool $forceMajor):
         'version=' . $version,
         'channel=' . $channel,
         'prerelease=' . ($channel === 'beta' ? 'true' : 'false'),
-        'is_major=' . ($forceMajor ? 'true' : 'false'),
     ];
 
     file_put_contents($githubOutput, implode(PHP_EOL, $outputLines) . PHP_EOL, FILE_APPEND);
 }
 
-function bumpVersion(string $currentVersion, string $channel, bool $forceMajor = false): string
+function bumpVersion(string $currentVersion, string $channel): string
 {
     $suffix = $channel === 'beta' ? 'b' : 'p';
     $currentDate = resolveVersionDate();
@@ -145,10 +117,6 @@ function bumpVersion(string $currentVersion, string $channel, bool $forceMajor =
         if (! isLegacyVersion($currentVersion)) {
             throw $exception;
         }
-    }
-
-    if ($forceMajor) {
-        return formatVersion($currentDate, 1, $suffix);
     }
 
     if ($parsed !== null
