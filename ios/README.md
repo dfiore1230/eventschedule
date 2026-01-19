@@ -1,5 +1,7 @@
 # Planify iOS App
 
+> NOTE: This iOS app is not open source. See `ios/LICENSE` for usage restrictions.
+
 A native iOS application for managing Planify instances, providing full administrative access to events, venues, talent, ticketing, and at-door scanning capabilities.
 
 ## Features

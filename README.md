@@ -25,6 +25,44 @@ docker compose up --build -d
 
 Visit `http://localhost:8080`.
 
+## Docker Compose Example
+
+```bash
+cp .env.docker.example .env.docker
+mkdir -p bind/storage bind/mysql
+cat <<'YML' > docker-compose.yml
+services:
+  app:
+    image: dfiore/planify:latest
+    env_file: .env.docker
+    environment:
+      INTERNAL_DB: 1
+      DB_HOST: 127.0.0.1
+      DB_PASSWORD: ${DB_PASSWORD:-change_me}
+    ports:
+      - "8080:80"
+    volumes:
+      - type: bind
+        source: ./bind/storage
+        target: /var/www/html/storage
+      - type: bind
+        source: ./bind/mysql
+        target: /var/lib/mysql
+    restart: unless-stopped
+YML
+docker compose up -d
+```
+
+## Docker Run Example
+
+```bash
+docker run --rm -p 8080:80 \
+  -v "$(pwd)/bind/storage:/var/www/html/storage" \
+  -v "$(pwd)/bind/mysql:/var/lib/mysql" \
+  --env-file .env.docker \
+  dfiore/planify:latest
+```
+
 ## Documentation
 
 All repository documentation is consolidated in `docs/README.md`.

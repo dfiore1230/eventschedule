@@ -25,6 +25,7 @@ use App\Services\Email\Providers\MailchimpProvider;
 use App\Services\Email\Providers\MailgunProvider;
 use App\Services\Email\Providers\SendGridProvider;
 use App\Services\Audit\AuditLogger;
+use App\Services\BackupService;
 use App\Utils\MarkdownUtils;
 use Codedge\Updater\UpdaterManager;
 use Illuminate\Http\JsonResponse;
@@ -1923,6 +1924,89 @@ class SettingsController extends Controller
         ]);
 
         $this->auditLogger->log($user, $action, 'settings', null, array_merge($context, $metadata));
+    }
+
+    public function backups(Request $request, BackupService $service): View
+    {
+        $this->authorizeAdmin($request->user());
+
+        return view('settings.backups', [
+            'backups' => $service->listBackups(),
+        ]);
+    }
+
+    public function listBackups(Request $request, BackupService $service): JsonResponse
+    {
+        $this->authorizeAdmin($request->user());
+
+        return response()->json([
+            'data' => $service->listBackups(),
+        ]);
+    }
+
+    public function createBackup(Request $request, BackupService $service): JsonResponse
+    {
+        $this->authorizeAdmin($request->user());
+
+        $backup = $service->createBackup();
+
+        $this->auditSettingsChange($request, 'settings.backups.create', [
+            'backup' => $backup['name'] ?? null,
+        ]);
+
+        return response()->json([
+            'message' => __('messages.backup_created'),
+            'data' => $backup,
+        ]);
+    }
+
+    public function restoreBackup(Request $request, BackupService $service): JsonResponse
+    {
+        $this->authorizeAdmin($request->user());
+
+        $validated = $request->validate([
+            'confirm' => ['required', 'boolean'],
+            'filename' => ['nullable', 'string'],
+            'backup' => ['nullable', 'file'],
+        ]);
+
+        if (! $request->boolean('confirm')) {
+            return response()->json([
+                'message' => __('messages.backup_restore_confirm_required'),
+            ], 422);
+        }
+
+        $backupName = $validated['filename'] ?? null;
+        if ($request->hasFile('backup')) {
+            $meta = $service->storeUploadedBackup($request->file('backup'));
+            $backupName = $meta['name'] ?? null;
+        }
+
+        if (! $backupName) {
+            return response()->json([
+                'message' => __('messages.backup_file_required'),
+            ], 422);
+        }
+
+        $service->restoreBackup($backupName);
+
+        $this->auditSettingsChange($request, 'settings.backups.restore', [
+            'backup' => $backupName,
+        ]);
+
+        return response()->json([
+            'message' => __('messages.backup_restore_complete'),
+        ]);
+    }
+
+    public function downloadBackup(Request $request, BackupService $service, string $filename)
+    {
+        $this->authorizeAdmin($request->user());
+
+        $path = $service->resolveBackupPath($filename);
+        abort_unless($path && is_file($path), 404);
+
+        return response()->download($path);
     }
 
     protected function homeLayoutOptions(): array

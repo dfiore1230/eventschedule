@@ -43,7 +43,7 @@ This file consolidates the supported documentation for Planify.
 
 | Date | Build Version | Docker Tags | Notes |
 | --- | --- | --- | --- |
-| 2026-01-19 | 20260116-07b | `latest`, `main`, `sha-7cfd50d` | Docs consolidated, single-container Docker only, repo cleanup. |
+| 2026-01-19 | 20260116-07b | `latest`, `main`, `sha-7cfd50d` | Docs consolidated, single-container Docker only, repo cleanup; backup/restore support (Issue #577). |
 
 <a id="file-readme-md"></a>
 <p>
@@ -164,6 +164,33 @@ Visit `http://localhost:8080`.
 
 - `docker compose logs -f app` to follow application logs.
 - `docker compose exec app php artisan ...` to run artisan commands.
+
+### Backup & restore
+
+Create a full backup (database, storage, and public images):
+
+```bash
+docker compose exec app /usr/local/bin/backup.sh
+```
+
+Restore from a backup archive:
+
+```bash
+docker compose exec app env CONFIRM_RESTORE=yes /usr/local/bin/restore.sh /var/www/html/storage/backups/planify-backup-<timestamp>.tar.gz
+```
+
+API endpoints for automation (API key required, `settings.manage` permission):
+
+```bash
+GET  /api/admin/backups
+POST /api/admin/backups
+POST /api/admin/backups/restore
+```
+
+Manual backup for versions prior to this release:
+- Copy `.env` and `storage/`.
+- Back up your database (`mysqldump` for MySQL/MariaDB or copy `bind/mysql` if using Docker).
+- If you store images in `public/images`, copy that directory as well.
 
 ---
 

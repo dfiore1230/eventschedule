@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ApiEventNotificationController;
 use App\Http\Controllers\Api\ApiRoleController;
 use App\Http\Controllers\Api\ApiEmailCampaignController;
 use App\Http\Controllers\Api\ApiEmailListController;
+use App\Http\Controllers\Api\ApiBackupController;
 use App\Http\Middleware\ApiAuthentication;
 
 Route::middleware([ApiAuthentication::class])->group(function () {
@@ -82,4 +83,9 @@ Route::middleware([ApiAuthentication::class])->group(function () {
     Route::post('/admin/campaigns', [ApiEmailCampaignController::class, 'store']);
     Route::post('/admin/campaigns/{campaignId}/send', [ApiEmailCampaignController::class, 'send']);
     Route::get('/admin/campaigns/{campaignId}', [ApiEmailCampaignController::class, 'show']);
+
+    // Backups
+    Route::get('/admin/backups', [ApiBackupController::class, 'index'])->middleware('ability:settings.manage');
+    Route::post('/admin/backups', [ApiBackupController::class, 'store'])->middleware('ability:settings.manage');
+    Route::post('/admin/backups/restore', [ApiBackupController::class, 'restore'])->middleware('ability:settings.manage');
 });

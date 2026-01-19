@@ -72,10 +72,14 @@ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 COPY docker/scripts/bootstrap.sh /usr/local/bin/bootstrap.sh
 COPY docker/scripts/internal-db.sh /usr/local/bin/internal-db.sh
 COPY docker/scripts/start-single.sh /usr/local/bin/start-single.sh
+COPY docker/scripts/backup.sh /usr/local/bin/backup.sh
+COPY docker/scripts/restore.sh /usr/local/bin/restore.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh \
     /usr/local/bin/bootstrap.sh \
     /usr/local/bin/internal-db.sh \
-    /usr/local/bin/start-single.sh
+    /usr/local/bin/start-single.sh \
+    /usr/local/bin/backup.sh \
+    /usr/local/bin/restore.sh
 
 # Default command
 CMD ["php-fpm", "-F"]

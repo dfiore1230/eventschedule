@@ -212,6 +212,7 @@ Route::middleware(['auth', 'verified', 'active'])->group(function ()
         Route::get('/email', [SettingsController::class, 'email'])->name('email');
         Route::get('/email-templates', [SettingsController::class, 'emailTemplates'])->name('email_templates');
         Route::get('/email-templates/{template}', [SettingsController::class, 'showEmailTemplate'])->name('email_templates.show');
+        Route::get('/backups', [SettingsController::class, 'backups'])->name('backups');
         Route::patch('/general', [SettingsController::class, 'updateGeneral'])->name('general.update');
         Route::patch('/updates', [SettingsController::class, 'updateUpdates'])->name('updates.update');
         Route::patch('/logging', [SettingsController::class, 'updateLogging'])->name('logging.update');
@@ -228,6 +229,10 @@ Route::middleware(['auth', 'verified', 'active'])->group(function ()
         Route::post('/email/mass-email/test', [SettingsController::class, 'testMassEmailProvider'])->name('mail.mass_email.test');
         Route::patch('/email-templates/{template}', [SettingsController::class, 'updateMailTemplate'])->name('mail_templates.update');
         Route::post('/email-templates/{template}/test', [SettingsController::class, 'testMailTemplate'])->name('mail_templates.test');
+        Route::get('/backups/list', [SettingsController::class, 'listBackups'])->name('backups.list');
+        Route::post('/backups', [SettingsController::class, 'createBackup'])->name('backups.create');
+        Route::post('/backups/restore', [SettingsController::class, 'restoreBackup'])->name('backups.restore');
+        Route::get('/backups/{filename}', [SettingsController::class, 'downloadBackup'])->name('backups.download');
 
         Route::get('/event-types', [EventTypeController::class, 'index'])->name('event_types.index');
         Route::post('/event-types', [EventTypeController::class, 'store'])->name('event_types.store');
