@@ -11,6 +11,16 @@ on:
           - beta
           - production
         default: production
+      notes:
+        description: "Changelog notes (optional)"
+        required: false
+        type: string
+        default: ""
+      changelog_commit:
+        description: "Commit changelog updates"
+        required: false
+        type: boolean
+        default: true
       push:
         description: "Push image to Docker Hub"
         required: false
@@ -18,7 +28,7 @@ on:
         default: true
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   REGISTRY_IMAGE: ${{ secrets.DOCKERHUB_REPOSITORY != '' && secrets.DOCKERHUB_REPOSITORY || format('ghcr.io/{0}', github.repository) }}
@@ -60,6 +70,26 @@ jobs:
             type=raw,value=${{ steps.version.outputs.version }}
             type=raw,value=beta,enable=${{ inputs.channel == 'beta' }}
             type=raw,value=latest,enable=${{ inputs.channel == 'production' }}
+
+      - name: Update docs changelog
+        if: env.SHOULD_PUSH == 'true'
+        run: |
+          DATE="$(date -u +%Y-%m-%d)"
+          VERSION="${{ steps.version.outputs.version }}"
+          SHA="${GITHUB_SHA::7}"
+          TAGS="${{ steps.meta.outputs.tags }}"
+          NOTES="${{ inputs.notes }}"
+          python3 scripts/update-docs-changelog.py "$DATE" "$VERSION" "$SHA" "$TAGS" "$NOTES"
+          if [ "${{ inputs.changelog_commit }}" != "true" ]; then
+            exit 0
+          fi
+          if ! git diff --quiet -- docs/README.md; then
+            git add docs/README.md
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "Update changelog for ${VERSION}"
+            git push
+          fi
 
       - name: Build image (no push)
         if: env.SHOULD_PUSH != 'true'

@@ -29,6 +29,12 @@ This file consolidates the supported documentation for Planify.
   - [OpenAPI Spec (YAML)](#file-docs-api-swagger-yaml)
   - [Postman Collection (Scan API)](#file-docs-postman-scanapi-postman-collection-json)
 
+## Changelog (Docker Tags)
+
+| Date | Build Version | Docker Tags | Notes |
+| --- | --- | --- | --- |
+| 2026-01-19 | 20260116-07b | `latest`, `main`, `sha-7cfd50d` | Docs consolidated, single-container Docker only, repo cleanup. |
+
 <a id="file-readme-md"></a>
 ## Project Overview
 
@@ -44,15 +50,6 @@ This file consolidates the supported documentation for Planify.
 <p>
     An open-source platform to create calendars, sell tickets and streamline event check-ins with QR codes
 </p>
-
-**Choose your setup**
-- [Self-Hosted](https://github.com/dfiore1230/planify?tab=readme-ov-file#installation-guide): For those who prefer to manage their own hosting and server infrastructure. This version gives you full control and flexibility.
-
-### Rename migration (required)
-
-- New product name: **Planify**. Legacy references (Event Schedule/eventschedule) are deprecated.
-- Update scripts, pipelines, and bookmarks to the new repository path https://github.com/dfiore1230/planify; redirects are not relied upon.
-- Planify originates from the open-source Event Schedule project by Hillel Coren (Attribution Assurance License). See LICENSE and the Open Source Attribution page for required runtime attribution.
 
 ## Features
 
