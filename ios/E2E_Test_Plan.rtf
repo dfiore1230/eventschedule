@@ -1,0 +1,129 @@
+{\rtf1\ansi\deff0
+{\fonttbl{\f0\fswiss Helvetica;}}
+\fs24
+{\b End-to-End Test Plan}\par
+{\b Project:} EventScheduleApp\par
+{\b Prepared by:} Engineering Team\par
+{\b Date:} December 18, 2025\par
+\par
+{\b Revision History}\par
+\trowd\trgaph108\trleft-108
+\cellx2000 {Version}\cellx6000 {Date}\cellx9000 {Notes}\row
+\intbl 1.0\cell 2025-12-18\cell Initial E2E test plan covering QR scanning, tickets, media library, and stability.\row\intbl\row
+\pard\par
+{\b Executive Summary}\par
+This document describes a comprehensive end-to-end (E2E) test plan for the EventSchedule iOS application. The plan covers core user flows (ticket scanning, ticket lifecycle, media library, event management), integration with backend APIs, error scenarios, performance and resilience checks, automation candidates, and reporting. The objective is to validate real-world flows from the device through the server and back (including UI updates), ensuring stability, correctness, and observability in production-like environments.\par
+\par
+{\b Objectives}\par
+\bullet Verify QR ticket scanning end-to-end against backend /api/tickets/scan and ensure correct app behavior on success and failure.\par
+\bullet Validate ticket lifecycle operations (paid/unpaid, used/unused, refunded, cancelled) and UI updates in Ticket List and Ticket Detail.\par
+\bullet Confirm media library displays all images (no missing pages) and supports selecting uploads and event flyer flows.\par
+\bullet Ensure app resiliency: no crashes on scan, decode errors are handled gracefully, UI is responsive, and logs are captured in console.\par
+\bullet Provide automation candidates for frequent, deterministic end-to-end checks.\par
+\par
+{\b Scope}\par
+Includes:\par
+\bullet iOS app flows that interact with backend APIs (scan, tickets, events, media).\par
+\bullet Tests on the Test and Staging backend instances configured in the app.\par
+\bullet Manual and automated scenarios as listed in Test Cases section.\par
+Excludes:\par
+\bullet Backend-only unit tests, database migrations, or deployment pipeline tests (these are handled by backend team).\par
+\par
+{\b Test Approach}\par
+\b Test types:\par
+\tab Manual exploratory testing (first pass + edge cases)\par
+\tab Automated end-to-end test suites (Selenium/Appium/XCUITest where feasible)\par
+\tab Smoke tests for every build and nightly regression runs\par
+\par
+{\b Test Environments and Tools}\par
+\bullet iOS Simulator & physical devices (iOS 16, 17, latest)\par
+\bullet Backend staging/testing instance(s) (e.g., testevents.fior.es) and API keys\par
+\bullet Network throttling / offline testing (Apple Network Link Conditioner or Simulator network settings)\par
+\bullet Logging: Xcode console output / DebugLogger logs (mirror to stderr)\par
+\bullet Automation: XCUITest for deterministic UI flows; Appium for cross-device runs (optional)\par
+\par
+{\b Prerequisites}\par
+\bullet Valid API key and test instance configured in app settings\par
+\bullet Test data seed for events, tickets, users (known QR codes and sale ids)\par
+\bullet Devices with camera access and required permissions enabled\par
+\par
+{\b Test Data Strategy}\par
+\bullet Use seeded tickets: one admitted (unused), one already used, one refunded, one cancelled, one unpaid.\par
+\bullet QR codes: plain ticket codes and legacy URL format codes.\par
+\bullet Media items: a sample library of > 150 images to validate paging and full load.\par
+\par
+{\b Test Cases (Critical/High Priority)}\par
+\b 1. QR Ticket Scan — success (entry secret)\par
+Steps: Open Tickets screen -> Tap Scan -> Scan valid QR -> Expect server 201 -> Ticket marked 'Used' -> UI shows success toast -> Tickets list refreshes (status=Used)\par
+Expected: No crash; toast shown; ticket status updates.\par
+\b 2. QR Ticket Scan — already used\par
+Steps: Scan a ticket already marked used -> Expect server 200 or 4xx handled -> UI shows "Already Used" (displayName)\par
+Expected: No crash; toast shows Already Used; ticket not double-marked.\par
+\b 3. QR Ticket Scan — invalid ticket (404)
+Steps: Scan a non-existent code -> server returns 404 -> UI shows generic "Ticket not found" toast\par
+Expected: No raw body displayed; no crash; appropriate message.\par
+\b 4. QR Ticket Scan — server returns 2xx but payload has unexpected shape (decoding error)\par
+Steps: Server returns 201 with odd body -> App should treat scan as success if 2xx (server recorded), or show generic "Invalid server response" (but not crash).\par
+Expected: No crash; generic UI message; console logs include decoding error details.\par
+\b 5. QR Ticket Scan — zone/time mismatch (wrong_date)
+Steps: Scan valid ticket not valid for today -> server returns 400 validation -> UI shows Wrong Date message.\par
+\b 6. Ticket list scan (from Tickets screen)\par
+Steps: Tap Scan in Tickets page -> scan valid code -> expect ticket list refresh to reflect new status; toast shown.\par
+\b 7. Media Library — full load (no missing pages)
+Steps: Open Media Library -> App should page through all pages and display all images (> 150)\par
+Expected: All images present; logs show pages fetched via MediaLibrary logger lines.\par
+\b 8. Media selection and upload (Event Form)
+Steps: Open Event Form -> Upload flyer -> Select image from Media Library -> Save event -> server returns updated event with flyer URL -> UI shows new flyer.\par
+\b 9. Permission denial (camera access)
+Steps: Deny camera permission -> Open scanner -> UI shows clear instructions to enable camera in Settings; no crash.\par
+\b 10. Rapid duplicate scans prevention (scan cooldown)
+Steps: Rapidly present same QR -> App should ignore duplicate scans within the cooldown window (2s).\par
+\b 11. Unauthenticated / missing API key
+Steps: Remove API key -> perform scan -> App shows friendly message about missing key/authorization.\par
+\b 12. Network loss during scan or upload
+Steps: Put device offline mid-scan or mid-upload -> App handles network error gracefully (shows message, not crash), retries possible.\par
+\par
+{\b Test Cases (Medium Priority)}\par
+\bullet Event listing and resources load (venues, talent)\par
+\bullet Ticket detail views reflect latest sale ticket entry usage and time (checked_in_at)\par
+\bullet CSV or bulk operations if present\par
+\par
+{\b Automation Candidates}\par
+\bullet Smoke test: Launch app, confirm events list loads, open Tickets, open Tickets list page (XCUITest)\par
+\bullet Scan flow: automate the scan flow by injecting code-based QR result (mocking scanner) and asserting repository call and UI toast\par
+\bullet Media library fetch: ensure fetchAllMedia is called and all items displayed (assert logs or DOM count)\par
+\par
+{\b Acceptance Criteria}\par
+\bullet All critical test cases pass on staging for 3 consecutive runs.\par
+\bullet No crashes in the scanning flow across devices and OS versions under test.\par
+\bullet No raw server responses visible in UI; decoding errors only logged to DebugLogger.\par
+\par
+{\b Test Schedule and Roles}\par
+\bullet Manual testing: 1 day exploratory + defect triage (QA Engineer)\par
+\bullet Automation implementation: 2-4 days (Engineer / QA automation).\par
+\bullet Owner: Product Engineer (you) and QA lead to review results.\par
+\par
+{\b Reporting}\par
+\bullet Failures should produce console logs captured from device (include DebugLogger output).\par
+\bullet Create a test run report with pass/fail, screenshots, and console snippets for each failed scenario.\par
+\par
+{\b Risks and Mitigations}\par
+\bullet Large media libraries may make first load slow — mitigated by using per_page=1000 and progress logs; consider adding a streaming progress UI if needed.\par
+\bullet Backend inconsistency in response shapes — app treats 2xx as success and tries permissive extraction; ensure backend team aligns on stable contract for /api/tickets/scan.\par
+\par
+{\b Traceability Matrix (Feature -> Critical Tests)}\par
+\bullet QR Scan -> Test Cases: 1,2,3,4,5,10\par
+\bullet Tickets list -> Test Cases: 6,11\par
+\bullet Media library -> Test Cases: 7,8\par
+\par
+{\b Attachments / Artifacts}\par
+\bullet Console log snippets (DebugLogger) for scans and media page fetches begin with "HTTPClient" or "MediaLibrary:".
+\par
+{\b Next Steps}\par
+1. Run the high-priority manual tests on staging and attach logs/screenshots for failures.\par
+2. Implement smoke automation for critical flows (scan + tickets + media) using XCUITest; run in CI nightly.\par
+3. Review with backend team the contract around /api/tickets/scan to make the response shape deterministic (avoid decoding errors).\par
+\par
+---\par
+{\i End of Test Plan}\par
+}
