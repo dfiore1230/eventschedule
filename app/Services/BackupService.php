@@ -324,7 +324,19 @@ class BackupService
             2 => ['pipe', 'w'],
         ];
 
-        $process = proc_open($cmd, $descriptors, $pipes, $cwd, array_merge($_ENV, $env), ['bypass_shell' => true]);
+        $baseEnv = [];
+        foreach ($_ENV as $key => $value) {
+            if (is_scalar($value) || $value === null) {
+                $baseEnv[$key] = (string) $value;
+            }
+        }
+        foreach ($env as $key => $value) {
+            if (is_scalar($value) || $value === null) {
+                $baseEnv[$key] = (string) $value;
+            }
+        }
+
+        $process = proc_open($cmd, $descriptors, $pipes, $cwd, $baseEnv, ['bypass_shell' => true]);
         if (! is_resource($process)) {
             throw new \RuntimeException('Failed to start backup command.');
         }
