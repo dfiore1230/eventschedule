@@ -2,7 +2,7 @@
 import Foundation
 import XCTest
 
-@testable import EventSchedule
+@testable import Planify
 
 final class CheckInModelTests: XCTestCase {
     func testCheckInCreation() {

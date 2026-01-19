@@ -12,47 +12,47 @@
 			containerPortal = 9D4890A72EE5DEB1009F8E07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 9D4890AE2EE5DEB1009F8E07;
-			remoteInfo = EventSchedule;
+			remoteInfo = Planify;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		9D4890AF2EE5DEB1009F8E07 /* EventSchedule.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EventSchedule.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		9D6495452EE71925001D2712 /* EventScheduleTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EventScheduleTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		9D4890AF2EE5DEB1009F8E07 /* Planify.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Planify.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9D6495452EE71925001D2712 /* PlanifyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PlanifyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		9D64954E2EE71965001D2712 /* Exceptions for "EventScheduleTests" folder in "EventSchedule" target */ = {
+		9D64954E2EE71965001D2712 /* Exceptions for "PlanifyTests" folder in "Planify" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				APIKeyStoreTests.swift,
 				HTTPClientAuthHeaderTests.swift,
 			);
-			target = 9D4890AE2EE5DEB1009F8E07 /* EventSchedule */;
+			target = 9D4890AE2EE5DEB1009F8E07 /* Planify */;
 		};
-		9D64954F2EE71965001D2712 /* Exceptions for "EventScheduleTests" folder in "EventScheduleTests" target */ = {
+		9D64954F2EE71965001D2712 /* Exceptions for "PlanifyTests" folder in "PlanifyTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				APIKeyStoreTests.swift,
 				HTTPClientAuthHeaderTests.swift,
 			);
-			target = 9D6495442EE71925001D2712 /* EventScheduleTests */;
+			target = 9D6495442EE71925001D2712 /* PlanifyTests */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		9D4890B12EE5DEB1009F8E07 /* EventSchedule */ = {
+		9D4890B12EE5DEB1009F8E07 /* Planify */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = EventSchedule;
+			path = Planify;
 			sourceTree = "<group>";
 		};
-		9D6495462EE71926001D2712 /* EventScheduleTests */ = {
+		9D6495462EE71926001D2712 /* PlanifyTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				9D64954E2EE71965001D2712 /* Exceptions for "EventScheduleTests" folder in "EventSchedule" target */,
-				9D64954F2EE71965001D2712 /* Exceptions for "EventScheduleTests" folder in "EventScheduleTests" target */,
+				9D64954E2EE71965001D2712 /* Exceptions for "PlanifyTests" folder in "Planify" target */,
+				9D64954F2EE71965001D2712 /* Exceptions for "PlanifyTests" folder in "PlanifyTests" target */,
 			);
-			path = EventScheduleTests;
+			path = PlanifyTests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -78,8 +78,8 @@
 		9D4890A62EE5DEB1009F8E07 = {
 			isa = PBXGroup;
 			children = (
-				9D4890B12EE5DEB1009F8E07 /* EventSchedule */,
-				9D6495462EE71926001D2712 /* EventScheduleTests */,
+				9D4890B12EE5DEB1009F8E07 /* Planify */,
+				9D6495462EE71926001D2712 /* PlanifyTests */,
 				9D4890B02EE5DEB1009F8E07 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -87,8 +87,8 @@
 		9D4890B02EE5DEB1009F8E07 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				9D4890AF2EE5DEB1009F8E07 /* EventSchedule.app */,
-				9D6495452EE71925001D2712 /* EventScheduleTests.xctest */,
+				9D4890AF2EE5DEB1009F8E07 /* Planify.app */,
+				9D6495452EE71925001D2712 /* PlanifyTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -96,9 +96,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		9D4890AE2EE5DEB1009F8E07 /* EventSchedule */ = {
+		9D4890AE2EE5DEB1009F8E07 /* Planify */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 9D4890BA2EE5DEB2009F8E07 /* Build configuration list for PBXNativeTarget "EventSchedule" */;
+			buildConfigurationList = 9D4890BA2EE5DEB2009F8E07 /* Build configuration list for PBXNativeTarget "Planify" */;
 			buildPhases = (
 				9D4890AB2EE5DEB1009F8E07 /* Sources */,
 				9D4890AC2EE5DEB1009F8E07 /* Frameworks */,
@@ -109,18 +109,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				9D4890B12EE5DEB1009F8E07 /* EventSchedule */,
+				9D4890B12EE5DEB1009F8E07 /* Planify */,
 			);
-			name = EventSchedule;
+			name = Planify;
 			packageProductDependencies = (
 			);
-			productName = EventSchedule;
-			productReference = 9D4890AF2EE5DEB1009F8E07 /* EventSchedule.app */;
+			productName = Planify;
+			productReference = 9D4890AF2EE5DEB1009F8E07 /* Planify.app */;
 			productType = "com.apple.product-type.application";
 		};
-		9D6495442EE71925001D2712 /* EventScheduleTests */ = {
+		9D6495442EE71925001D2712 /* PlanifyTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 9D64954B2EE71926001D2712 /* Build configuration list for PBXNativeTarget "EventScheduleTests" */;
+			buildConfigurationList = 9D64954B2EE71926001D2712 /* Build configuration list for PBXNativeTarget "PlanifyTests" */;
 			buildPhases = (
 				9D6495412EE71925001D2712 /* Sources */,
 				9D6495422EE71925001D2712 /* Frameworks */,
@@ -132,13 +132,13 @@
 				9D64954A2EE71926001D2712 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				9D6495462EE71926001D2712 /* EventScheduleTests */,
+				9D6495462EE71926001D2712 /* PlanifyTests */,
 			);
-			name = EventScheduleTests;
+			name = PlanifyTests;
 			packageProductDependencies = (
 			);
-			productName = EventScheduleTests;
-			productReference = 9D6495452EE71925001D2712 /* EventScheduleTests.xctest */;
+			productName = PlanifyTests;
+			productReference = 9D6495452EE71925001D2712 /* PlanifyTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -160,7 +160,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 9D4890AA2EE5DEB1009F8E07 /* Build configuration list for PBXProject "EventSchedule" */;
+			buildConfigurationList = 9D4890AA2EE5DEB1009F8E07 /* Build configuration list for PBXProject "Planify" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -174,8 +174,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				9D4890AE2EE5DEB1009F8E07 /* EventSchedule */,
-				9D6495442EE71925001D2712 /* EventScheduleTests */,
+				9D4890AE2EE5DEB1009F8E07 /* Planify */,
+				9D6495442EE71925001D2712 /* PlanifyTests */,
 			);
 		};
 /* End PBXProject section */
@@ -217,7 +217,7 @@
 /* Begin PBXTargetDependency section */
 		9D64954A2EE71926001D2712 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 9D4890AE2EE5DEB1009F8E07 /* EventSchedule */;
+			target = 9D4890AE2EE5DEB1009F8E07 /* Planify */;
 			targetProxy = 9D6495492EE71926001D2712 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -366,7 +366,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dfiore1230.EventSchedule;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dfiore1230.Planify;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -400,7 +400,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dfiore1230.EventSchedule;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dfiore1230.Planify;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -421,7 +421,7 @@
 				DEVELOPMENT_TEAM = 7CN98TCSR8;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dfiore1230.EventScheduleTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dfiore1230.PlanifyTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -429,7 +429,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EventSchedule.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/EventSchedule";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Planify.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Planify";
 			};
 			name = Debug;
 		};
@@ -442,7 +442,7 @@
 				DEVELOPMENT_TEAM = 7CN98TCSR8;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.dfiore1230.EventScheduleTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dfiore1230.PlanifyTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -450,14 +450,14 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/EventSchedule.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/EventSchedule";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Planify.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Planify";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		9D4890AA2EE5DEB1009F8E07 /* Build configuration list for PBXProject "EventSchedule" */ = {
+		9D4890AA2EE5DEB1009F8E07 /* Build configuration list for PBXProject "Planify" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				9D4890B82EE5DEB2009F8E07 /* Debug */,
@@ -466,7 +466,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		9D4890BA2EE5DEB2009F8E07 /* Build configuration list for PBXNativeTarget "EventSchedule" */ = {
+		9D4890BA2EE5DEB2009F8E07 /* Build configuration list for PBXNativeTarget "Planify" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				9D4890BB2EE5DEB2009F8E07 /* Debug */,
@@ -475,7 +475,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		9D64954B2EE71926001D2712 /* Build configuration list for PBXNativeTarget "EventScheduleTests" */ = {
+		9D64954B2EE71926001D2712 /* Build configuration list for PBXNativeTarget "PlanifyTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				9D64954C2EE71926001D2712 /* Debug */,

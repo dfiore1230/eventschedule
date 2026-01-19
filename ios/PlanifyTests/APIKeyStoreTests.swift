@@ -2,7 +2,7 @@
 import Foundation
 import XCTest
 
-@testable import EventSchedule
+@testable import Planify
 
 final class APIKeyStoreTests: XCTestCase {
     private func makeInstance(url: String = "https://example.test") -> InstanceProfile {

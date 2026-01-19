@@ -8,7 +8,7 @@ import Security
 /// API-key based authentication service.
 ///
 /// This service replaces username/password login flows. Clients should:
-/// 1) Discover `apiBase` from `/.well-known/eventschedule.json` and store it in `InstanceProfile.baseURL`.
+/// 1) Discover `apiBase` from `/.well-known/planify.json` and store it in `InstanceProfile.baseURL`.
 /// 2) Persist an API key provided by the user (Settings → Integrations & API in the web UI).
 /// 3) Send the API key on every request using the `X-API-Key` header.
 ///

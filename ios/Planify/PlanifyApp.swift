@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct EventScheduleApp: App {
+struct PlanifyApp: App {
     @StateObject private var instanceStore = InstanceStore()
     @StateObject private var authStore = AuthTokenStore.shared
     @StateObject private var appSettings = AppSettings.shared

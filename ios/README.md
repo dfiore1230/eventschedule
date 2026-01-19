@@ -1,13 +1,13 @@
-# EventSchedule iOS App
+# Planify iOS App
 
-A native iOS application for managing EventSchedule instances, providing full administrative access to events, venues, talent, ticketing, and at-door scanning capabilities.
+A native iOS application for managing Planify instances, providing full administrative access to events, venues, talent, ticketing, and at-door scanning capabilities.
 
 ## Features
 
 ### Currently Implemented
-- ✅ **Multi-Instance Management**: Connect to multiple EventSchedule backends
+- ✅ **Multi-Instance Management**: Connect to multiple Planify backends
 - ✅ **API Key Authentication**: Secure API key-based authentication per instance
-- ✅ **Instance Discovery**: Auto-discovery via `.well-known/eventschedule.json`
+- ✅ **Instance Discovery**: Auto-discovery via `.well-known/planify.json`
 - ✅ **Dynamic Branding**: Per-instance theming with colors, logos, and styling
 - ✅ **Event CRUD**: Create, read, update, and delete events with full metadata
 - ✅ **Venue Support**: Venue references and display in events, extended venue details model
@@ -47,13 +47,13 @@ A native iOS application for managing EventSchedule instances, providing full ad
 
 ### 1. Backend Setup: Creating an API Key
 
-The EventSchedule iOS app uses **API key authentication** instead of username/password login. You must create an API key from your EventSchedule backend before connecting the app.
+The Planify iOS app uses **API key authentication** instead of username/password login. You must create an API key from your Planify backend before connecting the app.
 
 #### Creating an API Key (Backend Instructions)
 
 **Option A: Using the Web UI (if available)**
 
-1. Log in to your EventSchedule web interface as an administrator
+1. Log in to your Planify web interface as an administrator
 2. Navigate to **Settings** → **Integrations & API** (or similar)
 3. Click **"Create New API Key"** or **"Generate API Key"**
 4. Give your key a descriptive name (e.g., "iOS App - John's iPhone")
@@ -63,14 +63,14 @@ The EventSchedule iOS app uses **API key authentication** instead of username/pa
 
 **Option B: Using the Backend CLI/Console**
 
-If your EventSchedule backend is Laravel-based:
+If your Planify backend is Laravel-based:
 
 ```bash
 # SSH into your backend server
-ssh user@your-eventschedule-server.com
+ssh user@your-planify-server.com
 
-# Navigate to your EventSchedule directory
-cd /path/to/eventschedule
+# Navigate to your Planify directory
+cd /path/to/planify
 
 # Run the API key generation command
 php artisan api:key:create --name="iOS App" --user-id=1
@@ -116,7 +116,7 @@ VALUES (
 ```
 
 ⚠️ **Security Notes:**
-- API keys provide full access to your EventSchedule instance
+- API keys provide full access to your Planify instance
 - Treat API keys like passwords - never share them publicly
 - Create separate API keys for each device/user
 - Revoke API keys immediately if compromised
@@ -125,11 +125,11 @@ VALUES (
 
 ### 2. Backend Configuration
 
-Ensure your EventSchedule backend has the following endpoints configured:
+Ensure your Planify backend has the following endpoints configured:
 
 #### Required: Well-Known Discovery Endpoint
 
-Create a file at `/.well-known/eventschedule.json` in your backend:
+Create a file at `/.well-known/planify.json` in your backend:
 
 ```json
 {
@@ -210,10 +210,10 @@ public function handle($request, $next)
 ### 3. Connecting the iOS App
 
 1. **Launch the app** on your iOS device or simulator
-2. You'll see the **"Add an EventSchedule Instance"** screen
+2. You'll see the **"Add an Planify Instance"** screen
 3. **Enter your backend URL**:
    - Example: `https://events.yourcompany.com`
-   - The app will auto-discover settings from `/.well-known/eventschedule.json`
+   - The app will auto-discover settings from `/.well-known/planify.json`
 4. **Enter your API key**:
    - Paste the API key you created in Step 1
    - The key is stored securely in the iOS Keychain
@@ -247,7 +247,7 @@ Once connected:
 ### Project Structure
 
 ```
-EventSchedule/
+Planify/
 ├── Core/
 │   ├── AppSettings.swift          # Global app settings
 │   ├── Auth/
@@ -301,7 +301,7 @@ EventSchedule/
 │   │   └── InstanceSwitcherToolbarItem.swift
 │   └── Screens/
 │       └── Placeholders.swift     # Onboarding and settings
-└── EventScheduleApp.swift         # App entry point
+└── PlanifyApp.swift         # App entry point
 ```
 
 ## API Integration
@@ -377,7 +377,7 @@ Or for single resources:
 
 1. **Open the project in Xcode**:
    ```bash
-   open EventSchedule.xcodeproj
+   open Planify.xcodeproj
    ```
 
 2. **Select a simulator or device**:
@@ -392,7 +392,7 @@ Or for single resources:
 
 ```bash
 # Run all tests
-xcodebuild test -project EventSchedule.xcodeproj -scheme EventSchedule -destination 'platform=iOS Simulator,name=iPhone 15'
+xcodebuild test -project Planify.xcodeproj -scheme Planify -destination 'platform=iOS Simulator,name=iPhone 15'
 
 # Or use Xcode: Cmd+U
 ```
@@ -412,7 +412,7 @@ xcodebuild test -project EventSchedule.xcodeproj -scheme EventSchedule -destinat
 
 1. **Check the URL**: Ensure the backend URL is correct and accessible
 2. **Verify `.well-known` endpoint**: 
-   - Visit `https://your-domain.com/.well-known/eventschedule.json` in a browser
+   - Visit `https://your-domain.com/.well-known/planify.json` in a browser
    - Should return valid JSON
 3. **Check SSL certificate**: HTTPS is required (HTTP will fail unless in development)
 4. **Review backend logs**: Look for CORS or authentication errors
@@ -483,7 +483,7 @@ When contributing to this project:
 For issues or questions:
 - Check the troubleshooting section above
 - Review backend API documentation
-- Contact your EventSchedule instance administrator
+- Contact your Planify instance administrator
 - File issues in the project repository
 
 ## Roadmap

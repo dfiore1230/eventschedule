@@ -1,11 +1,11 @@
-# EventSchedule iOS App - Implementation Status
+# Planify iOS App - Implementation Status
 
 **Last Updated**: 2025-12-17  
 **Version**: 1.0.0-beta
 
 ## Overview
 
-This document tracks the implementation status of the EventSchedule iOS app against the full v1.0 requirements specification. The app provides administrative access to EventSchedule backends via API key authentication.
+This document tracks the implementation status of the Planify iOS app against the full v1.0 requirements specification. The app provides administrative access to Planify backends via API key authentication.
 
 ## 🔄 Recent Updates
 
@@ -15,9 +15,9 @@ This document tracks the implementation status of the EventSchedule iOS app agai
 ## ✅ Completed Features
 
 ### Core Infrastructure
-- **Multi-Instance Management**: Full support for connecting to multiple EventSchedule backends
+- **Multi-Instance Management**: Full support for connecting to multiple Planify backends
 - **API Key Authentication**: Secure keychain-based storage and X-API-Key header injection
-- **Instance Discovery**: Auto-discovery via `/.well-known/eventschedule.json`
+- **Instance Discovery**: Auto-discovery via `/.well-known/planify.json`
 - **Dynamic Branding**: Per-instance theming with colors, logos, and button styles
 - **HTTP Client**: Robust HTTP client with error handling and API key injection
 - **Error Handling**: Comprehensive APIError enum with user-friendly messages
@@ -301,4 +301,4 @@ When adding new features:
 
 **Status Summary**: Foundation Complete, Core Features Implemented, Advanced Features Pending
 
-This implementation provides a solid foundation for the EventSchedule iOS app with full API key authentication, multi-instance support, and core CRUD operations for Events, Talent, Venues, and Tickets. The app is ready for initial deployment and use by administrators, with advanced features like scanning, dashboards, and offline support planned for future releases.
+This implementation provides a solid foundation for the Planify iOS app with full API key authentication, multi-instance support, and core CRUD operations for Events, Talent, Venues, and Tickets. The app is ready for initial deployment and use by administrators, with advanced features like scanning, dashboards, and offline support planned for future releases.

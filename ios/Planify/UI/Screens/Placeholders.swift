@@ -16,7 +16,7 @@ struct InstanceOnboardingPlaceholder: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 16) {
-                    Text("Add an EventSchedule Instance")
+                    Text("Add an Planify Instance")
                         .font(.title2)
                         .bold()
 
@@ -62,7 +62,7 @@ struct InstanceOnboardingPlaceholder: View {
             }
             .scrollDismissesKeyboard(.immediately)
             .ignoresSafeArea(.keyboard, edges: .bottom)
-            .navigationTitle("EventSchedule")
+            .navigationTitle("Planify")
         }
         .alert("Connection Failed", isPresented: $showingError) {
             Button("OK", role: .cancel) { }
@@ -385,7 +385,7 @@ struct EventsListView: View {
             NavigationLink {
                 InstanceOnboardingPlaceholder()
             } label: {
-                Label("Connect to EventSchedule", systemImage: "link")
+                Label("Connect to Planify", systemImage: "link")
             }
         }
     }

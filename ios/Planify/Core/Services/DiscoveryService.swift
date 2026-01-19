@@ -19,7 +19,7 @@ struct DiscoveryService {
         )
 
         return try await httpClient.request(
-            "/.well-known/eventschedule.json",
+            "/.well-known/planify.json",
             method: .get,
             query: nil,
             body: nil,

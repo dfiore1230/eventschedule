@@ -1,7 +1,7 @@
 import Foundation
 #if canImport(XCTest)
 import XCTest
-@testable import EventSchedule
+@testable import Planify
 
 final class HTTPClientAuthHeaderTests: XCTestCase {
     final class MockURLProtocol: URLProtocol {

@@ -1,6 +1,6 @@
 # Feature Enhancement Summary
 
-This document outlines the new features and enhancements added to the EventSchedule app.
+This document outlines the new features and enhancements added to the Planify app.
 
 ## Overview
 
@@ -166,18 +166,18 @@ The app has been enhanced with comprehensive CRUD operations for Talent and Venu
 ---
 
 ## Files Created
-1. `/EventSchedule/UI/Features/Talent/TalentFormView.swift`
-2. `/EventSchedule/UI/Features/Venues/VenueFormView.swift`
-3. `/EventSchedule/UI/Features/Tickets/TicketDetailView.swift`
-4. `/EventSchedule/UI/Features/Settings/ServerFormView.swift`
+1. `/Planify/UI/Features/Talent/TalentFormView.swift`
+2. `/Planify/UI/Features/Venues/VenueFormView.swift`
+3. `/Planify/UI/Features/Tickets/TicketDetailView.swift`
+4. `/Planify/UI/Features/Settings/ServerFormView.swift`
 
 ## Files Modified
-1. `/EventSchedule/UI/Features/Talent/TalentListView.swift`
-2. `/EventSchedule/UI/Features/Venues/VenueListView.swift`
-3. `/EventSchedule/UI/Features/Tickets/TicketListView.swift`
-4. `/EventSchedule/Core/Repositories/TicketRepository.swift`
-5. `/EventSchedule/UI/Screens/Placeholders.swift` (SettingsView)
-6. `/EventSchedule/UI/Components/InstanceSwitcherToolbarItem.swift`
+1. `/Planify/UI/Features/Talent/TalentListView.swift`
+2. `/Planify/UI/Features/Venues/VenueListView.swift`
+3. `/Planify/UI/Features/Tickets/TicketListView.swift`
+4. `/Planify/Core/Repositories/TicketRepository.swift`
+5. `/Planify/UI/Screens/Placeholders.swift` (SettingsView)
+6. `/Planify/UI/Components/InstanceSwitcherToolbarItem.swift`
 
 ---
 

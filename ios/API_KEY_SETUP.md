@@ -1,6 +1,6 @@
-# API Key Setup Guide for EventSchedule Backend
+# API Key Setup Guide for Planify Backend
 
-This guide is for backend administrators who need to create and manage API keys for the EventSchedule iOS app.
+This guide is for backend administrators who need to create and manage API keys for the Planify iOS app.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ This guide is for backend administrators who need to create and manage API keys 
 
 ## Overview
 
-The EventSchedule iOS app requires API key authentication to access your backend. This guide shows you how to:
+The Planify iOS app requires API key authentication to access your backend. This guide shows you how to:
 
 - Generate API keys for users
 - Configure your backend to accept API keys
@@ -25,7 +25,7 @@ The EventSchedule iOS app requires API key authentication to access your backend
 
 ## Prerequisites
 
-- Administrative access to your EventSchedule backend
+- Administrative access to your Planify backend
 - SSH access to the server (for CLI methods)
 - Database access (for direct methods)
 - Laravel 8+ if using Sanctum/Passport
@@ -527,7 +527,7 @@ curl -v -H "X-API-Key: YOUR_API_KEY_HERE" \
      https://your-domain.com/api/events
 
 # Test discovery endpoint
-curl https://your-domain.com/.well-known/eventschedule.json
+curl https://your-domain.com/.well-known/planify.json
 
 # Test branding endpoint
 curl -H "X-API-Key: YOUR_API_KEY_HERE" \
@@ -843,4 +843,4 @@ Once configured, users can generate API keys and use them in the iOS app for sec
 **Need Help?**
 - Laravel Sanctum Docs: https://laravel.com/docs/sanctum
 - Laravel Passport Docs: https://laravel.com/docs/passport
-- EventSchedule iOS App README: See README.md in the app repository
+- Planify iOS App README: See README.md in the app repository

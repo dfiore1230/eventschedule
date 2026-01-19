@@ -7,7 +7,7 @@ import Darwin
 /// in Debug builds. This ensures logs are still captured on device even when print statements are
 /// stripped or suppressed.
 enum DebugLogger {
-    private static let subsystem = "com.eventschedule.app"
+    private static let subsystem = "com.planify.app"
     private static let generalLogger = Logger(subsystem: subsystem, category: "general")
     private static let networkLogger = Logger(subsystem: subsystem, category: "network")
 
@@ -17,7 +17,7 @@ enum DebugLogger {
         // messages. Writing directly to stderr keeps the console output visible
         // even in Release builds, which is helpful when debugging on device or
         // with TestFlight installs.
-        fputs("[EventSchedule] \(message)\n", stderr)
+        fputs("[Planify] \(message)\n", stderr)
     }
 
     static func log(_ message: String) {

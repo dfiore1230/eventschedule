@@ -1,6 +1,6 @@
 //
 //  ContentView.swift
-//  EventSchedule
+//  Planify
 //
 //  Created by David Fiore on 12/7/25.
 //

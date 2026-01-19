@@ -26,7 +26,7 @@ jobs:
           # Use a current simulator device name available on macOS runners (adjust if necessary)
           DEST="platform=iOS Simulator,name=iPhone 17"
           echo "Running tests on $DEST"
-          xcodebuild test -project EventSchedule.xcodeproj -scheme EventSchedule -destination "$DEST" -enableCodeCoverage YES | xcpretty --no-utf || true
+          xcodebuild test -project Planify.xcodeproj -scheme Planify -destination "$DEST" -enableCodeCoverage YES | xcpretty --no-utf || true
 
       - name: Upload test results on failure
         if: failure()
