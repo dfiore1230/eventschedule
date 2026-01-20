@@ -352,10 +352,12 @@ class BackupService
         }
         fclose($pipes[0]);
 
-        if (! $stdoutFile) {
+        if (! $stdoutFile && isset($pipes[1])) {
             stream_get_contents($pipes[1]);
         }
-        fclose($pipes[1]);
+        if (isset($pipes[1]) && is_resource($pipes[1])) {
+            fclose($pipes[1]);
+        }
 
         $stderr = stream_get_contents($pipes[2]);
         fclose($pipes[2]);
