@@ -148,8 +148,10 @@ class BackupService
             return;
         }
 
-        $exclude = $storagePath . '/backups';
-        $this->createTarFromPaths($target, base_path(), ['storage'], ['storage/backups']);
+        $this->createTarFromPaths($target, base_path(), ['storage'], [
+            'storage/backups',
+            'storage/app/tmp',
+        ]);
     }
 
     private function createPublicImagesArchive(string $target): void
