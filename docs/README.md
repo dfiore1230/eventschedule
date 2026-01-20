@@ -43,7 +43,7 @@ This file consolidates the supported documentation for Planify.
 
 | Date | Build Version | Docker Tags | Notes |
 | --- | --- | --- | --- |
-| 2026-01-20 | 20260120-01p | `20260120-01p`, `latest` | Bug fix for name handling in backups |\n| 2026-01-19 | 20260119-02p | `20260119-02p`, `latest` | Automated build (6b6c3c1). |\n| 2026-01-19 | 20260119-01p | `20260119-01p`, `latest` | Automated build (dabaa8d). |\n| 2026-01-19 | 20260116-07b | `latest`, `main`, `sha-7cfd50d` | Docs consolidated, single-container Docker only, repo cleanup; backup/restore support (Issue #577). |
+| 2026-01-20 | 20260120-02p | `20260120-02p`, `latest` | Automated build (497feb4). |\n| 2026-01-20 | 20260120-01p | `20260120-01p`, `latest` | Bug fix for name handling in backups |\n| 2026-01-19 | 20260119-02p | `20260119-02p`, `latest` | Automated build (6b6c3c1). |\n| 2026-01-19 | 20260119-01p | `20260119-01p`, `latest` | Automated build (dabaa8d). |\n| 2026-01-19 | 20260116-07b | `latest`, `main`, `sha-7cfd50d` | Docs consolidated, single-container Docker only, repo cleanup; backup/restore support (Issue #577). |
 
 <a id="file-readme-md"></a>
 <p>
